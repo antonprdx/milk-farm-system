@@ -2,16 +2,19 @@ mod common;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use serde_json::{json, Value};
-use tower::ServiceExt;
 use milk_farm_backend::create_app;
+use serde_json::{Value, json};
+use tower::ServiceExt;
 
 use common::*;
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_list_animals_requires_auth(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = Request::builder().uri("/api/animals").body(Body::empty()).unwrap();
+    let req = Request::builder()
+        .uri("/api/animals")
+        .body(Body::empty())
+        .unwrap();
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
@@ -30,11 +33,16 @@ async fn test_list_animals_empty(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_create_animal(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request_with_body("POST", "/api/animals", &admin_token(), json!({
-        "gender": "female",
-        "birth_date": "2020-03-15",
-        "name": "Burenka"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/animals",
+        &admin_token(),
+        json!({
+            "gender": "female",
+            "birth_date": "2020-03-15",
+            "name": "Burenka"
+        }),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;
@@ -46,10 +54,15 @@ async fn test_create_animal(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_get_animal_by_id(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let create_req = auth_request_with_body("POST", "/api/animals", &admin_token(), json!({
-        "gender": "female",
-        "birth_date": "2020-01-01"
-    }));
+    let create_req = auth_request_with_body(
+        "POST",
+        "/api/animals",
+        &admin_token(),
+        json!({
+            "gender": "female",
+            "birth_date": "2020-01-01"
+        }),
+    );
     let resp = app.clone().oneshot(create_req).await.unwrap();
     let body: Value = read_body_json(resp.into_body()).await;
     let id = body["data"]["id"].as_i64().unwrap();
@@ -72,18 +85,30 @@ async fn test_get_animal_not_found(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_update_animal(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let create_req = auth_request_with_body("POST", "/api/animals", &admin_token(), json!({
-        "gender": "female",
-        "birth_date": "2020-01-01",
-        "name": "Old"
-    }));
+    let create_req = auth_request_with_body(
+        "POST",
+        "/api/animals",
+        &admin_token(),
+        json!({
+            "gender": "female",
+            "birth_date": "2020-01-01",
+            "name": "Old"
+        }),
+    );
     let resp = app.clone().oneshot(create_req).await.unwrap();
-    let id = resp_json(resp.into_body()).await["data"]["id"].as_i64().unwrap();
+    let id = resp_json(resp.into_body()).await["data"]["id"]
+        .as_i64()
+        .unwrap();
 
-    let update_req = auth_request_with_body("PUT", &format!("/api/animals/{}", id), &admin_token(), json!({
-        "name": "New",
-        "active": false
-    }));
+    let update_req = auth_request_with_body(
+        "PUT",
+        &format!("/api/animals/{}", id),
+        &admin_token(),
+        json!({
+            "name": "New",
+            "active": false
+        }),
+    );
     let resp2 = app.oneshot(update_req).await.unwrap();
     assert_eq!(resp2.status(), StatusCode::OK);
     let body: Value = read_body_json(resp2.into_body()).await;
@@ -94,12 +119,19 @@ async fn test_update_animal(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_delete_animal(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let create_req = auth_request_with_body("POST", "/api/animals", &admin_token(), json!({
-        "gender": "male",
-        "birth_date": "2021-06-01"
-    }));
+    let create_req = auth_request_with_body(
+        "POST",
+        "/api/animals",
+        &admin_token(),
+        json!({
+            "gender": "male",
+            "birth_date": "2021-06-01"
+        }),
+    );
     let resp = app.clone().oneshot(create_req).await.unwrap();
-    let id = resp_json(resp.into_body()).await["data"]["id"].as_i64().unwrap();
+    let id = resp_json(resp.into_body()).await["data"]["id"]
+        .as_i64()
+        .unwrap();
 
     let delete_req = auth_request("DELETE", &format!("/api/animals/{}", id), &admin_token());
     let resp2 = app.clone().oneshot(delete_req).await.unwrap();
@@ -115,12 +147,28 @@ async fn test_delete_animal(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_list_animals_with_filters(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    app.clone().oneshot(auth_request_with_body("POST", "/api/animals", &admin_token(), json!({
-        "gender": "female", "birth_date": "2020-01-01"
-    }))).await.unwrap();
-    app.clone().oneshot(auth_request_with_body("POST", "/api/animals", &admin_token(), json!({
-        "gender": "male", "birth_date": "2021-01-01"
-    }))).await.unwrap();
+    app.clone()
+        .oneshot(auth_request_with_body(
+            "POST",
+            "/api/animals",
+            &admin_token(),
+            json!({
+                "gender": "female", "birth_date": "2020-01-01"
+            }),
+        ))
+        .await
+        .unwrap();
+    app.clone()
+        .oneshot(auth_request_with_body(
+            "POST",
+            "/api/animals",
+            &admin_token(),
+            json!({
+                "gender": "male", "birth_date": "2021-01-01"
+            }),
+        ))
+        .await
+        .unwrap();
 
     let req = auth_request("GET", "/api/animals?gender=female", &admin_token());
     let resp = app.oneshot(req).await.unwrap();

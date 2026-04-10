@@ -47,7 +47,12 @@ pub fn auth_request(method: &str, uri: &str, token: &str) -> Request<Body> {
         .unwrap()
 }
 
-pub fn auth_request_with_body(method: &str, uri: &str, token: &str, body: impl serde::Serialize) -> Request<Body> {
+pub fn auth_request_with_body(
+    method: &str,
+    uri: &str,
+    token: &str,
+    body: impl serde::Serialize,
+) -> Request<Body> {
     Request::builder()
         .method(method)
         .uri(uri)
@@ -97,12 +102,11 @@ pub async fn seed_male_animal(pool: &PgPool) -> i32 {
 }
 
 pub async fn seed_location(pool: &PgPool) -> i32 {
-    let row: (i32,) = sqlx::query_as(
-        "INSERT INTO locations (name) VALUES ('Test Barn') RETURNING id"
-    )
-    .fetch_one(pool)
-    .await
-    .unwrap();
+    let row: (i32,) =
+        sqlx::query_as("INSERT INTO locations (name) VALUES ('Test Barn') RETURNING id")
+            .fetch_one(pool)
+            .await
+            .unwrap();
     row.0
 }
 

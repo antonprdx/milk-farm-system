@@ -279,7 +279,8 @@
 						>
 						<button
 							onclick={() => confirmDelete(p.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"><Trash2 size={14} /></button
+							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+							><Trash2 size={14} /></button
 						>
 					</td>
 				</tr>

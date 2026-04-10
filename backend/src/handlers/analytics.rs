@@ -19,7 +19,10 @@ pub fn routes() -> Router<AppState> {
         .route("/analytics/kpi", get(kpi))
         .route("/analytics/alerts", get(alerts))
         .route("/analytics/milk-trend", get(milk_trend))
-        .route("/analytics/reproduction-forecast", get(reproduction_forecast))
+        .route(
+            "/analytics/reproduction-forecast",
+            get(reproduction_forecast),
+        )
         .route("/analytics/feed-forecast", get(feed_forecast))
 }
 

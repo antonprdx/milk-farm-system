@@ -18,7 +18,10 @@ async fn main() -> anyhow::Result<()> {
 
     seed_admin(&pool).await?;
 
-    let state = Arc::new(AppStateInner { pool, config: cfg.clone() });
+    let state = Arc::new(AppStateInner {
+        pool,
+        config: cfg.clone(),
+    });
     let app = create_app(state);
 
     let addr = cfg.addr();

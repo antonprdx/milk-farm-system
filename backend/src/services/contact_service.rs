@@ -117,7 +117,10 @@ mod tests {
     async fn test_list_contacts(pool: PgPool) {
         create(&pool, &create_req("A")).await.unwrap();
         create(&pool, &create_req("B")).await.unwrap();
-        let filter = ContactFilter { page: None, per_page: None };
+        let filter = ContactFilter {
+            page: None,
+            per_page: None,
+        };
         let contacts = list(&pool, &filter).await.unwrap();
         assert_eq!(contacts.len(), 2);
     }
@@ -146,7 +149,10 @@ mod tests {
     async fn test_delete_contact(pool: PgPool) {
         let created = create(&pool, &create_req("Del")).await.unwrap();
         delete(&pool, created.id).await.unwrap();
-        let filter = ContactFilter { page: None, per_page: None };
+        let filter = ContactFilter {
+            page: None,
+            per_page: None,
+        };
         let contacts = list(&pool, &filter).await.unwrap();
         assert!(contacts.is_empty());
     }

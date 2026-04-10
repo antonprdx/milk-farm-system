@@ -13,19 +13,17 @@ pub struct DashboardStats {
 }
 
 pub async fn dashboard_stats(pool: &PgPool) -> Result<DashboardStats, AppError> {
-    let (total_animals,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM animals WHERE active = true",
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+    let (total_animals,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM animals WHERE active = true")
+            .fetch_one(pool)
+            .await
+            .map_err(AppError::Database)?;
 
-    let (total_females,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM animals WHERE active = true AND gender = 'female'",
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+    let (total_females,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM animals WHERE active = true AND gender = 'female'")
+            .fetch_one(pool)
+            .await
+            .map_err(AppError::Database)?;
 
     let (milk_today,): (Option<f64>,) = sqlx::query_as(
         "SELECT SUM(milk_amount) FROM milk_day_productions WHERE date = CURRENT_DATE",
@@ -34,19 +32,17 @@ pub async fn dashboard_stats(pool: &PgPool) -> Result<DashboardStats, AppError> 
     .await
     .map_err(AppError::Database)?;
 
-    let (in_heat,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM heats WHERE heat_date = CURRENT_DATE",
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+    let (in_heat,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM heats WHERE heat_date = CURRENT_DATE")
+            .fetch_one(pool)
+            .await
+            .map_err(AppError::Database)?;
 
-    let (pregnant,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM pregnancies WHERE pregnancy_date = CURRENT_DATE",
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+    let (pregnant,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM pregnancies WHERE pregnancy_date = CURRENT_DATE")
+            .fetch_one(pool)
+            .await
+            .map_err(AppError::Database)?;
 
     Ok(DashboardStats {
         total_animals,

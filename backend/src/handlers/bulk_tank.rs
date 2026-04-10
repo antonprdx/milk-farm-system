@@ -1,7 +1,7 @@
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
@@ -23,7 +23,9 @@ async fn list(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = bulk_tank_service::list(&state.pool, &filter).await?;
     let total = bulk_tank_service::count(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn get_by_id(

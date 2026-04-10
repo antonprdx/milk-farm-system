@@ -57,7 +57,11 @@ pub async fn milk_summary(
     .await
     .map_err(AppError::Database)?;
 
-    Ok(MilkSummary { total_milk, count_days, avg_per_animal })
+    Ok(MilkSummary {
+        total_milk,
+        count_days,
+        avg_per_animal,
+    })
 }
 
 pub async fn reproduction_summary(
@@ -110,7 +114,13 @@ pub async fn reproduction_summary(
     .await
     .map_err(AppError::Database)?;
 
-    Ok(ReproductionSummary { total_calvings, total_inseminations, total_pregnancies, total_heats, total_dry_offs })
+    Ok(ReproductionSummary {
+        total_calvings,
+        total_inseminations,
+        total_pregnancies,
+        total_heats,
+        total_dry_offs,
+    })
 }
 
 pub async fn feed_summary(
@@ -136,7 +146,10 @@ pub async fn feed_summary(
     .await
     .map_err(AppError::Database)?;
 
-    Ok(FeedSummary { total_feed_kg: total_feed, total_visits })
+    Ok(FeedSummary {
+        total_feed_kg: total_feed,
+        total_visits,
+    })
 }
 
 pub async fn export_milk_csv(
@@ -144,12 +157,19 @@ pub async fn export_milk_csv(
     from_date: Option<chrono::NaiveDate>,
     till_date: Option<chrono::NaiveDate>,
 ) -> Result<String, AppError> {
-    let rows: Vec<(String, String, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+    let rows: Vec<(
+        String,
+        String,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+    )> = sqlx::query_as(
         "SELECT a.name, md.date::text, md.milk_amount, md.avg_amount, md.avg_weight, md.isk
          FROM milk_day_productions md
          JOIN animals a ON a.id = md.animal_id
          WHERE ($1::date IS NULL OR md.date >= $1) AND ($2::date IS NULL OR md.date <= $2)
-         ORDER BY md.date DESC, a.name"
+         ORDER BY md.date DESC, a.name",
     )
     .bind(from_date)
     .bind(till_date)
@@ -235,7 +255,7 @@ pub async fn export_feed_csv(
          FROM feed_day_amounts f
          JOIN animals a ON a.id = f.animal_id
          WHERE ($1::date IS NULL OR f.feed_date >= $1) AND ($2::date IS NULL OR f.feed_date <= $2)
-         ORDER BY f.feed_date DESC, a.name"
+         ORDER BY f.feed_date DESC, a.name",
     )
     .bind(from_date)
     .bind(till_date)

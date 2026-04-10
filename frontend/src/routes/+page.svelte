@@ -250,7 +250,7 @@
 		onclick={loadAll}
 		disabled={loading}
 		class="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50"
-	><RefreshCw size={14} />Обновить</button
+		><RefreshCw size={14} />Обновить</button
 	>
 </div>
 
@@ -259,13 +259,17 @@
 {#if loading}
 	<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
 		{#each Array(8) as _, i (i)}
-			<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700">
+			<div
+				class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700"
+			>
 				<div class="h-3 bg-slate-200 dark:bg-slate-700 rounded w-2/3 mb-3 animate-pulse"></div>
 				<div class="h-7 bg-slate-200 dark:bg-slate-700 rounded w-1/2 animate-pulse"></div>
 			</div>
 		{/each}
 	</div>
-	<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 mb-6">
+	<div
+		class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 mb-6"
+	>
 		<div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/4 mb-4 animate-pulse"></div>
 		<div class="h-72 bg-slate-100 dark:bg-slate-900 rounded animate-pulse"></div>
 	</div>

@@ -1,7 +1,9 @@
 use sqlx::PgPool;
 
 use crate::errors::AppError;
-use crate::models::bulk_tank::{BulkTankFilter, BulkTankTest, CreateBulkTankTest, UpdateBulkTankTest};
+use crate::models::bulk_tank::{
+    BulkTankFilter, BulkTankTest, CreateBulkTankTest, UpdateBulkTankTest,
+};
 
 pub async fn list(pool: &PgPool, filter: &BulkTankFilter) -> Result<Vec<BulkTankTest>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
@@ -55,7 +57,11 @@ pub async fn create(pool: &PgPool, req: &CreateBulkTankTest) -> Result<BulkTankT
     .map_err(AppError::Database)
 }
 
-pub async fn update(pool: &PgPool, id: i32, req: &UpdateBulkTankTest) -> Result<BulkTankTest, AppError> {
+pub async fn update(
+    pool: &PgPool,
+    id: i32,
+    req: &UpdateBulkTankTest,
+) -> Result<BulkTankTest, AppError> {
     let lactose_set = req.lactose.is_some();
     let lactose_val = req.lactose.as_ref().and_then(|v| *v);
     let scc_set = req.scc.is_some();
@@ -126,7 +132,12 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_empty(pool: PgPool) {
-        let filter = BulkTankFilter { from_date: None, till_date: None, page: None, per_page: None };
+        let filter = BulkTankFilter {
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let tanks = list(&pool, &filter).await.unwrap();
         assert!(tanks.is_empty());
     }
@@ -135,7 +146,12 @@ mod tests {
     async fn test_list_ordered_by_date(pool: PgPool) {
         create(&pool, &create_req("2025-01-10")).await.unwrap();
         create(&pool, &create_req("2025-01-20")).await.unwrap();
-        let filter = BulkTankFilter { from_date: None, till_date: None, page: None, per_page: None };
+        let filter = BulkTankFilter {
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let tanks = list(&pool, &filter).await.unwrap();
         assert_eq!(tanks.len(), 2);
         assert!(tanks[0].date > tanks[1].date);

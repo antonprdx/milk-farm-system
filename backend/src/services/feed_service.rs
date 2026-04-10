@@ -3,7 +3,10 @@ use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::models::feed::*;
 
-pub async fn list_day_amounts(pool: &PgPool, filter: &FeedFilter) -> Result<Vec<FeedDayAmount>, AppError> {
+pub async fn list_day_amounts(
+    pool: &PgPool,
+    filter: &FeedFilter,
+) -> Result<Vec<FeedDayAmount>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, FeedDayAmount>(
@@ -113,14 +116,26 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_day_amounts_empty(pool: PgPool) {
-        let filter = FeedFilter { animal_id: None, from_date: None, till_date: None, page: None, per_page: None };
+        let filter = FeedFilter {
+            animal_id: None,
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let amounts = list_day_amounts(&pool, &filter).await.unwrap();
         assert!(amounts.is_empty());
     }
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_visits_empty(pool: PgPool) {
-        let filter = FeedFilter { animal_id: None, from_date: None, till_date: None, page: None, per_page: None };
+        let filter = FeedFilter {
+            animal_id: None,
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let visits = list_visits(&pool, &filter).await.unwrap();
         assert!(visits.is_empty());
     }
@@ -148,7 +163,13 @@ mod tests {
         .await
         .unwrap();
 
-        let filter = FeedFilter { animal_id: Some(animal_id), from_date: None, till_date: None, page: None, per_page: None };
+        let filter = FeedFilter {
+            animal_id: Some(animal_id),
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let amounts = list_day_amounts(&pool, &filter).await.unwrap();
         assert_eq!(amounts.len(), 1);
         assert_eq!(amounts[0].total, 25.0);
@@ -165,7 +186,13 @@ mod tests {
         .await
         .unwrap();
 
-        let filter = FeedFilter { animal_id: Some(animal_id), from_date: None, till_date: None, page: None, per_page: None };
+        let filter = FeedFilter {
+            animal_id: Some(animal_id),
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let visits = list_visits(&pool, &filter).await.unwrap();
         assert_eq!(visits.len(), 1);
     }

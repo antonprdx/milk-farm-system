@@ -4,13 +4,12 @@ use crate::errors::AppError;
 use crate::models::animal::{Animal, AnimalFilter, CreateAnimal, UpdateAnimal};
 
 pub async fn ensure_exists(pool: &PgPool, id: i32) -> Result<(), AppError> {
-    let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)",
-    )
-    .bind(id)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(id)
+            .fetch_one(pool)
+            .await
+            .map_err(AppError::Database)?;
 
     if !exists {
         return Err(AppError::NotFound(format!(
@@ -22,12 +21,17 @@ pub async fn ensure_exists(pool: &PgPool, id: i32) -> Result<(), AppError> {
 }
 
 fn escape_like(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+    s.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
 }
 
 pub async fn list(pool: &PgPool, filter: &AnimalFilter) -> Result<Vec<Animal>, AppError> {
     let pag = crate::models::pagination::Pagination::new(filter.page, filter.per_page, 20, 100);
-    let name_pattern = filter.name.as_ref().map(|n| format!("%{}%", escape_like(n)));
+    let name_pattern = filter
+        .name
+        .as_ref()
+        .map(|n| format!("%{}%", escape_like(n)));
 
     sqlx::query_as::<_, Animal>(
         "SELECT * FROM animals WHERE ($1::text IS NULL OR life_number = $1)
@@ -50,7 +54,10 @@ pub async fn list(pool: &PgPool, filter: &AnimalFilter) -> Result<Vec<Animal>, A
 }
 
 pub async fn count(pool: &PgPool, filter: &AnimalFilter) -> Result<i64, AppError> {
-    let name_pattern = filter.name.as_ref().map(|n| format!("%{}%", escape_like(n)));
+    let name_pattern = filter
+        .name
+        .as_ref()
+        .map(|n| format!("%{}%", escape_like(n)));
 
     let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM animals WHERE ($1::text IS NULL OR life_number = $1)
@@ -157,7 +164,7 @@ pub async fn delete(pool: &PgPool, id: i32) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::animal::{CreateAnimal, GenderType, UpdateAnimal, AnimalFilter};
+    use crate::models::animal::{AnimalFilter, CreateAnimal, GenderType, UpdateAnimal};
 
     fn create_female_req() -> CreateAnimal {
         CreateAnimal {
@@ -204,7 +211,15 @@ mod tests {
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_animals(pool: PgPool) {
         create(&pool, &create_female_req()).await.unwrap();
-        let filter = AnimalFilter { life_number: None, ucn_number: None, name: None, active: None, gender: None, page: None, per_page: None };
+        let filter = AnimalFilter {
+            life_number: None,
+            ucn_number: None,
+            name: None,
+            active: None,
+            gender: None,
+            page: None,
+            per_page: None,
+        };
         let animals = list(&pool, &filter).await.unwrap();
         assert_eq!(animals.len(), 1);
         let total = count(&pool, &filter).await.unwrap();
@@ -214,7 +229,15 @@ mod tests {
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_filter_by_active(pool: PgPool) {
         create(&pool, &create_female_req()).await.unwrap();
-        let filter = AnimalFilter { life_number: None, ucn_number: None, name: None, active: Some(false), gender: None, page: None, per_page: None };
+        let filter = AnimalFilter {
+            life_number: None,
+            ucn_number: None,
+            name: None,
+            active: Some(false),
+            gender: None,
+            page: None,
+            per_page: None,
+        };
         let animals = list(&pool, &filter).await.unwrap();
         assert!(animals.is_empty());
     }
@@ -222,7 +245,15 @@ mod tests {
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_filter_by_gender(pool: PgPool) {
         create(&pool, &create_female_req()).await.unwrap();
-        let filter = AnimalFilter { life_number: None, ucn_number: None, name: None, active: None, gender: Some(GenderType::Male), page: None, per_page: None };
+        let filter = AnimalFilter {
+            life_number: None,
+            ucn_number: None,
+            name: None,
+            active: None,
+            gender: Some(GenderType::Male),
+            page: None,
+            per_page: None,
+        };
         let animals = list(&pool, &filter).await.unwrap();
         assert!(animals.is_empty());
     }
@@ -230,7 +261,15 @@ mod tests {
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_filter_by_ucn(pool: PgPool) {
         create(&pool, &create_female_req()).await.unwrap();
-        let filter = AnimalFilter { life_number: None, ucn_number: Some("UCN001".into()), name: None, active: None, gender: None, page: None, per_page: None };
+        let filter = AnimalFilter {
+            life_number: None,
+            ucn_number: Some("UCN001".into()),
+            name: None,
+            active: None,
+            gender: None,
+            page: None,
+            per_page: None,
+        };
         let animals = list(&pool, &filter).await.unwrap();
         assert_eq!(animals.len(), 1);
     }
@@ -276,10 +315,26 @@ mod tests {
         for _ in 0..5 {
             create(&pool, &create_female_req()).await.unwrap();
         }
-        let filter = AnimalFilter { life_number: None, ucn_number: None, name: None, active: None, gender: None, page: Some(1), per_page: Some(2) };
+        let filter = AnimalFilter {
+            life_number: None,
+            ucn_number: None,
+            name: None,
+            active: None,
+            gender: None,
+            page: Some(1),
+            per_page: Some(2),
+        };
         let page1 = list(&pool, &filter).await.unwrap();
         assert_eq!(page1.len(), 2);
-        let filter2 = AnimalFilter { life_number: None, ucn_number: None, name: None, active: None, gender: None, page: Some(3), per_page: Some(2) };
+        let filter2 = AnimalFilter {
+            life_number: None,
+            ucn_number: None,
+            name: None,
+            active: None,
+            gender: None,
+            page: Some(3),
+            per_page: Some(2),
+        };
         let page3 = list(&pool, &filter2).await.unwrap();
         assert_eq!(page3.len(), 1);
     }

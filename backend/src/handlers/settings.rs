@@ -1,8 +1,8 @@
-use axum::extract::{State, Path};
+use axum::extract::{Path, State};
 use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::{AdminGuard, ClaimsAllowMustChange, RegisterRequest};
@@ -94,7 +94,9 @@ async fn update_role(
     Json(body): Json<UpdateRoleRequest>,
 ) -> Result<Json<Value>, AppError> {
     if body.role != "admin" && body.role != "user" {
-        return Err(AppError::BadRequest("Role must be 'admin' or 'user'".into()));
+        return Err(AppError::BadRequest(
+            "Role must be 'admin' or 'user'".into(),
+        ));
     }
     user_service::update_role(&state.pool, id, &body.role).await?;
     Ok(Json(json!({ "message": "Role updated" })))

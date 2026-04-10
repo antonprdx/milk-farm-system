@@ -1,7 +1,7 @@
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
@@ -11,16 +11,47 @@ use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/reproduction/calvings", get(list_calvings).post(create_calving))
-        .route("/reproduction/calvings/{id}", get(get_calving).put(update_calving).delete(delete_calving))
-        .route("/reproduction/inseminations", get(list_inseminations).post(create_insemination))
-        .route("/reproduction/inseminations/{id}", get(get_insemination).put(update_insemination).delete(delete_insemination))
-        .route("/reproduction/pregnancies", get(list_pregnancies).post(create_pregnancy))
-        .route("/reproduction/pregnancies/{id}", get(get_pregnancy).put(update_pregnancy).delete(delete_pregnancy))
+        .route(
+            "/reproduction/calvings",
+            get(list_calvings).post(create_calving),
+        )
+        .route(
+            "/reproduction/calvings/{id}",
+            get(get_calving).put(update_calving).delete(delete_calving),
+        )
+        .route(
+            "/reproduction/inseminations",
+            get(list_inseminations).post(create_insemination),
+        )
+        .route(
+            "/reproduction/inseminations/{id}",
+            get(get_insemination)
+                .put(update_insemination)
+                .delete(delete_insemination),
+        )
+        .route(
+            "/reproduction/pregnancies",
+            get(list_pregnancies).post(create_pregnancy),
+        )
+        .route(
+            "/reproduction/pregnancies/{id}",
+            get(get_pregnancy)
+                .put(update_pregnancy)
+                .delete(delete_pregnancy),
+        )
         .route("/reproduction/heats", get(list_heats).post(create_heat))
-        .route("/reproduction/heats/{id}", get(get_heat).put(update_heat).delete(delete_heat))
-        .route("/reproduction/dryoffs", get(list_dryoffs).post(create_dryoff))
-        .route("/reproduction/dryoffs/{id}", get(get_dryoff).put(update_dryoff).delete(delete_dryoff))
+        .route(
+            "/reproduction/heats/{id}",
+            get(get_heat).put(update_heat).delete(delete_heat),
+        )
+        .route(
+            "/reproduction/dryoffs",
+            get(list_dryoffs).post(create_dryoff),
+        )
+        .route(
+            "/reproduction/dryoffs/{id}",
+            get(get_dryoff).put(update_dryoff).delete(delete_dryoff),
+        )
         .route("/reproduction/status", get(current_status))
 }
 
@@ -32,7 +63,9 @@ async fn list_calvings(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = reproduction_service::list_calvings(&state.pool, &filter).await?;
     let total = reproduction_service::count_calvings(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn get_calving(
@@ -84,7 +117,9 @@ async fn list_inseminations(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = reproduction_service::list_inseminations(&state.pool, &filter).await?;
     let total = reproduction_service::count_inseminations(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn get_insemination(
@@ -136,7 +171,9 @@ async fn list_pregnancies(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = reproduction_service::list_pregnancies(&state.pool, &filter).await?;
     let total = reproduction_service::count_pregnancies(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn get_pregnancy(
@@ -188,7 +225,9 @@ async fn list_heats(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = reproduction_service::list_heats(&state.pool, &filter).await?;
     let total = reproduction_service::count_heats(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn get_heat(
@@ -240,7 +279,9 @@ async fn list_dryoffs(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = reproduction_service::list_dryoffs(&state.pool, &filter).await?;
     let total = reproduction_service::count_dryoffs(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn get_dryoff(

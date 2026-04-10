@@ -7,7 +7,7 @@ use axum::http::header::SET_COOKIE;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::{Claims, LoginRequest, RegisterRequest};
@@ -34,8 +34,13 @@ pub fn routes() -> Router<AppState> {
         .route("/stats", get(stats))
 }
 
-fn check_rate_limit(map: &Mutex<HashMap<String, RateLimitEntry>>, key: &str) -> Result<(), AppError> {
-    let mut map = map.lock().map_err(|e| AppError::Internal(anyhow::anyhow!("{}", e)))?;
+fn check_rate_limit(
+    map: &Mutex<HashMap<String, RateLimitEntry>>,
+    key: &str,
+) -> Result<(), AppError> {
+    let mut map = map
+        .lock()
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("{}", e)))?;
     let now = Instant::now();
     if let Some(entry) = map.get_mut(key) {
         if now.duration_since(entry.window_start).as_secs() > RATE_LIMIT_WINDOW_SECS {
@@ -47,7 +52,13 @@ fn check_rate_limit(map: &Mutex<HashMap<String, RateLimitEntry>>, key: &str) -> 
             entry.count += 1;
         }
     } else {
-        map.insert(key.to_string(), RateLimitEntry { count: 1, window_start: now });
+        map.insert(
+            key.to_string(),
+            RateLimitEntry {
+                count: 1,
+                window_start: now,
+            },
+        );
     }
     map.retain(|_, v| now.duration_since(v.window_start).as_secs() <= RATE_LIMIT_WINDOW_SECS * 2);
     Ok(())
@@ -117,7 +128,11 @@ async fn login(
         state.config.jwt_refresh_ttl_secs,
     )?;
 
-    let secure_flag = if state.config.secure_cookies { "; Secure" } else { "" };
+    let secure_flag = if state.config.secure_cookies {
+        "; Secure"
+    } else {
+        ""
+    };
     let access_cookie = format!(
         "token={}; HttpOnly{}; SameSite=Strict; Path=/; Max-Age={}",
         access_token, secure_flag, state.config.jwt_access_ttl_secs
@@ -142,12 +157,20 @@ async fn login(
     Ok(response)
 }
 
-async fn logout(
-    State(state): State<AppState>,
-) -> Result<Response, AppError> {
-    let secure_flag = if state.config.secure_cookies { "; Secure" } else { "" };
-    let access_cookie = format!("token=; HttpOnly{}; SameSite=Strict; Path=/; Max-Age=0", secure_flag);
-    let refresh_cookie = format!("refresh_token=; HttpOnly{}; SameSite=Strict; Path=/; Max-Age=0", secure_flag);
+async fn logout(State(state): State<AppState>) -> Result<Response, AppError> {
+    let secure_flag = if state.config.secure_cookies {
+        "; Secure"
+    } else {
+        ""
+    };
+    let access_cookie = format!(
+        "token=; HttpOnly{}; SameSite=Strict; Path=/; Max-Age=0",
+        secure_flag
+    );
+    let refresh_cookie = format!(
+        "refresh_token=; HttpOnly{}; SameSite=Strict; Path=/; Max-Age=0",
+        secure_flag
+    );
     let mut response = axum::response::Json(json!({ "message": "Logged out" })).into_response();
     let headers = response.headers_mut();
     headers.insert(SET_COOKIE, access_cookie.parse().unwrap());
@@ -217,7 +240,11 @@ async fn refresh(
         state.config.jwt_refresh_ttl_secs,
     )?;
 
-    let secure_flag = if state.config.secure_cookies { "; Secure" } else { "" };
+    let secure_flag = if state.config.secure_cookies {
+        "; Secure"
+    } else {
+        ""
+    };
     let access_cookie = format!(
         "token={}; HttpOnly{}; SameSite=Strict; Path=/; Max-Age={}",
         access_token, secure_flag, state.config.jwt_access_ttl_secs
@@ -241,10 +268,7 @@ async fn refresh(
     Ok(response)
 }
 
-async fn stats(
-    _claims: Claims,
-    State(state): State<AppState>,
-) -> Result<Json<Value>, AppError> {
+async fn stats(_claims: Claims, State(state): State<AppState>) -> Result<Json<Value>, AppError> {
     let s = crate::services::stats_service::dashboard_stats(&state.pool).await?;
     Ok(Json(json!({
         "total_animals": s.total_animals,

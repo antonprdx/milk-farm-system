@@ -2,19 +2,26 @@ mod common;
 
 use axum::body::Body;
 use axum::http::StatusCode;
-use serde_json::{json, Value};
-use tower::ServiceExt;
 use milk_farm_backend::create_app;
+use serde_json::{Value, json};
+use tower::ServiceExt;
 
 use common::*;
 
 async fn create_test_animal(app: &axum::Router) -> i64 {
-    let req = auth_request_with_body("POST", "/api/animals", &admin_token(), json!({
-        "gender": "female",
-        "birth_date": "2020-01-01"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/animals",
+        &admin_token(),
+        json!({
+            "gender": "female",
+            "birth_date": "2020-01-01"
+        }),
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
-    read_body_json::<Value>(resp.into_body()).await["data"]["id"].as_i64().unwrap()
+    read_body_json::<Value>(resp.into_body()).await["data"]["id"]
+        .as_i64()
+        .unwrap()
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -31,7 +38,11 @@ async fn test_milk_summary(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_milk_summary_with_date_filter(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/reports/milk-summary?from_date=2025-01-01&till_date=2025-12-31", &admin_token());
+    let req = auth_request(
+        "GET",
+        "/api/reports/milk-summary?from_date=2025-01-01&till_date=2025-12-31",
+        &admin_token(),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -42,9 +53,18 @@ async fn test_reproduction_summary(pool: sqlx::PgPool) {
     let req = auth_request("GET", "/api/reports/reproduction-summary", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     let status = resp.status();
-    let body_bytes = http_body_util::BodyExt::collect(resp.into_body()).await.unwrap().to_bytes();
+    let body_bytes = http_body_util::BodyExt::collect(resp.into_body())
+        .await
+        .unwrap()
+        .to_bytes();
     let body_str = String::from_utf8_lossy(&body_bytes);
-    assert_eq!(status, StatusCode::OK, "status={}, body={}", status, body_str);
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "status={}, body={}",
+        status,
+        body_str
+    );
     let body: Value = serde_json::from_slice(&body_bytes).unwrap();
     assert!(body["total_calvings"].is_number());
     assert!(body["total_inseminations"].is_number());
@@ -99,10 +119,15 @@ async fn test_settings_create_user(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
     let app = create_app(app_state(pool));
 
-    let req = auth_request_with_body("POST", "/api/settings/users", &admin_token(), json!({
-        "username": "newuser",
-        "password": "secure123"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/settings/users",
+        &admin_token(),
+        json!({
+            "username": "newuser",
+            "password": "secure123"
+        }),
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
@@ -117,10 +142,15 @@ async fn test_settings_change_password(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
     let app = create_app(app_state(pool));
 
-    let req = auth_request_with_body("POST", "/api/settings/password", &admin_token(), json!({
-        "old_password": "admin12345",
-        "new_password": "newadmin12345"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/settings/password",
+        &admin_token(),
+        json!({
+            "old_password": "admin12345",
+            "new_password": "newadmin12345"
+        }),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -130,10 +160,15 @@ async fn test_settings_change_password_wrong_old(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
     let app = create_app(app_state(pool));
 
-    let req = auth_request_with_body("POST", "/api/settings/password", &admin_token(), json!({
-        "old_password": "wrongpassword",
-        "new_password": "newadmin12345"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/settings/password",
+        &admin_token(),
+        json!({
+            "old_password": "wrongpassword",
+            "new_password": "newadmin12345"
+        }),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
@@ -149,13 +184,18 @@ async fn test_bulk_tank_list(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_bulk_tank_create(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request_with_body("POST", "/api/bulk-tank", &admin_token(), json!({
-        "date": "2025-01-15",
-        "fat": 3.8,
-        "protein": 3.2,
-        "lactose": 4.6,
-        "scc": 150
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/bulk-tank",
+        &admin_token(),
+        json!({
+            "date": "2025-01-15",
+            "fat": 3.8,
+            "protein": 3.2,
+            "lactose": 4.6,
+            "scc": 150
+        }),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;

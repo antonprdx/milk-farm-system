@@ -1,11 +1,11 @@
 use axum::extract::{Query, State};
-use axum::http::{header, StatusCode};
+use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use chrono::NaiveDate;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
@@ -45,7 +45,9 @@ fn csv_response(filename: &str, csv: String) -> Response {
 fn validate_date_range(filter: &ReportFilter) -> Result<(), AppError> {
     match (filter.from_date, filter.till_date) {
         (Some(from), Some(till)) if (till - from).num_days() > 366 => {
-            return Err(AppError::BadRequest("Диапазон дат не может превышать 1 год".into()));
+            return Err(AppError::BadRequest(
+                "Диапазон дат не может превышать 1 год".into(),
+            ));
         }
         _ => {}
     }
@@ -57,7 +59,12 @@ async fn milk_summary(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let s = crate::services::reports_service::milk_summary(&state.pool, filter.from_date, filter.till_date).await?;
+    let s = crate::services::reports_service::milk_summary(
+        &state.pool,
+        filter.from_date,
+        filter.till_date,
+    )
+    .await?;
     Ok(Json(json!({
         "total_milk": s.total_milk,
         "count_days": s.count_days,
@@ -70,7 +77,12 @@ async fn reproduction_summary(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let s = crate::services::reports_service::reproduction_summary(&state.pool, filter.from_date, filter.till_date).await?;
+    let s = crate::services::reports_service::reproduction_summary(
+        &state.pool,
+        filter.from_date,
+        filter.till_date,
+    )
+    .await?;
     Ok(Json(json!({
         "total_calvings": s.total_calvings,
         "total_inseminations": s.total_inseminations,
@@ -85,7 +97,12 @@ async fn feed_summary(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let s = crate::services::reports_service::feed_summary(&state.pool, filter.from_date, filter.till_date).await?;
+    let s = crate::services::reports_service::feed_summary(
+        &state.pool,
+        filter.from_date,
+        filter.till_date,
+    )
+    .await?;
     Ok(Json(json!({
         "total_feed_kg": s.total_feed_kg,
         "total_visits": s.total_visits,
@@ -98,7 +115,12 @@ async fn export_milk(
     Query(filter): Query<ReportFilter>,
 ) -> Result<Response, AppError> {
     validate_date_range(&filter)?;
-    let csv = crate::services::reports_service::export_milk_csv(&state.pool, filter.from_date, filter.till_date).await?;
+    let csv = crate::services::reports_service::export_milk_csv(
+        &state.pool,
+        filter.from_date,
+        filter.till_date,
+    )
+    .await?;
     Ok(csv_response("milk_report.csv", csv))
 }
 
@@ -108,7 +130,12 @@ async fn export_reproduction(
     Query(filter): Query<ReportFilter>,
 ) -> Result<Response, AppError> {
     validate_date_range(&filter)?;
-    let csv = crate::services::reports_service::export_reproduction_csv(&state.pool, filter.from_date, filter.till_date).await?;
+    let csv = crate::services::reports_service::export_reproduction_csv(
+        &state.pool,
+        filter.from_date,
+        filter.till_date,
+    )
+    .await?;
     Ok(csv_response("reproduction_report.csv", csv))
 }
 
@@ -118,6 +145,11 @@ async fn export_feed(
     Query(filter): Query<ReportFilter>,
 ) -> Result<Response, AppError> {
     validate_date_range(&filter)?;
-    let csv = crate::services::reports_service::export_feed_csv(&state.pool, filter.from_date, filter.till_date).await?;
+    let csv = crate::services::reports_service::export_feed_csv(
+        &state.pool,
+        filter.from_date,
+        filter.till_date,
+    )
+    .await?;
     Ok(csv_response("feed_report.csv", csv))
 }

@@ -1,7 +1,7 @@
 use axum::extract::FromRequestParts;
-use axum::http::request::Parts;
 use axum::http::HeaderMap;
-use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use axum::http::request::Parts;
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
 use crate::errors::AppError;
@@ -23,7 +23,10 @@ pub struct AdminGuard;
 #[derive(Debug, Clone)]
 pub struct ClaimsAllowMustChange(pub Claims);
 
-pub fn verify_token_allow_must_change(parts: &mut Parts, state: &AppState) -> Result<Claims, AppError> {
+pub fn verify_token_allow_must_change(
+    parts: &mut Parts,
+    state: &AppState,
+) -> Result<Claims, AppError> {
     let token_result = extract_token(parts);
     let secret = state.config.jwt_secret.clone();
     verify_token(&token_result?, &secret)

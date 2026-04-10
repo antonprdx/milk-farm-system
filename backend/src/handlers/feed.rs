@@ -1,7 +1,7 @@
 use axum::extract::{Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
@@ -25,7 +25,9 @@ async fn list_day_amounts(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = feed_service::list_day_amounts(&state.pool, &filter).await?;
     let total = feed_service::count_day_amounts(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn list_visits(
@@ -36,7 +38,9 @@ async fn list_visits(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = feed_service::list_visits(&state.pool, &filter).await?;
     let total = feed_service::count_visits(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn list_types(
@@ -45,7 +49,9 @@ async fn list_types(
 ) -> Result<Json<Value>, AppError> {
     let data = feed_service::list_types(&state.pool).await?;
     let total = feed_service::count_types(&state.pool).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": 1, "per_page": total })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": 1, "per_page": total }),
+    ))
 }
 
 async fn list_groups(
@@ -54,5 +60,7 @@ async fn list_groups(
 ) -> Result<Json<Value>, AppError> {
     let data = feed_service::list_groups(&state.pool).await?;
     let total = feed_service::count_groups(&state.pool).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": 1, "per_page": total })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": 1, "per_page": total }),
+    ))
 }

@@ -3,7 +3,7 @@ mod common;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use milk_farm_backend::create_app;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tower::ServiceExt;
 
 use common::*;
@@ -63,7 +63,10 @@ async fn test_create_animal_missing_required(pool: sqlx::PgPool) {
         .body(Body::from(r#"{"gender":"female"}"#))
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
-    assert!(resp.status() == StatusCode::BAD_REQUEST || resp.status() == StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        resp.status() == StatusCode::BAD_REQUEST
+            || resp.status() == StatusCode::UNPROCESSABLE_ENTITY
+    );
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -77,14 +80,21 @@ async fn test_update_nonexistent_animal(pool: sqlx::PgPool) {
         json!({"name": "Ghost"}),
     );
     let resp = app.oneshot(req).await.unwrap();
-    assert!(resp.status() == StatusCode::NOT_FOUND || resp.status() == StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(
+        resp.status() == StatusCode::NOT_FOUND
+            || resp.status() == StatusCode::INTERNAL_SERVER_ERROR
+    );
 }
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_delete_nonexistent_milk(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
     let app = make_app(pool);
-    let req = auth_request("DELETE", "/api/v1/milk/day-productions/99999", &admin_token());
+    let req = auth_request(
+        "DELETE",
+        "/api/v1/milk/day-productions/99999",
+        &admin_token(),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
@@ -190,7 +200,9 @@ async fn test_logout_clears_cookies(pool: sqlx::PgPool) {
         .method("POST")
         .uri("/api/v1/auth/login")
         .header("Content-Type", "application/json")
-        .body(Body::from(r#"{"username":"admin","password":"admin12345"}"#))
+        .body(Body::from(
+            r#"{"username":"admin","password":"admin12345"}"#,
+        ))
         .unwrap();
     let login_resp = app.oneshot(login_req).await.unwrap();
     assert!(login_resp.status().is_success());
