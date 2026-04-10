@@ -152,6 +152,7 @@ pub async fn feed_summary(
     })
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn export_milk_csv(
     pool: &PgPool,
     from_date: Option<chrono::NaiveDate>,

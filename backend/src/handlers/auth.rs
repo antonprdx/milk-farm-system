@@ -65,14 +65,13 @@ fn check_rate_limit(
 }
 
 fn extract_client_ip(headers: &axum::http::HeaderMap) -> String {
-    if let Some(forwarded) = headers.get("X-Forwarded-For") {
-        if let Ok(val) = forwarded.to_str() {
-            if let Some(ip) = val.split(',').next() {
-                let ip = ip.trim().to_string();
-                if !ip.is_empty() {
-                    return ip;
-                }
-            }
+    if let Some(forwarded) = headers.get("X-Forwarded-For")
+        && let Ok(val) = forwarded.to_str()
+        && let Some(ip) = val.split(',').next()
+    {
+        let ip = ip.trim().to_string();
+        if !ip.is_empty() {
+            return ip;
         }
     }
     "unknown".to_string()

@@ -8,6 +8,7 @@ use tower::ServiceExt;
 
 use common::*;
 
+#[allow(dead_code)]
 async fn create_test_animal(app: &axum::Router) -> i64 {
     let req = auth_request_with_body(
         "POST",

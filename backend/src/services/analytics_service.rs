@@ -140,6 +140,7 @@ async fn refusal_rate(pool: &PgPool) -> Result<Option<f64>, AppError> {
     }
 }
 
+#[allow(clippy::type_complexity)]
 async fn culling_risk_calc(pool: &PgPool) -> Result<Vec<CullingRiskEntry>, AppError> {
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
@@ -442,8 +443,8 @@ fn holt_forecast(values: &[f64], alpha: f64, beta: f64) -> (f64, f64) {
         0.0
     };
 
-    for i in 1..values.len() {
-        let new_level = alpha * values[i] + (1.0 - alpha) * (level + trend);
+    for val in values.iter().skip(1) {
+        let new_level = alpha * val + (1.0 - alpha) * (level + trend);
         let new_trend = beta * (new_level - level) + (1.0 - beta) * trend;
         level = new_level;
         trend = new_trend;
@@ -452,6 +453,7 @@ fn holt_forecast(values: &[f64], alpha: f64, beta: f64) -> (f64, f64) {
     (level, trend)
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn reproduction_forecast(
     pool: &PgPool,
 ) -> Result<ReproductionForecastResponse, AppError> {
@@ -571,7 +573,7 @@ pub async fn feed_forecast(pool: &PgPool) -> Result<FeedForecastResponse, AppErr
         weekly_feed_kg: weekly_feed,
         predicted_next_week_kg: (predicted * 100.0).round() / 100.0,
         avg_per_cow_day_kg: avg_per_cow_day,
-        milk_per_feed: milk_per_feed,
+        milk_per_feed,
     })
 }
 

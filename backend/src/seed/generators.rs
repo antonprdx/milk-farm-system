@@ -38,7 +38,7 @@ fn pick<'a, T>(rng: &mut impl Rng, slice: &'a [T]) -> &'a T {
     slice.choose(rng).unwrap()
 }
 
-fn pick_n<'a, T: Clone>(rng: &mut impl Rng, slice: &'a [T], n: usize) -> Vec<T> {
+fn pick_n<T: Clone>(rng: &mut impl Rng, slice: &[T], n: usize) -> Vec<T> {
     let mut copy: Vec<&T> = slice.iter().collect();
     let mut result = Vec::with_capacity(n.min(copy.len()));
     for _ in 0..n.min(copy.len()) {
@@ -131,6 +131,7 @@ pub async fn seed_locations(pool: &PgPool) -> Vec<i32> {
     ids
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_contacts(pool: &PgPool) {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let count = rng.random_range(30..50);
@@ -176,6 +177,7 @@ pub async fn seed_contacts(pool: &PgPool) {
     println!("  contacts: {} rows", count);
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_sires(pool: &PgPool) -> Vec<String> {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let count = rng.random_range(20..30);
@@ -247,6 +249,7 @@ pub async fn seed_feed_groups(pool: &PgPool) -> Vec<i32> {
     ids
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_animals(pool: &PgPool, config: &SeedConfig) -> Vec<AnimalInfo> {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let today = chrono::Utc::now().date_naive();
@@ -345,6 +348,7 @@ pub async fn seed_animals(pool: &PgPool, config: &SeedConfig) -> Vec<AnimalInfo>
     animals
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_bloodlines(pool: &PgPool, animals: &[AnimalInfo]) {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let mut batch = Vec::new();
@@ -392,6 +396,7 @@ pub async fn seed_bloodlines(pool: &PgPool, animals: &[AnimalInfo]) {
     println!("  bloodlines: {} rows", count);
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_calvings_and_reproduction(
     pool: &PgPool,
     animals: &[AnimalInfo],
@@ -596,7 +601,7 @@ pub async fn seed_calvings_and_reproduction(
             }
 
             let next_interval = normal_range(&mut rng, 390.0, 40.0, 340.0, 480.0) as i64;
-            calving_date = calving_date + Duration::days(next_interval);
+            calving_date += Duration::days(next_interval);
         }
 
         for cd in &calving_dates {
@@ -699,6 +704,7 @@ pub async fn seed_calvings_and_reproduction(
     lactations
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_milk(pool: &PgPool, lactations: &[LactationInfo], config: &SeedConfig) {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let today = chrono::Utc::now().date_naive();
@@ -855,6 +861,7 @@ pub async fn seed_milk(pool: &PgPool, lactations: &[LactationInfo], config: &See
     println!("  milk_quality: {} rows", total_quality);
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_feed(pool: &PgPool, lactations: &[LactationInfo], config: &SeedConfig) {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let today = chrono::Utc::now().date_naive();
@@ -959,6 +966,7 @@ pub async fn seed_feed(pool: &PgPool, lactations: &[LactationInfo], config: &See
     println!("  feed_visits: {} rows", total_visits);
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_fitness(pool: &PgPool, lactations: &[LactationInfo], config: &SeedConfig) {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let today = chrono::Utc::now().date_naive();
@@ -1047,6 +1055,7 @@ pub async fn seed_fitness(pool: &PgPool, lactations: &[LactationInfo], config: &
     println!("  ruminations: {} rows", total_ruminations);
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_bulk_tank(pool: &PgPool, config: &SeedConfig) {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let today = chrono::Utc::now().date_naive();
@@ -1088,6 +1097,7 @@ pub async fn seed_bulk_tank(pool: &PgPool, config: &SeedConfig) {
     println!("  bulk_tank_tests: {} rows", count);
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_grazing(pool: &PgPool, config: &SeedConfig) {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let today = chrono::Utc::now().date_naive();
@@ -1127,6 +1137,7 @@ pub async fn seed_grazing(pool: &PgPool, config: &SeedConfig) {
     println!("  grazing_data: {} rows", count);
 }
 
+#[allow(clippy::await_holding_lock)]
 pub async fn seed_transfers(pool: &PgPool, animals: &[AnimalInfo]) {
     let mut rng = GLOBAL_RNG.lock().unwrap();
     let today = chrono::Utc::now().date_naive();

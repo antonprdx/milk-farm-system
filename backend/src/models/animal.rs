@@ -54,12 +54,12 @@ impl CreateAnimal {
         date_not_future(&self.birth_date, "Дата рождения")?;
         opt_max_len(&self.life_number, 50, "Номер жизни")?;
         opt_max_len(&self.name, 100, "Кличка")?;
-        if let Some(n) = self.user_number {
-            if n < 0 {
-                return Err(crate::errors::AppError::BadRequest(
-                    "Пользовательский номер не может быть отрицательным".into(),
-                ));
-            }
+        if let Some(n) = self.user_number
+            && n < 0
+        {
+            return Err(crate::errors::AppError::BadRequest(
+                "Пользовательский номер не может быть отрицательным".into(),
+            ));
         }
         opt_max_len(&self.hair_color_code, 20, "Код масти")?;
         opt_max_len(&self.father_life_number, 50, "Номер жизни отца")?;
@@ -68,12 +68,12 @@ impl CreateAnimal {
         opt_max_len(&self.ucn_number, 50, "UCN номер")?;
         opt_max_len(&self.location, 100, "Локация")?;
         opt_max_len(&self.responder_number, 50, "Номер респондера")?;
-        if let Some(g) = self.gestation {
-            if g < 0 || g > 500 {
-                return Err(crate::errors::AppError::BadRequest(
-                    "Срок стельности должен быть от 0 до 500 дней".into(),
-                ));
-            }
+        if let Some(g) = self.gestation
+            && !(0..=500).contains(&g)
+        {
+            return Err(crate::errors::AppError::BadRequest(
+                "Срок стельности должен быть от 0 до 500 дней".into(),
+            ));
         }
         Ok(())
     }
@@ -103,12 +103,12 @@ impl UpdateAnimal {
         opt_max_len(&self.ucn_number, 50, "UCN номер")?;
         opt_max_len(&self.location, 100, "Локация")?;
         opt_max_len(&self.responder_number, 50, "Номер респондера")?;
-        if let Some(g) = self.gestation {
-            if g < 0 || g > 500 {
-                return Err(crate::errors::AppError::BadRequest(
-                    "Срок стельности должен быть от 0 до 500 дней".into(),
-                ));
-            }
+        if let Some(g) = self.gestation
+            && !(0..=500).contains(&g)
+        {
+            return Err(crate::errors::AppError::BadRequest(
+                "Срок стельности должен быть от 0 до 500 дней".into(),
+            ));
         }
         Ok(())
     }

@@ -33,6 +33,7 @@ pub fn admin_token() -> String {
     create_token("admin", "admin", &test_config().jwt_secret).unwrap()
 }
 
+#[allow(dead_code)]
 pub fn user_token() -> String {
     create_token("testuser", "user", &test_config().jwt_secret).unwrap()
 }
@@ -47,6 +48,7 @@ pub fn auth_request(method: &str, uri: &str, token: &str) -> Request<Body> {
         .unwrap()
 }
 
+#[allow(dead_code)]
 pub fn auth_request_with_body(
     method: &str,
     uri: &str,
@@ -67,11 +69,13 @@ pub async fn read_body_json<T: DeserializeOwned>(body: Body) -> T {
     serde_json::from_slice(&bytes).unwrap()
 }
 
+#[allow(dead_code)]
 pub async fn read_body_string(body: Body) -> String {
     let bytes = body.collect().await.unwrap().to_bytes();
     String::from_utf8(bytes.to_vec()).unwrap()
 }
 
+#[allow(dead_code)]
 pub async fn seed_admin_user(pool: &PgPool) {
     let hash = bcrypt::hash("admin12345", bcrypt::DEFAULT_COST).unwrap();
     sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ('admin', $1, 'admin') ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash")
@@ -81,6 +85,7 @@ pub async fn seed_admin_user(pool: &PgPool) {
         .unwrap();
 }
 
+#[allow(dead_code)]
 pub async fn seed_animal(pool: &PgPool) -> i32 {
     let row: (i32,) = sqlx::query_as(
         "INSERT INTO animals (gender, birth_date, active) VALUES ('female', '2020-01-01'::date, true) RETURNING id"
@@ -91,6 +96,7 @@ pub async fn seed_animal(pool: &PgPool) -> i32 {
     row.0
 }
 
+#[allow(dead_code)]
 pub async fn seed_male_animal(pool: &PgPool) -> i32 {
     let row: (i32,) = sqlx::query_as(
         "INSERT INTO animals (gender, birth_date, active) VALUES ('male', '2021-06-15'::date, true) RETURNING id"
@@ -101,6 +107,7 @@ pub async fn seed_male_animal(pool: &PgPool) -> i32 {
     row.0
 }
 
+#[allow(dead_code)]
 pub async fn seed_location(pool: &PgPool) -> i32 {
     let row: (i32,) =
         sqlx::query_as("INSERT INTO locations (name) VALUES ('Test Barn') RETURNING id")
@@ -110,6 +117,7 @@ pub async fn seed_location(pool: &PgPool) -> i32 {
     row.0
 }
 
+#[allow(dead_code)]
 pub async fn seed_feed_type(pool: &PgPool) -> i32 {
     let row: (i32,) = sqlx::query_as(
         "INSERT INTO feed_types (number_of_feed_type, feed_type, name, dry_matter_percentage, price) VALUES (1, 'grain', 'Test Feed', 85.0, 10.0) RETURNING id"

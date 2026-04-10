@@ -62,7 +62,7 @@ pub fn opt_non_negative_f64(value: &Option<f64>, field: &str) -> Result<(), AppE
 }
 
 pub fn percentage_f64(value: f64, field: &str) -> Result<(), AppError> {
-    if value < 0.0 || value > 100.0 {
+    if !(0.0..=100.0).contains(&value) {
         return Err(AppError::BadRequest(format!(
             "Поле '{}' должно быть от 0 до 100",
             field
@@ -117,10 +117,11 @@ pub fn password(value: &str) -> Result<(), AppError> {
 }
 
 pub fn opt_email(value: &Option<String>) -> Result<(), AppError> {
-    if let Some(v) = value {
-        if !v.trim().is_empty() && !v.contains('@') {
-            return Err(AppError::BadRequest("Некорректный email".into()));
-        }
+    if let Some(v) = value
+        && !v.trim().is_empty()
+        && !v.contains('@')
+    {
+        return Err(AppError::BadRequest("Некорректный email".into()));
     }
     Ok(())
 }
