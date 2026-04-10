@@ -28,7 +28,9 @@
 		>
 			{tab.label}
 			{#if active === tab.key}
-				<span class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full"></span>
+				<span
+					class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full"
+				></span>
 			{/if}
 		</button>
 	{/each}

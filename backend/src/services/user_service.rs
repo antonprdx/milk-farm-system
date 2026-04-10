@@ -90,7 +90,9 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_create_user(pool: PgPool) {
-        let user = create_user(&pool, "testuser", "hash123", "user").await.unwrap();
+        let user = create_user(&pool, "testuser", "hash123", "user")
+            .await
+            .unwrap();
         assert_eq!(user.username, "testuser");
         assert_eq!(user.role, "user");
         assert_eq!(user.password_hash, "hash123");
@@ -133,7 +135,9 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_update_password(pool: PgPool) {
-        let user = create_user(&pool, "pwtest", "old_hash", "user").await.unwrap();
+        let user = create_user(&pool, "pwtest", "old_hash", "user")
+            .await
+            .unwrap();
         update_password(&pool, user.id, "new_hash").await.unwrap();
         let updated = find_by_username(&pool, "pwtest").await.unwrap().unwrap();
         assert_eq!(updated.password_hash, "new_hash");

@@ -2,9 +2,9 @@ mod common;
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use serde_json::{json, Value};
-use tower::ServiceExt;
 use milk_farm_backend::create_app;
+use serde_json::{Value, json};
+use tower::ServiceExt;
 
 use common::*;
 
@@ -29,18 +29,32 @@ async fn test_health_no_auth(pool: sqlx::PgPool) {
 async fn test_login_valid(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
 
-    let hash: (String,) = sqlx::query_as("SELECT password_hash FROM users WHERE username = 'admin'")
-        .fetch_one(&pool).await.unwrap();
+    let hash: (String,) =
+        sqlx::query_as("SELECT password_hash FROM users WHERE username = 'admin'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     let app = make_app(pool);
-    let req = auth_request_with_body("POST", "/api/auth/login", "", json!({
-        "username": "admin",
-        "password": "admin12345"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/auth/login",
+        "",
+        json!({
+            "username": "admin",
+            "password": "admin12345"
+        }),
+    );
     let resp = app.oneshot(req).await.unwrap();
     let status = resp.status();
     let body: Value = read_body_json(resp.into_body()).await;
-    assert_eq!(status, StatusCode::OK, "body: {:?}, verify_ok: {}", body, bcrypt::verify("admin12345", &hash.0).unwrap());
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "body: {:?}, verify_ok: {}",
+        body,
+        bcrypt::verify("admin12345", &hash.0).unwrap()
+    );
     assert_eq!(body["username"], "admin");
     assert_eq!(body["role"], "admin");
 }
@@ -49,10 +63,15 @@ async fn test_login_valid(pool: sqlx::PgPool) {
 async fn test_login_invalid_password(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
     let app = make_app(pool);
-    let req = auth_request_with_body("POST", "/api/auth/login", "", json!({
-        "username": "admin",
-        "password": "wrongpassword"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/auth/login",
+        "",
+        json!({
+            "username": "admin",
+            "password": "wrongpassword"
+        }),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
@@ -60,10 +79,15 @@ async fn test_login_invalid_password(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_login_nonexistent_user(pool: sqlx::PgPool) {
     let app = make_app(pool);
-    let req = auth_request_with_body("POST", "/api/auth/login", "", json!({
-        "username": "ghost",
-        "password": "whatever12"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/auth/login",
+        "",
+        json!({
+            "username": "ghost",
+            "password": "whatever12"
+        }),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
@@ -73,10 +97,15 @@ async fn test_register_requires_admin(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
     let app = make_app(pool);
     let token = user_token();
-    let req = auth_request_with_body("POST", "/api/auth/register", &token, json!({
-        "username": "newuser",
-        "password": "password123"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/auth/register",
+        &token,
+        json!({
+            "username": "newuser",
+            "password": "password123"
+        }),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
@@ -86,10 +115,15 @@ async fn test_register_as_admin(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
     let app = make_app(pool);
     let token = admin_token();
-    let req = auth_request_with_body("POST", "/api/auth/register", &token, json!({
-        "username": "newuser",
-        "password": "password123"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/auth/register",
+        &token,
+        json!({
+            "username": "newuser",
+            "password": "password123"
+        }),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }

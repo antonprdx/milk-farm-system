@@ -41,14 +41,21 @@
 								: col.align === 'center'
 									? 'text-center'
 									: 'text-left'} px-4 py-3 text-slate-600 dark:text-slate-400 font-medium"
-						>{col.label}</th>
+							>{col.label}</th
+						>
 					{/each}
 				</tr>
 			</thead>
-			<tbody class="[&>tr:nth-child(even)]:bg-slate-50/50 dark:[&>tr:nth-child(even)]:bg-slate-800/30">
+			<tbody
+				class="[&>tr:nth-child(even)]:bg-slate-50/50 dark:[&>tr:nth-child(even)]:bg-slate-800/30"
+			>
 				{#if loading}
 					{#each Array(5) as _, i (i)}
-						<tr class="border-b border-slate-100 dark:border-slate-700 {i % 2 === 1 ? 'bg-slate-50/50 dark:bg-slate-800/30' : ''}">
+						<tr
+							class="border-b border-slate-100 dark:border-slate-700 {i % 2 === 1
+								? 'bg-slate-50/50 dark:bg-slate-800/30'
+								: ''}"
+						>
 							{#each Array(cols) as _, j (j)}
 								<td class="px-4 py-3"
 									><div class="h-4 bg-slate-100 dark:bg-slate-900 rounded animate-pulse"></div></td

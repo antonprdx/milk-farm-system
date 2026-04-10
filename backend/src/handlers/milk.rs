@@ -1,7 +1,7 @@
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
@@ -11,8 +11,16 @@ use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/milk/day-productions", get(list_productions).post(create_production))
-        .route("/milk/day-productions/{id}", get(get_production).put(update_production).delete(delete_production))
+        .route(
+            "/milk/day-productions",
+            get(list_productions).post(create_production),
+        )
+        .route(
+            "/milk/day-productions/{id}",
+            get(get_production)
+                .put(update_production)
+                .delete(delete_production),
+        )
         .route("/milk/visits", get(list_visits))
         .route("/milk/quality", get(list_quality))
 }
@@ -25,7 +33,9 @@ async fn list_productions(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = milk_service::list_productions(&state.pool, &filter).await?;
     let total = milk_service::count_productions(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn create_production(
@@ -77,7 +87,9 @@ async fn list_visits(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = milk_service::list_visits(&state.pool, &filter).await?;
     let total = milk_service::count_visits(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn list_quality(
@@ -88,5 +100,7 @@ async fn list_quality(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = milk_service::list_quality(&state.pool, &filter).await?;
     let total = milk_service::count_quality(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }

@@ -4,7 +4,10 @@ use crate::errors::AppError;
 use crate::models::milk::*;
 use crate::services::animal_service;
 
-pub async fn list_productions(pool: &PgPool, filter: &MilkFilter) -> Result<Vec<MilkDayProduction>, AppError> {
+pub async fn list_productions(
+    pool: &PgPool,
+    filter: &MilkFilter,
+) -> Result<Vec<MilkDayProduction>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, MilkDayProduction>(
@@ -44,7 +47,10 @@ pub async fn get_production(pool: &PgPool, id: i32) -> Result<Option<MilkDayProd
         .map_err(AppError::Database)
 }
 
-pub async fn create_production(pool: &PgPool, req: &CreateMilkDayProduction) -> Result<MilkDayProduction, AppError> {
+pub async fn create_production(
+    pool: &PgPool,
+    req: &CreateMilkDayProduction,
+) -> Result<MilkDayProduction, AppError> {
     animal_service::ensure_exists(pool, req.animal_id).await?;
 
     sqlx::query_as::<_, MilkDayProduction>(
@@ -62,7 +68,11 @@ pub async fn create_production(pool: &PgPool, req: &CreateMilkDayProduction) -> 
     .map_err(AppError::Database)
 }
 
-pub async fn update_production(pool: &PgPool, id: i32, req: &UpdateMilkDayProduction) -> Result<MilkDayProduction, AppError> {
+pub async fn update_production(
+    pool: &PgPool,
+    id: i32,
+    req: &UpdateMilkDayProduction,
+) -> Result<MilkDayProduction, AppError> {
     sqlx::query_as::<_, MilkDayProduction>(
         "UPDATE milk_day_productions SET
          date = COALESCE($2, date),
@@ -127,7 +137,10 @@ pub async fn count_visits(pool: &PgPool, filter: &MilkFilter) -> Result<i64, App
     Ok(row.0)
 }
 
-pub async fn list_quality(pool: &PgPool, filter: &MilkFilter) -> Result<Vec<MilkQuality>, AppError> {
+pub async fn list_quality(
+    pool: &PgPool,
+    filter: &MilkFilter,
+) -> Result<Vec<MilkQuality>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, MilkQuality>(
@@ -162,7 +175,6 @@ pub async fn count_quality(pool: &PgPool, filter: &MilkFilter) -> Result<i64, Ap
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     async fn seed_cow(pool: &PgPool) -> i32 {
         let animal = sqlx::query_as::<_, crate::models::animal::Animal>(
@@ -214,7 +226,13 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_productions_empty(pool: PgPool) {
-        let filter = MilkFilter { animal_id: None, from_date: None, till_date: None, page: None, per_page: None };
+        let filter = MilkFilter {
+            animal_id: None,
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let prods = list_productions(&pool, &filter).await.unwrap();
         assert!(prods.is_empty());
     }
@@ -223,11 +241,31 @@ mod tests {
     async fn test_list_productions_filter_by_animal(pool: PgPool) {
         let a1 = seed_cow(&pool).await;
         let a2 = seed_cow(&pool).await;
-        let req1 = CreateMilkDayProduction { animal_id: a1, date: chrono::NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(), milk_amount: Some(10.0), avg_amount: None, avg_weight: None, isk: None };
-        let req2 = CreateMilkDayProduction { animal_id: a2, date: chrono::NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(), milk_amount: Some(20.0), avg_amount: None, avg_weight: None, isk: None };
+        let req1 = CreateMilkDayProduction {
+            animal_id: a1,
+            date: chrono::NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
+            milk_amount: Some(10.0),
+            avg_amount: None,
+            avg_weight: None,
+            isk: None,
+        };
+        let req2 = CreateMilkDayProduction {
+            animal_id: a2,
+            date: chrono::NaiveDate::from_ymd_opt(2025, 1, 15).unwrap(),
+            milk_amount: Some(20.0),
+            avg_amount: None,
+            avg_weight: None,
+            isk: None,
+        };
         create_production(&pool, &req1).await.unwrap();
         create_production(&pool, &req2).await.unwrap();
-        let filter = MilkFilter { animal_id: Some(a1), from_date: None, till_date: None, page: None, per_page: None };
+        let filter = MilkFilter {
+            animal_id: Some(a1),
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let prods = list_productions(&pool, &filter).await.unwrap();
         assert_eq!(prods.len(), 1);
         assert_eq!(prods[0].animal_id, a1);
@@ -236,8 +274,22 @@ mod tests {
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_productions_filter_by_date(pool: PgPool) {
         let animal_id = seed_cow(&pool).await;
-        let req1 = CreateMilkDayProduction { animal_id, date: chrono::NaiveDate::from_ymd_opt(2025, 1, 10).unwrap(), milk_amount: Some(10.0), avg_amount: None, avg_weight: None, isk: None };
-        let req2 = CreateMilkDayProduction { animal_id, date: chrono::NaiveDate::from_ymd_opt(2025, 1, 20).unwrap(), milk_amount: Some(20.0), avg_amount: None, avg_weight: None, isk: None };
+        let req1 = CreateMilkDayProduction {
+            animal_id,
+            date: chrono::NaiveDate::from_ymd_opt(2025, 1, 10).unwrap(),
+            milk_amount: Some(10.0),
+            avg_amount: None,
+            avg_weight: None,
+            isk: None,
+        };
+        let req2 = CreateMilkDayProduction {
+            animal_id,
+            date: chrono::NaiveDate::from_ymd_opt(2025, 1, 20).unwrap(),
+            milk_amount: Some(20.0),
+            avg_amount: None,
+            avg_weight: None,
+            isk: None,
+        };
         create_production(&pool, &req1).await.unwrap();
         create_production(&pool, &req2).await.unwrap();
         let filter = MilkFilter {
@@ -254,14 +306,26 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_visits_empty(pool: PgPool) {
-        let filter = MilkFilter { animal_id: None, from_date: None, till_date: None, page: None, per_page: None };
+        let filter = MilkFilter {
+            animal_id: None,
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let visits = list_visits(&pool, &filter).await.unwrap();
         assert!(visits.is_empty());
     }
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_quality_empty(pool: PgPool) {
-        let filter = MilkFilter { animal_id: None, from_date: None, till_date: None, page: None, per_page: None };
+        let filter = MilkFilter {
+            animal_id: None,
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let quality = list_quality(&pool, &filter).await.unwrap();
         assert!(quality.is_empty());
     }

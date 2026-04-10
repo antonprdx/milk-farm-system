@@ -11,9 +11,10 @@ pub mod validation;
 use state::AppStateInner;
 
 pub async fn seed_admin(pool: &sqlx::PgPool) -> anyhow::Result<()> {
-    let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE username = 'admin')")
-        .fetch_one(pool)
-        .await?;
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE username = 'admin')")
+            .fetch_one(pool)
+            .await?;
     if !exists {
         let hash = bcrypt::hash("admin", bcrypt::DEFAULT_COST)?;
         sqlx::query("INSERT INTO users (username, password_hash, role, must_change_password) VALUES ('admin', $1, 'admin', true)")
@@ -26,8 +27,8 @@ pub async fn seed_admin(pool: &sqlx::PgPool) -> anyhow::Result<()> {
 }
 
 pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
-    use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, COOKIE};
     use axum::http::Method;
+    use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, COOKIE};
     use tower_http::cors::{AllowOrigin, CorsLayer};
     use tower_http::trace::TraceLayer;
 
@@ -40,12 +41,7 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
 
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::list(origins))
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::DELETE,
-        ])
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers([AUTHORIZATION, CONTENT_TYPE, COOKIE])
         .allow_credentials(true);
 

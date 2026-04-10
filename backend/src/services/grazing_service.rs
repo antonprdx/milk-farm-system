@@ -37,7 +37,12 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_empty(pool: PgPool) {
-        let filter = GrazingFilter { from_date: None, till_date: None, page: None, per_page: None };
+        let filter = GrazingFilter {
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let data = list(&pool, &filter).await.unwrap();
         assert!(data.is_empty());
     }
@@ -51,7 +56,12 @@ mod tests {
         .await
         .unwrap();
 
-        let filter = GrazingFilter { from_date: None, till_date: None, page: None, per_page: None };
+        let filter = GrazingFilter {
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let data = list(&pool, &filter).await.unwrap();
         assert_eq!(data.len(), 1);
         assert_eq!(data[0].animal_count, Some(50));
@@ -59,10 +69,18 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_filter_by_date(pool: PgPool) {
-        sqlx::query("INSERT INTO grazing_data (date, animal_count) VALUES ('2025-01-10'::date, 10)")
-            .execute(&pool).await.unwrap();
-        sqlx::query("INSERT INTO grazing_data (date, animal_count) VALUES ('2025-06-10'::date, 20)")
-            .execute(&pool).await.unwrap();
+        sqlx::query(
+            "INSERT INTO grazing_data (date, animal_count) VALUES ('2025-01-10'::date, 10)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO grazing_data (date, animal_count) VALUES ('2025-06-10'::date, 20)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
 
         let filter = GrazingFilter {
             from_date: Some(chrono::NaiveDate::from_ymd_opt(2025, 6, 1).unwrap()),

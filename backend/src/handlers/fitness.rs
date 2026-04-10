@@ -1,7 +1,7 @@
 use axum::extract::{Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
@@ -23,7 +23,9 @@ async fn list_activities(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = fitness_service::list_activities(&state.pool, &filter).await?;
     let total = fitness_service::count_activities(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }
 
 async fn list_ruminations(
@@ -34,5 +36,7 @@ async fn list_ruminations(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
     let data = fitness_service::list_ruminations(&state.pool, &filter).await?;
     let total = fitness_service::count_ruminations(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page })))
+    Ok(Json(
+        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
+    ))
 }

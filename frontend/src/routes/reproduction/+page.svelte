@@ -533,7 +533,8 @@
 						>
 						<button
 							onclick={() => confirmDelete(c.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"><Trash2 size={14} /></button
+							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+							><Trash2 size={14} /></button
 						>
 					</td>
 				</tr>
@@ -586,7 +587,8 @@
 						>
 						<button
 							onclick={() => confirmDelete(i.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"><Trash2 size={14} /></button
+							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+							><Trash2 size={14} /></button
 						>
 					</td>
 				</tr>
@@ -635,7 +637,8 @@
 						>
 						<button
 							onclick={() => confirmDelete(p.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"><Trash2 size={14} /></button
+							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+							><Trash2 size={14} /></button
 						>
 					</td>
 				</tr>
@@ -680,7 +683,8 @@
 						>
 						<button
 							onclick={() => confirmDelete(h.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"><Trash2 size={14} /></button
+							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+							><Trash2 size={14} /></button
 						>
 					</td>
 				</tr>
@@ -725,7 +729,8 @@
 						>
 						<button
 							onclick={() => confirmDelete(d.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"><Trash2 size={14} /></button
+							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+							><Trash2 size={14} /></button
 						>
 					</td>
 				</tr>

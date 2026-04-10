@@ -80,7 +80,9 @@
 		? 'w-16'
 		: 'w-56'}"
 >
-	<div class="flex items-center justify-between p-4 border-b border-slate-700 dark:border-slate-800">
+	<div
+		class="flex items-center justify-between p-4 border-b border-slate-700 dark:border-slate-800"
+	>
 		{#if !collapsed}
 			<span class="text-lg font-bold whitespace-nowrap">Молочная ферма</span>
 		{/if}
@@ -136,7 +138,7 @@
 				{:else}
 					<Moon size={14} />
 				{/if}
-				{#if !collapsed}<span>{ $theme === 'dark' ? 'Светлая' : 'Тёмная' }</span>{/if}
+				{#if !collapsed}<span>{$theme === 'dark' ? 'Светлая' : 'Тёмная'}</span>{/if}
 			</button>
 			<button
 				onclick={handleLogout}

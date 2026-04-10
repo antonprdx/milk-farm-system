@@ -4,7 +4,10 @@ use crate::errors::AppError;
 use crate::models::reproduction::*;
 use crate::services::animal_service;
 
-pub async fn list_calvings(pool: &PgPool, filter: &ReproductionFilter) -> Result<Vec<Calving>, AppError> {
+pub async fn list_calvings(
+    pool: &PgPool,
+    filter: &ReproductionFilter,
+) -> Result<Vec<Calving>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Calving>(
@@ -89,7 +92,10 @@ pub async fn create_calving(pool: &PgPool, req: &CreateCalving) -> Result<Calvin
     Ok(calving)
 }
 
-pub async fn list_inseminations(pool: &PgPool, filter: &ReproductionFilter) -> Result<Vec<Insemination>, AppError> {
+pub async fn list_inseminations(
+    pool: &PgPool,
+    filter: &ReproductionFilter,
+) -> Result<Vec<Insemination>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Insemination>(
@@ -107,7 +113,10 @@ pub async fn list_inseminations(pool: &PgPool, filter: &ReproductionFilter) -> R
     .map_err(AppError::Database)
 }
 
-pub async fn count_inseminations(pool: &PgPool, filter: &ReproductionFilter) -> Result<i64, AppError> {
+pub async fn count_inseminations(
+    pool: &PgPool,
+    filter: &ReproductionFilter,
+) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM inseminations WHERE ($1::int IS NULL OR animal_id = $1)
          AND ($2::date IS NULL OR insemination_date >= $2) AND ($3::date IS NULL OR insemination_date <= $3)",
@@ -121,7 +130,10 @@ pub async fn count_inseminations(pool: &PgPool, filter: &ReproductionFilter) -> 
     Ok(row.0)
 }
 
-pub async fn create_insemination(pool: &PgPool, req: &CreateInsemination) -> Result<Insemination, AppError> {
+pub async fn create_insemination(
+    pool: &PgPool,
+    req: &CreateInsemination,
+) -> Result<Insemination, AppError> {
     animal_service::ensure_exists(pool, req.animal_id).await?;
 
     sqlx::query_as::<_, Insemination>(
@@ -138,7 +150,10 @@ pub async fn create_insemination(pool: &PgPool, req: &CreateInsemination) -> Res
     .map_err(AppError::Database)
 }
 
-pub async fn list_pregnancies(pool: &PgPool, filter: &ReproductionFilter) -> Result<Vec<Pregnancy>, AppError> {
+pub async fn list_pregnancies(
+    pool: &PgPool,
+    filter: &ReproductionFilter,
+) -> Result<Vec<Pregnancy>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Pregnancy>(
@@ -156,7 +171,10 @@ pub async fn list_pregnancies(pool: &PgPool, filter: &ReproductionFilter) -> Res
     .map_err(AppError::Database)
 }
 
-pub async fn count_pregnancies(pool: &PgPool, filter: &ReproductionFilter) -> Result<i64, AppError> {
+pub async fn count_pregnancies(
+    pool: &PgPool,
+    filter: &ReproductionFilter,
+) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM pregnancies WHERE ($1::int IS NULL OR animal_id = $1)
          AND ($2::date IS NULL OR pregnancy_date >= $2) AND ($3::date IS NULL OR pregnancy_date <= $3)",
@@ -221,17 +239,18 @@ pub async fn count_heats(pool: &PgPool, filter: &ReproductionFilter) -> Result<i
 pub async fn create_heat(pool: &PgPool, req: &CreateHeat) -> Result<Heat, AppError> {
     animal_service::ensure_exists(pool, req.animal_id).await?;
 
-    sqlx::query_as::<_, Heat>(
-        "INSERT INTO heats (animal_id, heat_date) VALUES ($1,$2) RETURNING *",
-    )
-    .bind(req.animal_id)
-    .bind(req.heat_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)
+    sqlx::query_as::<_, Heat>("INSERT INTO heats (animal_id, heat_date) VALUES ($1,$2) RETURNING *")
+        .bind(req.animal_id)
+        .bind(req.heat_date)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::Database)
 }
 
-pub async fn list_dryoffs(pool: &PgPool, filter: &ReproductionFilter) -> Result<Vec<DryOff>, AppError> {
+pub async fn list_dryoffs(
+    pool: &PgPool,
+    filter: &ReproductionFilter,
+) -> Result<Vec<DryOff>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, DryOff>(
@@ -276,7 +295,11 @@ pub async fn create_dryoff(pool: &PgPool, req: &CreateDryOff) -> Result<DryOff, 
     .map_err(AppError::Database)
 }
 
-pub async fn update_calving(pool: &PgPool, id: i32, req: &UpdateCalving) -> Result<Calving, AppError> {
+pub async fn update_calving(
+    pool: &PgPool,
+    id: i32,
+    req: &UpdateCalving,
+) -> Result<Calving, AppError> {
     sqlx::query_as::<_, Calving>(
         "UPDATE calvings SET
          calving_date = COALESCE($2, calving_date),
@@ -313,7 +336,11 @@ pub async fn get_insemination(pool: &PgPool, id: i32) -> Result<Option<Inseminat
         .map_err(AppError::Database)
 }
 
-pub async fn update_insemination(pool: &PgPool, id: i32, req: &UpdateInsemination) -> Result<Insemination, AppError> {
+pub async fn update_insemination(
+    pool: &PgPool,
+    id: i32,
+    req: &UpdateInsemination,
+) -> Result<Insemination, AppError> {
     sqlx::query_as::<_, Insemination>(
         "UPDATE inseminations SET
          insemination_date = COALESCE($2, insemination_date),
@@ -352,7 +379,11 @@ pub async fn get_pregnancy(pool: &PgPool, id: i32) -> Result<Option<Pregnancy>, 
         .map_err(AppError::Database)
 }
 
-pub async fn update_pregnancy(pool: &PgPool, id: i32, req: &UpdatePregnancy) -> Result<Pregnancy, AppError> {
+pub async fn update_pregnancy(
+    pool: &PgPool,
+    id: i32,
+    req: &UpdatePregnancy,
+) -> Result<Pregnancy, AppError> {
     sqlx::query_as::<_, Pregnancy>(
         "UPDATE pregnancies SET
          pregnancy_date = COALESCE($2, pregnancy_date),
@@ -502,7 +533,13 @@ mod tests {
     #[sqlx::test(migrations = "./migrations")]
     async fn test_get_calving(pool: PgPool) {
         let animal_id = seed_cow(&pool).await;
-        let req = CreateCalving { animal_id, calving_date: chrono::NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(), remarks: None, lac_number: None, calves: None };
+        let req = CreateCalving {
+            animal_id,
+            calving_date: chrono::NaiveDate::from_ymd_opt(2024, 6, 1).unwrap(),
+            remarks: None,
+            lac_number: None,
+            calves: None,
+        };
         let created = create_calving(&pool, &req).await.unwrap();
         let found = get_calving(&pool, created.id).await.unwrap();
         assert!(found.is_some());
@@ -535,7 +572,14 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_calvings_empty(pool: PgPool) {
-        let filter = ReproductionFilter { animal_id: None, life_number: None, from_date: None, till_date: None, page: None, per_page: None };
+        let filter = ReproductionFilter {
+            animal_id: None,
+            life_number: None,
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let calvings = list_calvings(&pool, &filter).await.unwrap();
         assert!(calvings.is_empty());
     }
@@ -559,9 +603,38 @@ mod tests {
     async fn test_list_inseminations_filter(pool: PgPool) {
         let a1 = seed_cow(&pool).await;
         let a2 = seed_cow(&pool).await;
-        create_insemination(&pool, &CreateInsemination { animal_id: a1, insemination_date: chrono::NaiveDate::from_ymd_opt(2024, 3, 1).unwrap(), sire_code: None, insemination_type: None, charge_number: None }).await.unwrap();
-        create_insemination(&pool, &CreateInsemination { animal_id: a2, insemination_date: chrono::NaiveDate::from_ymd_opt(2024, 4, 1).unwrap(), sire_code: None, insemination_type: None, charge_number: None }).await.unwrap();
-        let filter = ReproductionFilter { animal_id: Some(a1), life_number: None, from_date: None, till_date: None, page: None, per_page: None };
+        create_insemination(
+            &pool,
+            &CreateInsemination {
+                animal_id: a1,
+                insemination_date: chrono::NaiveDate::from_ymd_opt(2024, 3, 1).unwrap(),
+                sire_code: None,
+                insemination_type: None,
+                charge_number: None,
+            },
+        )
+        .await
+        .unwrap();
+        create_insemination(
+            &pool,
+            &CreateInsemination {
+                animal_id: a2,
+                insemination_date: chrono::NaiveDate::from_ymd_opt(2024, 4, 1).unwrap(),
+                sire_code: None,
+                insemination_type: None,
+                charge_number: None,
+            },
+        )
+        .await
+        .unwrap();
+        let filter = ReproductionFilter {
+            animal_id: Some(a1),
+            life_number: None,
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let list = list_inseminations(&pool, &filter).await.unwrap();
         assert_eq!(list.len(), 1);
     }
@@ -593,8 +666,24 @@ mod tests {
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_heats_filter_by_date(pool: PgPool) {
         let animal_id = seed_cow(&pool).await;
-        create_heat(&pool, &CreateHeat { animal_id, heat_date: chrono::NaiveDate::from_ymd_opt(2024, 1, 10).unwrap() }).await.unwrap();
-        create_heat(&pool, &CreateHeat { animal_id, heat_date: chrono::NaiveDate::from_ymd_opt(2024, 5, 10).unwrap() }).await.unwrap();
+        create_heat(
+            &pool,
+            &CreateHeat {
+                animal_id,
+                heat_date: chrono::NaiveDate::from_ymd_opt(2024, 1, 10).unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+        create_heat(
+            &pool,
+            &CreateHeat {
+                animal_id,
+                heat_date: chrono::NaiveDate::from_ymd_opt(2024, 5, 10).unwrap(),
+            },
+        )
+        .await
+        .unwrap();
         let filter = ReproductionFilter {
             animal_id: None,
             life_number: None,

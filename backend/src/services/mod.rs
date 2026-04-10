@@ -7,7 +7,7 @@ pub mod fitness_service;
 pub mod grazing_service;
 pub mod location_service;
 pub mod milk_service;
-pub mod reproduction_service;
 pub mod reports_service;
+pub mod reproduction_service;
 pub mod stats_service;
 pub mod user_service;

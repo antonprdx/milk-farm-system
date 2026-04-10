@@ -1,7 +1,7 @@
 mod common;
 
 use axum::http::StatusCode;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sqlx::PgPool;
 use tower::ServiceExt;
 
@@ -9,10 +9,15 @@ use common::*;
 use milk_farm_backend::create_app;
 
 async fn seed_animal_via_api(app: &axum::Router) -> i64 {
-    let req = auth_request_with_body("POST", "/api/v1/animals", &admin_token(), json!({
-        "gender": "female",
-        "birth_date": "2020-01-01"
-    }));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/v1/animals",
+        &admin_token(),
+        json!({
+            "gender": "female",
+            "birth_date": "2020-01-01"
+        }),
+    );
     let resp = app.clone().oneshot(req).await.unwrap();
     read_body_json::<Value>(resp.into_body()).await["data"]["id"]
         .as_i64()
@@ -148,11 +153,7 @@ async fn test_user_cannot_delete_animals(pool: PgPool) {
     let animal_id = seed_animal_via_api(&app).await;
     let token = user_token();
 
-    let req = auth_request(
-        "DELETE",
-        &format!("/api/v1/animals/{}", animal_id),
-        &token,
-    );
+    let req = auth_request("DELETE", &format!("/api/v1/animals/{}", animal_id), &token);
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
@@ -226,11 +227,7 @@ async fn test_user_cannot_delete_bulk_tank_tests(pool: PgPool) {
     let bt_id = seed_bulk_tank(&app).await;
     let token = user_token();
 
-    let req = auth_request(
-        "DELETE",
-        &format!("/api/v1/bulk-tank/{}", bt_id),
-        &token,
-    );
+    let req = auth_request("DELETE", &format!("/api/v1/bulk-tank/{}", bt_id), &token);
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }

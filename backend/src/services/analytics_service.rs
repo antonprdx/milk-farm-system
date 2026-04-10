@@ -73,7 +73,10 @@ async fn milk_by_lactation(pool: &PgPool) -> Result<Vec<LactationAvg>, AppError>
     .await
     .map_err(AppError::Database)?;
 
-    Ok(rows.into_iter().map(|(lac, avg)| LactationAvg { lac, avg_milk: avg }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|(lac, avg)| LactationAvg { lac, avg_milk: avg })
+        .collect())
 }
 
 async fn feed_eff(pool: &PgPool) -> Result<Option<f64>, AppError> {
@@ -130,7 +133,9 @@ async fn refusal_rate(pool: &PgPool) -> Result<Option<f64>, AppError> {
     .map_err(AppError::Database)?;
 
     match row {
-        Some((Some(refusals), Some(milkings))) if milkings > 0.0 => Ok(Some((refusals / milkings) * 100.0)),
+        Some((Some(refusals), Some(milkings))) if milkings > 0.0 => {
+            Ok(Some((refusals / milkings) * 100.0))
+        }
         _ => Ok(None),
     }
 }
@@ -165,34 +170,68 @@ async fn culling_risk_calc(pool: &PgPool) -> Result<Vec<CullingRiskEntry>, AppEr
     .await
     .map_err(AppError::Database)?;
 
-    let mut entries: Vec<CullingRiskEntry> = rows.into_iter().map(|(id, name, life_number, milk, scc, interval, age)| {
-        let mut score = 0.0_f64;
-        let mut reasons = Vec::new();
+    let mut entries: Vec<CullingRiskEntry> = rows
+        .into_iter()
+        .map(|(id, name, life_number, milk, scc, interval, age)| {
+            let mut score = 0.0_f64;
+            let mut reasons = Vec::new();
 
-        if let Some(age_yrs) = age {
-            if age_yrs >= 8 { score += 0.3; reasons.push("возраст".to_string()); }
-            else if age_yrs >= 6 { score += 0.15; reasons.push("пожилой возраст".to_string()); }
-        }
+            if let Some(age_yrs) = age {
+                if age_yrs >= 8 {
+                    score += 0.3;
+                    reasons.push("возраст".to_string());
+                } else if age_yrs >= 6 {
+                    score += 0.15;
+                    reasons.push("пожилой возраст".to_string());
+                }
+            }
 
-        if let Some(milk) = milk {
-            if milk < 15.0 { score += 0.3; reasons.push("низкий надой".to_string()); }
-            else if milk < 20.0 { score += 0.1; reasons.push("снижающийся надой".to_string()); }
-        }
+            if let Some(milk) = milk {
+                if milk < 15.0 {
+                    score += 0.3;
+                    reasons.push("низкий надой".to_string());
+                } else if milk < 20.0 {
+                    score += 0.1;
+                    reasons.push("снижающийся надой".to_string());
+                }
+            }
 
-        if let Some(scc_val) = scc {
-            if scc_val > 300000.0 { score += 0.25; reasons.push("высокий SCC".to_string()); }
-            else if scc_val > 200000.0 { score += 0.1; reasons.push("повышенный SCC".to_string()); }
-        }
+            if let Some(scc_val) = scc {
+                if scc_val > 300000.0 {
+                    score += 0.25;
+                    reasons.push("высокий SCC".to_string());
+                } else if scc_val > 200000.0 {
+                    score += 0.1;
+                    reasons.push("повышенный SCC".to_string());
+                }
+            }
 
-        if let Some(ci) = interval {
-            if ci > 450.0 { score += 0.2; reasons.push("длинный интервал отёлов".to_string()); }
-            else if ci > 400.0 { score += 0.1; reasons.push("увеличенный интервал отёлов".to_string()); }
-        }
+            if let Some(ci) = interval {
+                if ci > 450.0 {
+                    score += 0.2;
+                    reasons.push("длинный интервал отёлов".to_string());
+                } else if ci > 400.0 {
+                    score += 0.1;
+                    reasons.push("увеличенный интервал отёлов".to_string());
+                }
+            }
 
-        CullingRiskEntry { animal_id: id, name, life_number, score: (score * 100.0).round() / 100.0, reasons }
-    }).filter(|e| e.score >= 0.3).collect();
+            CullingRiskEntry {
+                animal_id: id,
+                name,
+                life_number,
+                score: (score * 100.0).round() / 100.0,
+                reasons,
+            }
+        })
+        .filter(|e| e.score >= 0.3)
+        .collect();
 
-    entries.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    entries.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     entries.truncate(10);
     Ok(entries)
 }
@@ -238,7 +277,12 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
     for (id, name, scc, avg) in scc_spikes {
         alerts_list.push(Alert {
             alert_type: "high_scc".to_string(),
-            severity: if scc > 500000.0 { "critical" } else { "warning" }.to_string(),
+            severity: if scc > 500000.0 {
+                "critical"
+            } else {
+                "warning"
+            }
+            .to_string(),
             animal_id: Some(id),
             animal_name: name,
             message: "SCC значительно выше нормы — возможен мастит".to_string(),
@@ -305,14 +349,28 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
     }
 
     alerts_list.sort_by(|a, b| {
-        let ord = |s: &str| if s == "critical" { 0 } else if s == "warning" { 1 } else { 2 };
+        let ord = |s: &str| {
+            if s == "critical" {
+                0
+            } else if s == "warning" {
+                1
+            } else {
+                2
+            }
+        };
         ord(&a.severity).cmp(&ord(&b.severity))
     });
 
-    Ok(AlertsResponse { alerts: alerts_list })
+    Ok(AlertsResponse {
+        alerts: alerts_list,
+    })
 }
 
-pub async fn milk_trend(pool: &PgPool, days: i64, forecast_days: i64) -> Result<MilkTrendResponse, AppError> {
+pub async fn milk_trend(
+    pool: &PgPool,
+    days: i64,
+    forecast_days: i64,
+) -> Result<MilkTrendResponse, AppError> {
     let daily: Vec<(String, Option<f64>, Option<i64>)> = sqlx::query_as(
         "SELECT date::text, SUM(milk_amount)::float8, COUNT(DISTINCT animal_id)::int8
          FROM milk_day_productions
@@ -324,14 +382,23 @@ pub async fn milk_trend(pool: &PgPool, days: i64, forecast_days: i64) -> Result<
     .await
     .map_err(AppError::Database)?;
 
-    let daily_pts: Vec<DailyMilkPoint> = daily.into_iter().map(|(d, m, c)| DailyMilkPoint { date: d, total_milk: m, cow_count: c }).collect();
+    let daily_pts: Vec<DailyMilkPoint> = daily
+        .into_iter()
+        .map(|(d, m, c)| DailyMilkPoint {
+            date: d,
+            total_milk: m,
+            cow_count: c,
+        })
+        .collect();
 
     let values: Vec<f64> = daily_pts.iter().filter_map(|p| p.total_milk).collect();
 
     let (forecast, direction) = if values.len() >= 7 {
         let (level, trend) = holt_forecast(&values, 0.3, 0.1);
         let mut fc = Vec::new();
-        let last_date = daily_pts.last().and_then(|p| chrono::NaiveDate::parse_from_str(&p.date, "%Y-%m-%d").ok());
+        let last_date = daily_pts
+            .last()
+            .and_then(|p| chrono::NaiveDate::parse_from_str(&p.date, "%Y-%m-%d").ok());
         if let Some(ld) = last_date {
             for h in 1..=forecast_days {
                 let pred = level + h as f64 * trend;
@@ -345,13 +412,23 @@ pub async fn milk_trend(pool: &PgPool, days: i64, forecast_days: i64) -> Result<
                 });
             }
         }
-        let dir = if trend > 1.0 { "up" } else if trend < -1.0 { "down" } else { "stable" };
+        let dir = if trend > 1.0 {
+            "up"
+        } else if trend < -1.0 {
+            "down"
+        } else {
+            "stable"
+        };
         (fc, dir.to_string())
     } else {
         (Vec::new(), "insufficient_data".to_string())
     };
 
-    Ok(MilkTrendResponse { daily: daily_pts, forecast, trend_direction: direction })
+    Ok(MilkTrendResponse {
+        daily: daily_pts,
+        forecast,
+        trend_direction: direction,
+    })
 }
 
 fn holt_forecast(values: &[f64], alpha: f64, beta: f64) -> (f64, f64) {
@@ -359,7 +436,11 @@ fn holt_forecast(values: &[f64], alpha: f64, beta: f64) -> (f64, f64) {
         return (0.0, 0.0);
     }
     let mut level = values[0];
-    let mut trend = if values.len() > 1 { values[1] - values[0] } else { 0.0 };
+    let mut trend = if values.len() > 1 {
+        values[1] - values[0]
+    } else {
+        0.0
+    };
 
     for i in 1..values.len() {
         let new_level = alpha * values[i] + (1.0 - alpha) * (level + trend);
@@ -371,7 +452,9 @@ fn holt_forecast(values: &[f64], alpha: f64, beta: f64) -> (f64, f64) {
     (level, trend)
 }
 
-pub async fn reproduction_forecast(pool: &PgPool) -> Result<ReproductionForecastResponse, AppError> {
+pub async fn reproduction_forecast(
+    pool: &PgPool,
+) -> Result<ReproductionForecastResponse, AppError> {
     let expected_calvings: Vec<(i32, Option<String>, Option<String>, Option<String>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number, i.insemination_date::text
          FROM inseminations i
@@ -391,36 +474,42 @@ pub async fn reproduction_forecast(pool: &PgPool) -> Result<ReproductionForecast
     .map_err(AppError::Database)?;
 
     let today = chrono::Utc::now().date_naive();
-    let calvings: Vec<ExpectedCalving> = expected_calvings.into_iter().filter_map(|(id, name, ln, ins_date)| {
-        let ins = chrono::NaiveDate::parse_from_str(ins_date.as_deref()?, "%Y-%m-%d").ok()?;
-        let expected = ins + chrono::Duration::days(283);
-        Some(ExpectedCalving {
-            animal_id: id,
-            name,
-            life_number: ln,
-            insemination_date: ins_date,
-            expected_date: expected.format("%Y-%m-%d").to_string(),
-            days_left: (expected - today).num_days(),
-        })
-    }).collect();
-
-    let dry_offs: Vec<DryOffRecommendation> = calvings.iter().filter_map(|c| {
-        let exp = chrono::NaiveDate::parse_from_str(&c.expected_date, "%Y-%m-%d").ok()?;
-        let rec = exp - chrono::Duration::days(60);
-        let days_until = (rec - today).num_days();
-        if days_until <= 60 {
-            Some(DryOffRecommendation {
-                animal_id: c.animal_id,
-                name: c.name.clone(),
-                life_number: c.life_number.clone(),
-                expected_calving: c.expected_date.clone(),
-                recommended_dry_off: rec.format("%Y-%m-%d").to_string(),
-                days_until_dry_off: days_until,
+    let calvings: Vec<ExpectedCalving> = expected_calvings
+        .into_iter()
+        .filter_map(|(id, name, ln, ins_date)| {
+            let ins = chrono::NaiveDate::parse_from_str(ins_date.as_deref()?, "%Y-%m-%d").ok()?;
+            let expected = ins + chrono::Duration::days(283);
+            Some(ExpectedCalving {
+                animal_id: id,
+                name,
+                life_number: ln,
+                insemination_date: ins_date,
+                expected_date: expected.format("%Y-%m-%d").to_string(),
+                days_left: (expected - today).num_days(),
             })
-        } else {
-            None
-        }
-    }).collect();
+        })
+        .collect();
+
+    let dry_offs: Vec<DryOffRecommendation> = calvings
+        .iter()
+        .filter_map(|c| {
+            let exp = chrono::NaiveDate::parse_from_str(&c.expected_date, "%Y-%m-%d").ok()?;
+            let rec = exp - chrono::Duration::days(60);
+            let days_until = (rec - today).num_days();
+            if days_until <= 60 {
+                Some(DryOffRecommendation {
+                    animal_id: c.animal_id,
+                    name: c.name.clone(),
+                    life_number: c.life_number.clone(),
+                    expected_calving: c.expected_date.clone(),
+                    recommended_dry_off: rec.format("%Y-%m-%d").to_string(),
+                    days_until_dry_off: days_until,
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
 
     let last_heats: Vec<(i32, Option<String>, Option<String>, String)> = sqlx::query_as(
         "SELECT DISTINCT ON (h.animal_id) a.id, a.name, a.life_number, h.heat_date::text
@@ -433,20 +522,23 @@ pub async fn reproduction_forecast(pool: &PgPool) -> Result<ReproductionForecast
     .await
     .map_err(AppError::Database)?;
 
-    let heats: Vec<ExpectedHeat> = last_heats.into_iter().filter_map(|(id, name, ln, heat_str)| {
-        let heat_date = chrono::NaiveDate::parse_from_str(&heat_str, "%Y-%m-%d").ok()?;
-        let expected = heat_date + chrono::Duration::days(21);
-        let days_until = (expected - today).num_days();
-        Some(ExpectedHeat {
-            animal_id: id,
-            name,
-            life_number: ln,
-            last_heat: heat_str,
-            expected_next: expected.format("%Y-%m-%d").to_string(),
-            days_until,
-            overdue: days_until < 0,
+    let heats: Vec<ExpectedHeat> = last_heats
+        .into_iter()
+        .filter_map(|(id, name, ln, heat_str)| {
+            let heat_date = chrono::NaiveDate::parse_from_str(&heat_str, "%Y-%m-%d").ok()?;
+            let expected = heat_date + chrono::Duration::days(21);
+            let days_until = (expected - today).num_days();
+            Some(ExpectedHeat {
+                animal_id: id,
+                name,
+                life_number: ln,
+                last_heat: heat_str,
+                expected_next: expected.format("%Y-%m-%d").to_string(),
+                days_until,
+                overdue: days_until < 0,
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(ReproductionForecastResponse {
         expected_calvings: calvings,
@@ -515,19 +607,23 @@ mod tests {
         let cow = seed_cow(&pool).await;
         let today = chrono::Utc::now().date_naive();
 
-        sqlx::query("INSERT INTO calvings (animal_id, calving_date, lac_number) VALUES ($1, $2, 1)")
-            .bind(cow)
-            .bind(today - chrono::Duration::days(200))
-            .execute(&pool)
-            .await
-            .unwrap();
+        sqlx::query(
+            "INSERT INTO calvings (animal_id, calving_date, lac_number) VALUES ($1, $2, 1)",
+        )
+        .bind(cow)
+        .bind(today - chrono::Duration::days(200))
+        .execute(&pool)
+        .await
+        .unwrap();
 
-        sqlx::query("INSERT INTO calvings (animal_id, calving_date, lac_number) VALUES ($1, $2, 2)")
-            .bind(cow)
-            .bind(today - chrono::Duration::days(100))
-            .execute(&pool)
-            .await
-            .unwrap();
+        sqlx::query(
+            "INSERT INTO calvings (animal_id, calving_date, lac_number) VALUES ($1, $2, 2)",
+        )
+        .bind(cow)
+        .bind(today - chrono::Duration::days(100))
+        .execute(&pool)
+        .await
+        .unwrap();
 
         for i in 0..10i64 {
             sqlx::query(

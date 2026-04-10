@@ -3,7 +3,10 @@ use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::models::fitness::*;
 
-pub async fn list_activities(pool: &PgPool, filter: &FitnessFilter) -> Result<Vec<Activity>, AppError> {
+pub async fn list_activities(
+    pool: &PgPool,
+    filter: &FitnessFilter,
+) -> Result<Vec<Activity>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Activity>(
@@ -37,7 +40,10 @@ pub async fn count_activities(pool: &PgPool, filter: &FitnessFilter) -> Result<i
     Ok(row.0)
 }
 
-pub async fn list_ruminations(pool: &PgPool, filter: &FitnessFilter) -> Result<Vec<Rumination>, AppError> {
+pub async fn list_ruminations(
+    pool: &PgPool,
+    filter: &FitnessFilter,
+) -> Result<Vec<Rumination>, AppError> {
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Rumination>(
@@ -85,14 +91,26 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_activities_empty(pool: PgPool) {
-        let filter = FitnessFilter { animal_id: None, from_date: None, till_date: None, page: None, per_page: None };
+        let filter = FitnessFilter {
+            animal_id: None,
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let activities = list_activities(&pool, &filter).await.unwrap();
         assert!(activities.is_empty());
     }
 
     #[sqlx::test(migrations = "./migrations")]
     async fn test_list_ruminations_empty(pool: PgPool) {
-        let filter = FitnessFilter { animal_id: None, from_date: None, till_date: None, page: None, per_page: None };
+        let filter = FitnessFilter {
+            animal_id: None,
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let rums = list_ruminations(&pool, &filter).await.unwrap();
         assert!(rums.is_empty());
     }
@@ -108,7 +126,13 @@ mod tests {
         .await
         .unwrap();
 
-        let filter = FitnessFilter { animal_id: Some(animal_id), from_date: None, till_date: None, page: None, per_page: None };
+        let filter = FitnessFilter {
+            animal_id: Some(animal_id),
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let activities = list_activities(&pool, &filter).await.unwrap();
         assert_eq!(activities.len(), 1);
         assert_eq!(activities[0].activity_counter, Some(150));
@@ -125,7 +149,13 @@ mod tests {
         .await
         .unwrap();
 
-        let filter = FitnessFilter { animal_id: Some(animal_id), from_date: None, till_date: None, page: None, per_page: None };
+        let filter = FitnessFilter {
+            animal_id: Some(animal_id),
+            from_date: None,
+            till_date: None,
+            page: None,
+            per_page: None,
+        };
         let rums = list_ruminations(&pool, &filter).await.unwrap();
         assert_eq!(rums.len(), 1);
         assert_eq!(rums[0].rumination_minutes, Some(420));
