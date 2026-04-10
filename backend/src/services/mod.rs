@@ -1,0 +1,13 @@
+pub mod analytics_service;
+pub mod animal_service;
+pub mod bulk_tank_service;
+pub mod contact_service;
+pub mod feed_service;
+pub mod fitness_service;
+pub mod grazing_service;
+pub mod location_service;
+pub mod milk_service;
+pub mod reproduction_service;
+pub mod reports_service;
+pub mod stats_service;
+pub mod user_service;

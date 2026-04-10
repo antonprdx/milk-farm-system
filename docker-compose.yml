@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: milkfarm
+      POSTGRES_PASSWORD: milkfarm_secret
+      POSTGRES_DB: milk_farm
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U milkfarm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://milkfarm:milkfarm_secret@postgres:5432/milk_farm
+      HOST: 0.0.0.0
+      PORT: 3000
+      JWT_SECRET: change-me-in-production-at-least-32-chars
+      SECURE_COOKIES: "false"
+      CORS_ORIGINS: "http://localhost:8080"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

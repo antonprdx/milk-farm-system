@@ -1,0 +1,73 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+	.dark {
+		color-scheme: dark;
+	}
+
+	body {
+		font-family: 'Inter', system-ui, -apple-system, sans-serif;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+}
+
+@media (min-width: 768px) {
+	.main-with-sidebar {
+		margin-left: var(--sidebar-w);
+	}
+}
+
+@keyframes slide-in-left {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(0);
+	}
+}
+
+@keyframes slide-out-left {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-100%);
+	}
+}
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fade-out {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
+}
+
+.mobile-overlay-enter {
+	animation: fade-in 0.2s ease-out forwards;
+}
+
+.mobile-overlay-exit {
+	animation: fade-out 0.15s ease-in forwards;
+}
+
+.mobile-sidebar-enter {
+	animation: slide-in-left 0.25s ease-out forwards;
+}
+
+.mobile-sidebar-exit {
+	animation: slide-out-left 0.2s ease-in forwards;
+}

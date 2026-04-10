@@ -1,0 +1,85 @@
+import { buildQuery as _buildQuery } from '$lib/utils/query';
+import { browser } from '$app/environment';
+
+const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1';
+
+type RequestOptions = {
+	method?: string;
+	body?: unknown;
+};
+
+let refreshingPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+	if (refreshingPromise) return refreshingPromise;
+	refreshingPromise = (async () => {
+		try {
+			const res = await fetch(`${API_BASE}/auth/refresh`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+			});
+			return res.ok;
+		} catch {
+			return false;
+		} finally {
+			refreshingPromise = null;
+		}
+	})();
+	return refreshingPromise;
+}
+
+export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json',
+	};
+
+	const res = await fetch(`${API_BASE}${path}`, {
+		method: opts.method ?? 'GET',
+		headers,
+		credentials: 'include',
+		body: opts.body ? JSON.stringify(opts.body) : undefined,
+	});
+
+	if (!res.ok) {
+		if (res.status === 401 && browser) {
+			const refreshed = await tryRefresh();
+			if (refreshed) {
+				const retryRes = await fetch(`${API_BASE}${path}`, {
+					method: opts.method ?? 'GET',
+					headers,
+					credentials: 'include',
+					body: opts.body ? JSON.stringify(opts.body) : undefined,
+				});
+				if (retryRes.ok) {
+					return retryRes.json();
+				}
+			}
+			localStorage.removeItem('username');
+			localStorage.removeItem('role');
+			localStorage.removeItem('mustChangePassword');
+			window.location.href = '/auth/login';
+			throw new Error('Сессия истекла. Войдите заново.');
+		}
+		const err = await res.json().catch(() => ({ error: res.statusText }));
+		throw new Error(err.error || res.statusText);
+	}
+
+	return res.json();
+}
+
+export function del<T>(path: string) {
+	return api<T>(path, { method: 'DELETE' });
+}
+
+export function post<T>(path: string, body: unknown) {
+	return api<T>(path, { method: 'POST', body });
+}
+
+export function put<T>(path: string, body: unknown) {
+	return api<T>(path, { method: 'PUT', body });
+}
+
+export function buildQuery(obj: object): string {
+	return _buildQuery(obj);
+}
