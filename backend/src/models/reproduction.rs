@@ -82,12 +82,12 @@ impl CreateCalving {
         positive_i32(self.animal_id, "ID животного")?;
         date_not_future(&self.calving_date, "Дата отёла")?;
         opt_max_len(&self.remarks, 500, "Примечания")?;
-        if let Some(n) = self.lac_number {
-            if n < 0 {
-                return Err(crate::errors::AppError::BadRequest(
-                    "Номер лактации не может быть отрицательным".into(),
-                ));
-            }
+        if let Some(n) = self.lac_number
+            && n < 0
+        {
+            return Err(crate::errors::AppError::BadRequest(
+                "Номер лактации не может быть отрицательным".into(),
+            ));
         }
         if let Some(ref calves) = self.calves {
             if calves.len() > 5 {
@@ -212,12 +212,12 @@ impl UpdateCalving {
             date_not_future(d, "Дата отёла")?;
         }
         opt_max_len(&self.remarks, 500, "Примечания")?;
-        if let Some(n) = self.lac_number {
-            if n < 0 {
-                return Err(crate::errors::AppError::BadRequest(
-                    "Номер лактации не может быть отрицательным".into(),
-                ));
-            }
+        if let Some(n) = self.lac_number
+            && n < 0
+        {
+            return Err(crate::errors::AppError::BadRequest(
+                "Номер лактации не может быть отрицательным".into(),
+            ));
         }
         Ok(())
     }

@@ -30,12 +30,12 @@ impl CreateBulkTankTest {
         positive_percentage_f64(self.fat, "Жир")?;
         positive_percentage_f64(self.protein, "Белок")?;
         opt_percentage_f64(&self.lactose, "Лактоза")?;
-        if let Some(s) = self.scc {
-            if s < 0 {
-                return Err(crate::errors::AppError::BadRequest(
-                    "СОК не может быть отрицательным".into(),
-                ));
-            }
+        if let Some(s) = self.scc
+            && s < 0
+        {
+            return Err(crate::errors::AppError::BadRequest(
+                "СОК не может быть отрицательным".into(),
+            ));
         }
         opt_non_negative_f64(&self.ffa, "FFA")?;
         Ok(())
@@ -65,12 +65,12 @@ impl UpdateBulkTankTest {
         if let Some(Some(v)) = self.lactose {
             percentage_f64(v, "Лактоза")?;
         }
-        if let Some(Some(s)) = self.scc {
-            if s < 0 {
-                return Err(crate::errors::AppError::BadRequest(
-                    "СОК не может быть отрицательным".into(),
-                ));
-            }
+        if let Some(Some(s)) = self.scc
+            && s < 0
+        {
+            return Err(crate::errors::AppError::BadRequest(
+                "СОК не может быть отрицательным".into(),
+            ));
         }
         if let Some(Some(v)) = self.ffa {
             non_negative_f64(v, "FFA")?;
