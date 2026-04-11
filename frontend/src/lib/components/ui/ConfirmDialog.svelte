@@ -68,12 +68,13 @@
 		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
 		role="dialog"
 		aria-modal="true"
+		aria-labelledby="confirm-dialog-title"
 	>
 		<div
 			bind:this={dialogRef}
 			class="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 max-w-sm w-full mx-4"
 		>
-			<h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">{title}</h3>
+			<h3 id="confirm-dialog-title" class="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-2">{title}</h3>
 			{#if message}
 				<p class="text-sm text-slate-500 dark:text-slate-400 mb-4">{message}</p>
 			{/if}

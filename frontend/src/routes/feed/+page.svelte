@@ -9,87 +9,78 @@
 		type FeedType,
 		type FeedGroup,
 	} from '$lib/api/feed';
-	import { onMount } from 'svelte';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import FilterBar from '$lib/components/ui/FilterBar.svelte';
 	import TabBar from '$lib/components/ui/TabBar.svelte';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import { formatDatetime } from '$lib/utils/format';
+	import { usePaginatedList } from '$lib/utils/usePaginatedList.svelte';
 
 	type Tab = 'amounts' | 'visits' | 'types' | 'groups';
 
 	let tab = $state<Tab>('amounts');
-	let loading = $state(true);
-	let error = $state('');
 
+	let dtAmounts: DataTable | undefined = $state();
+	let dtVisits: DataTable | undefined = $state();
+	let dtTypes: DataTable | undefined = $state();
+	let dtGroups: DataTable | undefined = $state();
 	let amounts = $state<FeedDayAmount[]>([]);
 	let visits = $state<FeedVisit[]>([]);
 	let types = $state<FeedType[]>([]);
 	let groups = $state<FeedGroup[]>([]);
 
-	let fromDate = $state('');
-	let tillDate = $state('');
-	let animalId = $state('');
-
-	let page = $state(1);
-	let total = $state(0);
-	let initialized = $state(false);
-
-	function getFilter() {
-		return {
-			animal_id: animalId ? Number(animalId) : undefined,
-			from_date: fromDate || undefined,
-			till_date: tillDate || undefined,
-			page,
-			per_page: 50,
-		};
-	}
+	const list = usePaginatedList({ perPage: 50 });
 
 	async function load() {
-		try {
-			loading = true;
-			error = '';
-			switch (tab) {
-				case 'amounts': {
-					const res = await listDayAmounts(getFilter());
-					amounts = res.data;
-					total = res.total;
-					break;
+		const params = {
+			animal_id: list.animalId || undefined,
+			from_date: list.fromDate || undefined,
+			till_date: list.tillDate || undefined,
+			page: list.page,
+			per_page: list.perPage,
+		};
+		switch (tab) {
+			case 'amounts':
+				await list.load(() => listDayAmounts(params), (d) => { amounts = d; }, dtAmounts);
+				break;
+			case 'visits':
+				await list.load(() => listVisits(params), (d) => { visits = d; }, dtVisits);
+				break;
+			case 'types': {
+				try {
+					list.error = '';
+					const res = await listTypes();
+					types = res.data;
+					dtTypes?.setHasRows(types.length > 0);
+				} catch (e) {
+					list.error = e instanceof Error ? e.message : 'Ошибка загрузки';
 				}
-				case 'visits': {
-					const res = await listVisits(getFilter());
-					visits = res.data;
-					total = res.total;
-					break;
-				}
-				case 'types':
-					types = (await listTypes()).data;
-					break;
-				case 'groups':
-					groups = (await listGroups()).data;
-					break;
+				break;
 			}
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Ошибка загрузки';
-		} finally {
-			loading = false;
+			case 'groups': {
+				try {
+					list.error = '';
+					const res = await listGroups();
+					groups = res.data;
+					dtGroups?.setHasRows(groups.length > 0);
+				} catch (e) {
+					list.error = e instanceof Error ? e.message : 'Ошибка загрузки';
+				}
+				break;
+			}
 		}
 	}
 
 	function switchTab(t: Tab) {
 		tab = t;
-		page = 1;
+		list.resetPage();
 		load();
 	}
 
-	onMount(() => {
-		initialized = true;
-		load();
-	});
 	$effect(() => {
-		page;
-		if (initialized) load();
+		list.page;
+		load();
 	});
 </script>
 
@@ -111,10 +102,10 @@
 />
 
 {#if tab === 'amounts' || tab === 'visits'}
-	<FilterBar bind:fromDate bind:tillDate bind:animalId onsearch={load} />
+	<FilterBar bind:fromDate={list.fromDate} bind:tillDate={list.tillDate} bind:animalId={list.animalId} onsearch={load} />
 {/if}
 
-<ErrorAlert message={error} />
+<ErrorAlert message={list.error} />
 
 {#if tab === 'amounts'}
 	<DataTable
@@ -125,37 +116,31 @@
 			{ key: 'total', label: 'Всего, кг', align: 'right' },
 			{ key: 'rest_feed', label: 'Остаток', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtAmounts}
+		emptyText="Нет данных"
 	>
-		{#if amounts.length === 0}
+		{#each amounts as a, i (i)}
 			<tr
-				><td colspan="5" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each amounts as a, i (i)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3"
+					><a
+						href="/animals/{a.animal_id}"
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
+						>#{a.animal_id}</a
+					></td
 				>
-					<td class="px-4 py-3"
-						><a
-							href="/animals/{a.animal_id}"
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
-							>#{a.animal_id}</a
-						></td
-					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{a.feed_date}</td>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{a.feed_number}</td>
-					<td class="px-4 py-3 text-right font-medium">{a.total.toFixed(1)}</td>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{a.rest_feed ?? '—'}</td
-					>
-				</tr>
-			{/each}
-		{/if}
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{a.feed_date}</td>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{a.feed_number}</td>
+				<td class="px-4 py-3 text-right font-medium">{a.total.toFixed(1)}</td>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{a.rest_feed ?? '—'}</td
+				>
+			</tr>
+		{/each}
 	</DataTable>
-	<Pagination bind:page {total} perPage={50} />
+	<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />
 {:else if tab === 'visits'}
 	<DataTable
 		columns={[
@@ -165,43 +150,37 @@
 			{ key: 'amount', label: 'Кол-во, кг', align: 'right' },
 			{ key: 'duration_seconds', label: 'Длительность, с', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtVisits}
+		emptyText="Нет данных"
 	>
-		{#if visits.length === 0}
+		{#each visits as v, i (i)}
 			<tr
-				><td colspan="5" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each visits as v, i (i)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3"
+					><a
+						href="/animals/{v.animal_id}"
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
+						>#{v.animal_id}</a
+					></td
 				>
-					<td class="px-4 py-3"
-						><a
-							href="/animals/{v.animal_id}"
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
-							>#{v.animal_id}</a
-						></td
-					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400"
-						>{formatDatetime(v.visit_datetime)}</td
-					>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{v.feed_number ?? '—'}</td
-					>
-					<td class="px-4 py-3 text-right font-medium"
-						>{v.amount != null ? v.amount.toFixed(1) : '—'}</td
-					>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{v.duration_seconds ?? '—'}</td
-					>
-				</tr>
-			{/each}
-		{/if}
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400"
+					>{formatDatetime(v.visit_datetime)}</td
+				>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{v.feed_number ?? '—'}</td
+				>
+				<td class="px-4 py-3 text-right font-medium"
+					>{v.amount != null ? v.amount.toFixed(1) : '—'}</td
+				>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{v.duration_seconds ?? '—'}</td
+				>
+			</tr>
+		{/each}
 	</DataTable>
-	<Pagination bind:page {total} perPage={50} />
+	<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />
 {:else if tab === 'types'}
 	<DataTable
 		columns={[
@@ -212,34 +191,28 @@
 			{ key: 'price', label: 'Цена', align: 'right' },
 			{ key: 'stock_attention_level', label: 'Уровень запаса', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtTypes}
+		emptyText="Нет данных"
 	>
-		{#if types.length === 0}
+		{#each types as t (t.number_of_feed_type)}
 			<tr
-				><td colspan="6" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each types as t (t.number_of_feed_type)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{t.number_of_feed_type}</td>
+				<td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{t.name}</td>
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{t.feed_type}</td>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{t.dry_matter_percentage.toFixed(0)}</td
 				>
-					<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{t.number_of_feed_type}</td>
-					<td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{t.name}</td>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{t.feed_type}</td>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{t.dry_matter_percentage.toFixed(0)}</td
-					>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{t.price.toFixed(2)}</td
-					>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{t.stock_attention_level ?? '—'}</td
-					>
-				</tr>
-			{/each}
-		{/if}
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{t.price.toFixed(2)}</td
+				>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{t.stock_attention_level ?? '—'}</td
+				>
+			</tr>
+		{/each}
 	</DataTable>
 {:else}
 	<DataTable
@@ -251,37 +224,31 @@
 			{ key: 'avg_weight', label: 'Средний вес', align: 'right' },
 			{ key: 'number_of_cows', label: 'Коров', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtGroups}
+		emptyText="Нет данных"
 	>
-		{#if groups.length === 0}
+		{#each groups as g (g.name)}
 			<tr
-				><td colspan="6" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each groups as g (g.name)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{g.name}</td>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{g.min_milk_yield?.toFixed(1) ?? '—'}</td
 				>
-					<td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{g.name}</td>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{g.min_milk_yield?.toFixed(1) ?? '—'}</td
-					>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{g.max_milk_yield?.toFixed(1) ?? '—'}</td
-					>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{g.avg_milk_yield?.toFixed(1) ?? '—'}</td
-					>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{g.avg_weight?.toFixed(0) ?? '—'}</td
-					>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{g.number_of_cows ?? '—'}</td
-					>
-				</tr>
-			{/each}
-		{/if}
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{g.max_milk_yield?.toFixed(1) ?? '—'}</td
+				>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{g.avg_milk_yield?.toFixed(1) ?? '—'}</td
+				>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{g.avg_weight?.toFixed(0) ?? '—'}</td
+				>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{g.number_of_cows ?? '—'}</td
+				>
+			</tr>
+		{/each}
 	</DataTable>
 {/if}

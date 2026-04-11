@@ -11,11 +11,11 @@ pub async fn list_productions(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, MilkDayProduction>(
-        "SELECT * FROM milk_day_productions WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM milk_day_productions WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR date >= $2) AND ($3::date IS NULL OR date <= $3)
          ORDER BY date DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -27,10 +27,10 @@ pub async fn list_productions(
 
 pub async fn count_productions(pool: &PgPool, filter: &MilkFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM milk_day_productions WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM milk_day_productions WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR date >= $2) AND ($3::date IS NULL OR date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -109,11 +109,11 @@ pub async fn list_visits(pool: &PgPool, filter: &MilkFilter) -> Result<Vec<MilkV
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, MilkVisit>(
-        "SELECT * FROM milk_visits WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM milk_visits WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR visit_datetime >= $2) AND ($3::date IS NULL OR visit_datetime <= $3)
          ORDER BY visit_datetime DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -125,10 +125,10 @@ pub async fn list_visits(pool: &PgPool, filter: &MilkFilter) -> Result<Vec<MilkV
 
 pub async fn count_visits(pool: &PgPool, filter: &MilkFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM milk_visits WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM milk_visits WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR visit_datetime >= $2) AND ($3::date IS NULL OR visit_datetime <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -144,11 +144,11 @@ pub async fn list_quality(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, MilkQuality>(
-        "SELECT * FROM milk_quality WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM milk_quality WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR date >= $2) AND ($3::date IS NULL OR date <= $3)
          ORDER BY date DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -160,10 +160,10 @@ pub async fn list_quality(
 
 pub async fn count_quality(pool: &PgPool, filter: &MilkFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM milk_quality WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM milk_quality WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR date >= $2) AND ($3::date IS NULL OR date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -260,7 +260,7 @@ mod tests {
         create_production(&pool, &req1).await.unwrap();
         create_production(&pool, &req2).await.unwrap();
         let filter = MilkFilter {
-            animal_id: Some(a1),
+            animal_id: Some(a1.to_string()),
             from_date: None,
             till_date: None,
             page: None,

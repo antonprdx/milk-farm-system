@@ -2,10 +2,27 @@ use sqlx::PgPool;
 
 use crate::errors::AppError;
 use crate::models::user::User;
+use crate::services::retry::retry_db;
 
 pub async fn find_by_username(pool: &PgPool, username: &str) -> Result<Option<User>, AppError> {
-    sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = $1")
-        .bind(username)
+    let pool = pool.clone();
+    let username = username.to_string();
+    retry_db(move || {
+        let pool = pool.clone();
+        let username = username.clone();
+        async move {
+            sqlx::query_as::<_, User>("SELECT * FROM users WHERE username = $1")
+                .bind(&username)
+                .fetch_optional(&pool)
+                .await
+                .map_err(AppError::Database)
+        }
+    }).await
+}
+
+pub async fn find_by_id(pool: &PgPool, user_id: i32) -> Result<Option<User>, AppError> {
+    sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+        .bind(user_id)
         .fetch_optional(pool)
         .await
         .map_err(AppError::Database)

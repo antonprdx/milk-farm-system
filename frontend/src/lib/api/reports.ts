@@ -41,7 +41,9 @@ export function getExportUrl(
 	type: 'milk' | 'reproduction' | 'feed',
 	from?: string,
 	till?: string,
+	format?: 'csv' | 'pdf',
 ): string {
 	const base = import.meta.env.VITE_API_BASE || '/api/v1';
-	return `${base}/reports/export/${type}${buildQuery({ from_date: from, till_date: till })}`;
+	const suffix = format === 'pdf' ? `/${type}/pdf` : `/${type}`;
+	return `${base}/reports/export${suffix}${buildQuery({ from_date: from, till_date: till })}`;
 }

@@ -16,7 +16,7 @@ fn make_app(pool: sqlx::PgPool) -> axum::Router {
 async fn test_health_no_auth(pool: sqlx::PgPool) {
     let app = make_app(pool);
     let req = Request::builder()
-        .uri("/api/health")
+        .uri("/api/v1/health")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
@@ -38,7 +38,7 @@ async fn test_login_valid(pool: sqlx::PgPool) {
     let app = make_app(pool);
     let req = auth_request_with_body(
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         "",
         json!({
             "username": "admin",
@@ -65,7 +65,7 @@ async fn test_login_invalid_password(pool: sqlx::PgPool) {
     let app = make_app(pool);
     let req = auth_request_with_body(
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         "",
         json!({
             "username": "admin",
@@ -81,7 +81,7 @@ async fn test_login_nonexistent_user(pool: sqlx::PgPool) {
     let app = make_app(pool);
     let req = auth_request_with_body(
         "POST",
-        "/api/auth/login",
+        "/api/v1/auth/login",
         "",
         json!({
             "username": "ghost",
@@ -95,11 +95,12 @@ async fn test_login_nonexistent_user(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_register_requires_admin(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
+    seed_test_user(&pool).await;
     let app = make_app(pool);
     let token = user_token();
     let req = auth_request_with_body(
         "POST",
-        "/api/auth/register",
+        "/api/v1/auth/register",
         &token,
         json!({
             "username": "newuser",
@@ -117,7 +118,7 @@ async fn test_register_as_admin(pool: sqlx::PgPool) {
     let token = admin_token();
     let req = auth_request_with_body(
         "POST",
-        "/api/auth/register",
+        "/api/v1/auth/register",
         &token,
         json!({
             "username": "newuser",
@@ -132,7 +133,7 @@ async fn test_register_as_admin(pool: sqlx::PgPool) {
 async fn test_stats_requires_auth(pool: sqlx::PgPool) {
     let app = make_app(pool);
     let req = Request::builder()
-        .uri("/api/stats")
+        .uri("/api/v1/stats")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
@@ -143,7 +144,7 @@ async fn test_stats_requires_auth(pool: sqlx::PgPool) {
 async fn test_stats_returns_data(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
     let app = make_app(pool);
-    let req = auth_request("GET", "/api/stats", &admin_token());
+    let req = auth_request("GET", "/api/v1/stats", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;

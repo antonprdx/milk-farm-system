@@ -5,10 +5,14 @@ use serde::Deserialize;
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
+use crate::models::analytics::{
+    AlertsResponse, FeedForecastResponse, KpiResponse, MilkTrendResponse,
+    ReproductionForecastResponse,
+};
 use crate::services::analytics_service;
 use crate::state::AppState;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct TrendQuery {
     pub days: Option<i64>,
     pub forecast_days: Option<i64>,
@@ -26,6 +30,15 @@ pub fn routes() -> Router<AppState> {
         .route("/analytics/feed-forecast", get(feed_forecast))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/kpi",
+    responses(
+        (status = 200, description = "KPI metrics", body = KpiResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn kpi(
     _claims: Claims,
     State(state): State<AppState>,
@@ -34,6 +47,15 @@ async fn kpi(
     Ok(Json(data))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/alerts",
+    responses(
+        (status = 200, description = "Alerts", body = AlertsResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn alerts(
     _claims: Claims,
     State(state): State<AppState>,
@@ -42,6 +64,16 @@ async fn alerts(
     Ok(Json(data))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/milk-trend",
+    responses(
+        (status = 200, description = "Milk trend data", body = MilkTrendResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(TrendQuery),
+    security(("cookie_auth" = []))
+)]
 async fn milk_trend(
     _claims: Claims,
     State(state): State<AppState>,
@@ -53,6 +85,15 @@ async fn milk_trend(
     Ok(Json(data))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/reproduction-forecast",
+    responses(
+        (status = 200, description = "Reproduction forecast", body = ReproductionForecastResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn reproduction_forecast(
     _claims: Claims,
     State(state): State<AppState>,
@@ -61,6 +102,15 @@ async fn reproduction_forecast(
     Ok(Json(data))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/feed-forecast",
+    responses(
+        (status = 200, description = "Feed forecast", body = FeedForecastResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn feed_forecast(
     _claims: Claims,
     State(state): State<AppState>,

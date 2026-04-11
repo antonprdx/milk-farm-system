@@ -113,6 +113,7 @@ async fn seed_bulk_tank(app: &axum::Router) -> i64 {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_create_animals(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let token = user_token();
 
@@ -131,6 +132,7 @@ async fn test_user_cannot_create_animals(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_update_animals(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let animal_id = seed_animal_via_api(&app).await;
     let token = user_token();
@@ -149,6 +151,7 @@ async fn test_user_cannot_update_animals(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_delete_animals(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let animal_id = seed_animal_via_api(&app).await;
     let token = user_token();
@@ -160,6 +163,7 @@ async fn test_user_cannot_delete_animals(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_delete_milk_productions(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let animal_id = seed_animal_via_api(&app).await;
     let production_id = seed_milk_production(&app, animal_id).await;
@@ -176,6 +180,7 @@ async fn test_user_cannot_delete_milk_productions(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_delete_calvings(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let animal_id = seed_animal_via_api(&app).await;
     let calving_id = seed_calving(&app, animal_id).await;
@@ -192,6 +197,7 @@ async fn test_user_cannot_delete_calvings(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_delete_inseminations(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let animal_id = seed_animal_via_api(&app).await;
     let insemination_id = seed_insemination(&app, animal_id).await;
@@ -208,6 +214,7 @@ async fn test_user_cannot_delete_inseminations(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_delete_contacts(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let contact_id = seed_contact(&app).await;
     let token = user_token();
@@ -223,6 +230,7 @@ async fn test_user_cannot_delete_contacts(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_delete_bulk_tank_tests(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let bt_id = seed_bulk_tank(&app).await;
     let token = user_token();
@@ -234,6 +242,7 @@ async fn test_user_cannot_delete_bulk_tank_tests(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_register_users(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let token = user_token();
 
@@ -252,6 +261,7 @@ async fn test_user_cannot_register_users(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_can_read_animals(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let token = user_token();
 
@@ -262,6 +272,7 @@ async fn test_user_can_read_animals(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_can_read_milk_productions(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let token = user_token();
 
@@ -272,6 +283,7 @@ async fn test_user_can_read_milk_productions(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_can_read_calvings(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let token = user_token();
 
@@ -282,6 +294,7 @@ async fn test_user_can_read_calvings(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_can_read_inseminations(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let token = user_token();
 
@@ -292,6 +305,7 @@ async fn test_user_can_read_inseminations(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_can_read_contacts(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let token = user_token();
 
@@ -302,6 +316,7 @@ async fn test_user_can_read_contacts(pool: PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_can_read_bulk_tank(pool: PgPool) {
+    seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
     let token = user_token();
 

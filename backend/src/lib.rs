@@ -3,12 +3,14 @@ pub mod errors;
 pub mod handlers;
 pub mod middleware;
 pub mod models;
+pub mod openapi;
 pub mod seed;
 pub mod services;
 pub mod state;
 pub mod validation;
 
 use state::AppStateInner;
+use utoipa::OpenApi;
 
 pub async fn seed_admin(pool: &sqlx::PgPool) -> anyhow::Result<()> {
     let exists: bool =
@@ -30,6 +32,7 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
     use axum::http::Method;
     use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, COOKIE};
     use tower_http::cors::{AllowOrigin, CorsLayer};
+    use tower_http::compression::CompressionLayer;
     use tower_http::trace::TraceLayer;
 
     let origins: Vec<_> = state
@@ -47,10 +50,27 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
 
     let api_routes = handlers::routes();
 
+    let api_doc = crate::openapi::ApiDoc::openapi();
+    let swagger =
+        utoipa_swagger_ui::SwaggerUi::new("/api/v1/docs").url("/api/v1/docs/openapi.json", api_doc);
+
+    let rate_limit = crate::middleware::rate_limit::RateLimitLayer::new(100, 60, state.config.trust_proxy);
+    let request_id = crate::middleware::request_id::RequestIdLayer;
+    let metrics_layer = crate::middleware::metrics::MetricsLayer;
+
     axum::Router::new()
-        .nest("/api/v1", api_routes.clone())
-        .nest("/api", api_routes)
+        .merge(swagger)
+        .nest("/api/v1", api_routes)
+        .route("/metrics", axum::routing::get(metrics_endpoint))
+        .layer(metrics_layer)
+        .layer(request_id)
+        .layer(rate_limit)
         .layer(cors)
+        .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+async fn metrics_endpoint() -> String {
+    crate::middleware::metrics::gather()
 }

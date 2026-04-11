@@ -13,15 +13,21 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 jsonwebtoken = "9"
 bcrypt = "0.17"
-tower-http = { version = "0.6", features = ["cors", "trace"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
+tower = { version = "0.5", features = ["util"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 dotenvy = "0.15"
 thiserror = "2"
 anyhow = "1"
 rand = "0.9"
 clap = { version = "4", features = ["derive"] }
 lazy_static = "1.5.0"
+utoipa = { version = "5.4.0", features = ["chrono"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
+genpdf = "0.2.0"
+prometheus = "0.13"
+tokio-retry = "0.3"
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

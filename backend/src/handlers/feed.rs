@@ -1,11 +1,12 @@
 use axum::extract::{Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
 use crate::models::feed::FeedFilter;
+use crate::models::pagination::{paginated, simple_list};
 use crate::services::feed_service;
 use crate::state::AppState;
 
@@ -17,50 +18,76 @@ pub fn routes() -> Router<AppState> {
         .route("/feed/groups", get(list_groups))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/feed/day-amounts",
+    responses(
+        (status = 200, description = "List of feed day amounts", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(FeedFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_day_amounts(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<FeedFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = feed_service::list_day_amounts(&state.pool, &filter).await?;
-    let total = feed_service::count_day_amounts(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || feed_service::list_day_amounts(pool, f), || feed_service::count_day_amounts(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/feed/visits",
+    responses(
+        (status = 200, description = "List of feed visits", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(FeedFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_visits(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<FeedFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = feed_service::list_visits(&state.pool, &filter).await?;
-    let total = feed_service::count_visits(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || feed_service::list_visits(pool, f), || feed_service::count_visits(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/feed/types",
+    responses(
+        (status = 200, description = "List of feed types", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn list_types(
     _claims: Claims,
     State(state): State<AppState>,
 ) -> Result<Json<Value>, AppError> {
-    let data = feed_service::list_types(&state.pool).await?;
-    let total = feed_service::count_types(&state.pool).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": 1, "per_page": total }),
-    ))
+    let pool = &state.pool;
+    simple_list(feed_service::list_types(pool), feed_service::count_types(pool)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/feed/groups",
+    responses(
+        (status = 200, description = "List of feed groups", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn list_groups(
     _claims: Claims,
     State(state): State<AppState>,
 ) -> Result<Json<Value>, AppError> {
-    let data = feed_service::list_groups(&state.pool).await?;
-    let total = feed_service::count_groups(&state.pool).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": 1, "per_page": total }),
-    ))
+    let pool = &state.pool;
+    simple_list(feed_service::list_groups(pool), feed_service::count_groups(pool)).await
 }

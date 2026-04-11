@@ -21,12 +21,14 @@
 	let deleteId = $state<number | null>(null);
 	let deleteLoading = $state(false);
 
+	let dataTable: DataTable | undefined = $state();
+
 	async function load() {
 		try {
 			loading = true;
 			error = '';
 			const res = await listAnimals({
-				life_number: search || undefined,
+				search: search || undefined,
 				gender: (genderFilter as 'male' | 'female') || undefined,
 				active: activeFilter === '' ? undefined : activeFilter === 'true',
 				page,
@@ -34,6 +36,7 @@
 			});
 			animals = res.data;
 			total = res.total;
+			dataTable?.setHasRows(animals.length > 0);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';
 		} finally {
@@ -86,18 +89,20 @@
 >
 	<div class="flex flex-wrap gap-3 items-end">
 		<div class="flex-1 min-w-[200px]">
-			<label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Поиск по номеру</label>
+			<label for="animal-search" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Поиск</label>
 			<input
+				id="animal-search"
 				type="text"
 				bind:value={search}
 				onkeydown={(e) => e.key === 'Enter' && applyFilters()}
-				placeholder="Номер животного..."
-				class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+				placeholder="Имя, номер жизни, UCN..."
+				class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
 			/>
 		</div>
 		<div>
-			<label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Пол</label>
+			<label for="animal-gender" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Пол</label>
 			<select
+				id="animal-gender"
 				bind:value={genderFilter}
 				onchange={applyFilters}
 				class="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -108,8 +113,9 @@
 			</select>
 		</div>
 		<div>
-			<label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Статус</label>
+			<label for="animal-status" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Статус</label>
 			<select
+				id="animal-status"
 				bind:value={activeFilter}
 				onchange={applyFilters}
 				class="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -131,6 +137,7 @@
 <ErrorAlert message={error} />
 
 <DataTable
+	bind:this={dataTable}
 	columns={[
 		{ key: 'life_number', label: '№' },
 		{ key: 'name', label: 'Имя' },
@@ -142,67 +149,60 @@
 		{ key: 'actions', label: 'Действия', align: 'right' },
 	]}
 	{loading}
+	emptyText="Животные не найдены"
 >
-	{#if animals.length === 0}
-		<tr>
-			<td colspan="8" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-				>Животные не найдены</td
+	{#each animals as animal (animal.id)}
+		<tr
+			class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+		>
+			<td class="px-4 py-3 font-mono text-slate-600 dark:text-slate-400"
+				>{animal.life_number || animal.user_number || '—'}</td
 			>
-		</tr>
-	{:else}
-		{#each animals as animal (animal.id)}
-			<tr
-				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
-			>
-				<td class="px-4 py-3 font-mono text-slate-600 dark:text-slate-400"
-					>{animal.life_number || animal.user_number || '—'}</td
+			<td class="px-4 py-3">
+				<a
+					href="/animals/{animal.id}"
+					class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 font-medium"
+					>{animal.name || 'Без имени'}</a
 				>
-				<td class="px-4 py-3">
+			</td>
+			<td class="px-4 py-3">
+				<span
+					class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {animal.gender ===
+					'female'
+						? 'bg-pink-100 dark:bg-pink-900/50 text-pink-700'
+						: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700'}"
+				>
+					{animal.gender === 'female' ? 'Корова' : 'Бык'}
+				</span>
+			</td>
+			<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{animal.birth_date}</td>
+			<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{animal.location || '—'}</td>
+			<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{animal.group_number ?? '—'}</td>
+			<td class="px-4 py-3">
+				<span
+					class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {animal.active
+						? 'bg-green-100 dark:bg-green-900/50 text-green-700'
+						: 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'}"
+				>
+					{animal.active ? 'Активно' : 'Неактивно'}
+				</span>
+			</td>
+			<td class="px-4 py-3 text-right">
+				<div class="flex gap-2 justify-end">
 					<a
-						href="/animals/{animal.id}"
-						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 font-medium"
-						>{animal.name || 'Без имени'}</a
+						href="/animals/{animal.id}/edit"
+						class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded transition-colors"
+						><Pencil size={14} /></a
 					>
-				</td>
-				<td class="px-4 py-3">
-					<span
-						class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {animal.gender ===
-						'female'
-							? 'bg-pink-100 dark:bg-pink-900/50 text-pink-700'
-							: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700'}"
+					<button
+						onclick={() => (deleteId = animal.id)}
+						class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/50 rounded transition-colors cursor-pointer"
+						><Trash2 size={14} /></button
 					>
-						{animal.gender === 'female' ? 'Корова' : 'Бык'}
-					</span>
-				</td>
-				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{animal.birth_date}</td>
-				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{animal.location || '—'}</td>
-				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{animal.group_number ?? '—'}</td>
-				<td class="px-4 py-3">
-					<span
-						class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {animal.active
-							? 'bg-green-100 dark:bg-green-900/50 text-green-700'
-							: 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'}"
-					>
-						{animal.active ? 'Активно' : 'Неактивно'}
-					</span>
-				</td>
-				<td class="px-4 py-3 text-right">
-					<div class="flex gap-2 justify-end">
-						<a
-							href="/animals/{animal.id}/edit"
-							class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded transition-colors"
-							><Pencil size={14} /></a
-						>
-						<button
-							onclick={() => (deleteId = animal.id)}
-							class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/50 rounded transition-colors cursor-pointer"
-							><Trash2 size={14} /></button
-						>
-					</div>
-				</td>
-			</tr>
-		{/each}
-	{/if}
+				</div>
+			</td>
+		</tr>
+	{/each}
 </DataTable>
 
 <Pagination bind:page {total} {perPage} />

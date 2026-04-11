@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct Activity {
     pub id: i32,
     pub animal_id: i32,
@@ -11,7 +11,7 @@ pub struct Activity {
     pub heat_attention: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct Rumination {
     pub id: i32,
     pub animal_id: i32,
@@ -20,9 +20,9 @@ pub struct Rumination {
     pub rumination_minutes: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct FitnessFilter {
-    pub animal_id: Option<i32>,
+    pub animal_id: Option<String>,
     pub from_date: Option<NaiveDate>,
     pub till_date: Option<NaiveDate>,
     pub page: Option<i64>,

@@ -69,11 +69,18 @@
 			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-6 space-y-4"
 		>
 			<h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Молоко</h2>
-			<a
-				href={getExportUrl('milk', fromDate || undefined, tillDate || undefined)}
-				class="float-right text-xs px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-				>CSV</a
-			>
+			<div class="float-right flex gap-1">
+				<a
+					href={getExportUrl('milk', fromDate || undefined, tillDate || undefined, 'pdf')}
+					class="text-xs px-2 py-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+					>PDF</a
+				>
+				<a
+					href={getExportUrl('milk', fromDate || undefined, tillDate || undefined)}
+					class="text-xs px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+					>CSV</a
+				>
+			</div>
 			{#if milk}
 				<div class="space-y-2">
 					<div class="flex justify-between text-sm">
@@ -98,11 +105,18 @@
 			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-6 space-y-4"
 		>
 			<h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Воспроизводство</h2>
-			<a
-				href={getExportUrl('reproduction', fromDate || undefined, tillDate || undefined)}
-				class="float-right text-xs px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-				>CSV</a
-			>
+			<div class="float-right flex gap-1">
+				<a
+					href={getExportUrl('reproduction', fromDate || undefined, tillDate || undefined, 'pdf')}
+					class="text-xs px-2 py-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+					>PDF</a
+				>
+				<a
+					href={getExportUrl('reproduction', fromDate || undefined, tillDate || undefined)}
+					class="text-xs px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+					>CSV</a
+				>
+			</div>
 			{#if repro}
 				<div class="space-y-2">
 					<div class="flex justify-between text-sm">
@@ -135,11 +149,18 @@
 			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-6 space-y-4"
 		>
 			<h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Кормление</h2>
-			<a
-				href={getExportUrl('feed', fromDate || undefined, tillDate || undefined)}
-				class="float-right text-xs px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-				>CSV</a
-			>
+			<div class="float-right flex gap-1">
+				<a
+					href={getExportUrl('feed', fromDate || undefined, tillDate || undefined, 'pdf')}
+					class="text-xs px-2 py-1 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+					>PDF</a
+				>
+				<a
+					href={getExportUrl('feed', fromDate || undefined, tillDate || undefined)}
+					class="text-xs px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+					>CSV</a
+				>
+			</div>
 			{#if feed}
 				<div class="space-y-2">
 					<div class="flex justify-between text-sm">

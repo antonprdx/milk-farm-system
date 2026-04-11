@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct GrazingData {
     pub id: i32,
     pub date: NaiveDate,
@@ -11,7 +11,7 @@ pub struct GrazingData {
     pub lactation_period: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct GrazingFilter {
     pub from_date: Option<NaiveDate>,
     pub till_date: Option<NaiveDate>,

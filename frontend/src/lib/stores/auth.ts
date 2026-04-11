@@ -18,7 +18,7 @@ function createAuthStore() {
 			}
 		: { username: null, role: null, mustChangePassword: false, authenticated: false };
 
-	const { subscribe, set } = writable<AuthState>(initial);
+	const { subscribe, set, update } = writable<AuthState>(initial);
 
 	return {
 		subscribe,
@@ -42,9 +42,7 @@ function createAuthStore() {
 			if (browser) {
 				localStorage.removeItem('mustChangePassword');
 			}
-			subscribe((v) => {
-				set({ ...v, mustChangePassword: false });
-			})();
+			update((v) => ({ ...v, mustChangePassword: false }));
 		},
 		get authenticated() {
 			let val = false;

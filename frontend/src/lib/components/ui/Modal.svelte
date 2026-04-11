@@ -21,6 +21,7 @@
 
 	let dialogRef: HTMLDivElement | undefined = $state();
 	let previousFocus: HTMLElement | null = $state(null);
+	let titleId = $derived(title ? 'modal-title' : undefined);
 
 	function getFocusableElements(el: HTMLElement): HTMLElement[] {
 		return Array.from(
@@ -78,8 +79,13 @@
 		class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
 		role="dialog"
 		aria-modal="true"
+		aria-labelledby={titleId}
+		tabindex={-1}
 		onclick={(e) => {
 			if (e.target === e.currentTarget && onclose) onclose();
+		}}
+		onkeydown={(e) => {
+			if (e.key === 'Escape' && onclose) onclose();
 		}}
 	>
 		<div
@@ -88,7 +94,7 @@
 		>
 			{#if title}
 				<div class="flex items-center justify-between mb-4">
-					<h3 class="text-lg font-semibold text-slate-800 dark:text-slate-100">{title}</h3>
+					<h3 id={titleId} class="text-lg font-semibold text-slate-800 dark:text-slate-100">{title}</h3>
 					{#if onclose}
 						<button
 							onclick={onclose}

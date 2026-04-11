@@ -7,12 +7,13 @@ use serde::{Deserialize, Serialize};
 use crate::errors::AppError;
 use crate::state::AppState;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Claims {
     pub sub: String,
     pub role: String,
     pub must_change_password: bool,
     pub exp: usize,
+    pub jti: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_type: Option<String>,
 }
@@ -23,13 +24,39 @@ pub struct AdminGuard;
 #[derive(Debug, Clone)]
 pub struct ClaimsAllowMustChange(pub Claims);
 
-pub fn verify_token_allow_must_change(
-    parts: &mut Parts,
-    state: &AppState,
+fn decode_token(token: &str, secret: &str) -> Result<Claims, AppError> {
+    decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::default(),
+    )
+    .map(|data| data.claims)
+    .map_err(|e| match e.kind() {
+        jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+            AppError::Unauthorized("Token expired".into())
+        }
+        _ => AppError::Unauthorized("Invalid token".into()),
+    })
+}
+
+async fn verify_and_check_revocation(
+    token: &str,
+    secret: &str,
+    pool: &sqlx::PgPool,
 ) -> Result<Claims, AppError> {
-    let token_result = extract_token(parts);
-    let secret = state.config.jwt_secret.clone();
-    verify_token(&token_result?, &secret)
+    let claims = decode_token(token, secret)?;
+    if crate::services::token_revocation_service::is_revoked(pool, &claims.jti).await? {
+        return Err(AppError::Unauthorized("Token revoked".into()));
+    }
+    let user_exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)")
+        .bind(&claims.sub)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::Database)?;
+    if !user_exists {
+        return Err(AppError::Unauthorized("User account deactivated".into()));
+    }
+    Ok(claims)
 }
 
 impl FromRequestParts<AppState> for ClaimsAllowMustChange {
@@ -39,25 +66,15 @@ impl FromRequestParts<AppState> for ClaimsAllowMustChange {
         parts: &mut Parts,
         state: &AppState,
     ) -> impl std::future::Future<Output = Result<Self, Self::Rejection>> + Send {
-        let result = verify_token_allow_must_change(parts, state);
+        let token_result = extract_token(parts);
+        let secret = state.config.jwt_secret.clone();
+        let pool = state.pool.clone();
         async move {
-            let claims = result?;
+            let token = token_result?;
+            let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
             Ok(ClaimsAllowMustChange(claims))
         }
     }
-}
-
-pub fn create_token(username: &str, role: &str, secret: &str) -> Result<String, AppError> {
-    create_token_with_flag(username, role, false, secret)
-}
-
-pub fn create_token_with_flag(
-    username: &str,
-    role: &str,
-    must_change_password: bool,
-    secret: &str,
-) -> Result<String, AppError> {
-    create_access_token(username, role, must_change_password, secret, 24 * 3600)
 }
 
 pub fn create_access_token(
@@ -74,6 +91,7 @@ pub fn create_access_token(
         must_change_password,
         token_type: Some("access".to_string()),
         exp,
+        jti: uuid::Uuid::new_v4().to_string(),
     };
     encode(
         &Header::default(),
@@ -96,6 +114,7 @@ pub fn create_refresh_token(
         must_change_password: false,
         token_type: Some("refresh".to_string()),
         exp,
+        jti: uuid::Uuid::new_v4().to_string(),
     };
     encode(
         &Header::default(),
@@ -106,18 +125,7 @@ pub fn create_refresh_token(
 }
 
 pub fn verify_token(token: &str, secret: &str) -> Result<Claims, AppError> {
-    decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(secret.as_bytes()),
-        &Validation::default(),
-    )
-    .map(|data| data.claims)
-    .map_err(|e| match e.kind() {
-        jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-            AppError::Unauthorized("Token expired".into())
-        }
-        _ => AppError::Unauthorized("Invalid token".into()),
-    })
+    decode_token(token, secret)
 }
 
 fn extract_token_from_headers(headers: &HeaderMap) -> Option<String> {
@@ -144,6 +152,14 @@ fn extract_token(parts: &Parts) -> Result<String, AppError> {
         .ok_or_else(|| AppError::Unauthorized("Missing token".into()))
 }
 
+fn extract_token_str_from_headers(headers: &HeaderMap) -> Option<String> {
+    extract_token_from_headers(headers).or_else(|| extract_token_from_cookies(headers))
+}
+
+pub fn extract_token_from_parts(parts: &Parts) -> Option<String> {
+    extract_token_str_from_headers(&parts.headers)
+}
+
 impl FromRequestParts<AppState> for Claims {
     type Rejection = AppError;
 
@@ -153,9 +169,10 @@ impl FromRequestParts<AppState> for Claims {
     ) -> impl std::future::Future<Output = Result<Self, Self::Rejection>> + Send {
         let token_result = extract_token(parts);
         let secret = state.config.jwt_secret.clone();
+        let pool = state.pool.clone();
         async move {
             let token = token_result?;
-            let claims = verify_token(&token, &secret)?;
+            let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
             if claims.must_change_password {
                 return Err(AppError::BadRequest(
                     "Необходимо сменить пароль перед использованием системы".into(),
@@ -175,9 +192,10 @@ impl FromRequestParts<AppState> for AdminGuard {
     ) -> impl std::future::Future<Output = Result<Self, Self::Rejection>> + Send {
         let token_result = extract_token(parts);
         let secret = state.config.jwt_secret.clone();
+        let pool = state.pool.clone();
         async move {
             let token = token_result?;
-            let claims = verify_token(&token, &secret)?;
+            let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
             if claims.role != "admin" {
                 return Err(AppError::Forbidden("Admin access required".into()));
             }
@@ -186,7 +204,7 @@ impl FromRequestParts<AppState> for AdminGuard {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct LoginRequest {
     pub username: String,
     pub password: String,
@@ -200,7 +218,7 @@ impl LoginRequest {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct RegisterRequest {
     pub username: String,
     pub password: String,

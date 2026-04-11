@@ -4,13 +4,16 @@ use crate::errors::AppError;
 use crate::models::analytics::*;
 
 pub async fn kpi(pool: &PgPool) -> Result<KpiResponse, AppError> {
-    let avg_calving_interval_days = avg_calving_interval(pool).await?;
-    let conception_rate_pct = conception_rate(pool).await?;
-    let avg_milk_by_lactation = milk_by_lactation(pool).await?;
-    let feed_efficiency = feed_eff(pool).await?;
-    let avg_days_to_first_ai = days_to_first_ai(pool).await?;
-    let avg_scc = avg_scc_val(pool).await?;
-    let refusal_rate_pct = refusal_rate(pool).await?;
+    let (avg_calving_interval_days, conception_rate_pct, avg_milk_by_lactation, feed_efficiency, avg_days_to_first_ai, avg_scc, refusal_rate_pct) = tokio::try_join!(
+        avg_calving_interval(pool),
+        conception_rate(pool),
+        milk_by_lactation(pool),
+        feed_eff(pool),
+        days_to_first_ai(pool),
+        avg_scc_val(pool),
+        refusal_rate(pool),
+    )?;
+
     let culling_risk = culling_risk_calc(pool).await?;
 
     Ok(KpiResponse {

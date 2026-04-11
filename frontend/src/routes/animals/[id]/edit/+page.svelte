@@ -6,8 +6,12 @@
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';
 	import { toasts } from '$lib/stores/toast';
+	import { useFormDirty } from '$lib/utils/useFormDirty.svelte';
+	import { useFormValidation } from '$lib/utils/useFormValidation.svelte';
+	import { rules } from '$lib/utils/validators';
 
 	let animal = $state<Animal | null>(null);
+	const dirty = useFormDirty();
 	let loading = $state(true);
 	let saving = $state(false);
 	let error = $state('');
@@ -15,6 +19,8 @@
 	let form = $state<UpdateAnimal>({});
 
 	let id = $derived(Number($page.params.id));
+
+	const v = useFormValidation();
 
 	async function load() {
 		try {
@@ -32,6 +38,7 @@
 				responder_number: animal.responder_number ?? '',
 				active: animal.active,
 			};
+			v.clear();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';
 		} finally {
@@ -42,9 +49,19 @@
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		error = '';
+
+		const valid = v.validateAll({
+			name: { value: form.name, rules: [rules.required()] },
+			ucn_number: { value: form.ucn_number, rules: [rules.required()] },
+			location: { value: form.location, rules: [rules.required()] },
+			group_number: { value: form.group_number, rules: [rules.required()] },
+		});
+		if (!valid) return;
+
 		try {
 			saving = true;
 			await updateAnimal(id, form);
+			dirty.reset();
 			toasts.success('Животное обновлено');
 			goto(`/animals/${id}`);
 		} catch (e) {
@@ -88,18 +105,43 @@
 {:else}
 	<form
 		onsubmit={handleSubmit}
+		oninput={dirty.markDirty}
+		onchange={dirty.markDirty}
 		class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-6"
 	>
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-			<FormField id="f-name" label="Имя" bind:value={form.name} placeholder="Кличка" />
-			<FormField id="f-ucn" label="UCN номер" bind:value={form.ucn_number} placeholder="UCN" />
-			<FormField id="f-loc" label="Локация" bind:value={form.location} placeholder="Локация" />
+			<FormField
+				id="f-name"
+				label="Имя"
+				bind:value={form.name}
+				placeholder="Кличка"
+				error={v.getError('name')}
+				onblur={() => v.validateField('name', form.name, [rules.required()])}
+			/>
+			<FormField
+				id="f-ucn"
+				label="UCN номер"
+				bind:value={form.ucn_number}
+				placeholder="UCN"
+				error={v.getError('ucn_number')}
+				onblur={() => v.validateField('ucn_number', form.ucn_number, [rules.required()])}
+			/>
+			<FormField
+				id="f-loc"
+				label="Локация"
+				bind:value={form.location}
+				placeholder="Локация"
+				error={v.getError('location')}
+				onblur={() => v.validateField('location', form.location, [rules.required()])}
+			/>
 			<FormField
 				id="f-group"
 				label="Группа"
 				type="number"
 				bind:value={form.group_number}
 				placeholder="№ группы"
+				error={v.getError('group_number')}
+				onblur={() => v.validateField('group_number', form.group_number, [rules.required()])}
 			/>
 			<FormField
 				id="f-hair"

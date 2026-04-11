@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct Contact {
     pub id: i32,
     pub name: String,
@@ -18,7 +18,7 @@ pub struct Contact {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateContact {
     pub name: String,
     pub type_id: Option<i32>,
@@ -50,7 +50,7 @@ impl CreateContact {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateContact {
     pub name: Option<String>,
     pub type_id: Option<i32>,
@@ -84,7 +84,7 @@ impl UpdateContact {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct ContactFilter {
     pub page: Option<i64>,
     pub per_page: Option<i64>,

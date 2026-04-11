@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
+use crate::models::pagination::paginated;
 use crate::models::reproduction::*;
 use crate::services::reproduction_service;
 use crate::state::AppState;
@@ -55,19 +56,37 @@ pub fn routes() -> Router<AppState> {
         .route("/reproduction/status", get(current_status))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/calvings",
+    responses(
+        (status = 200, description = "List of calvings", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(ReproductionFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_calvings(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<ReproductionFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = reproduction_service::list_calvings(&state.pool, &filter).await?;
-    let total = reproduction_service::count_calvings(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || reproduction_service::list_calvings(pool, f), || reproduction_service::count_calvings(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/calvings/{id}",
+    responses(
+        (status = 200, description = "Calving found", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Calving ID")),
+    security(("cookie_auth" = []))
+)]
 async fn get_calving(
     _claims: Claims,
     State(state): State<AppState>,
@@ -79,6 +98,17 @@ async fn get_calving(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/reproduction/calvings",
+    request_body = CreateCalving,
+    responses(
+        (status = 201, description = "Calving created", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn create_calving(
     _claims: Claims,
     State(state): State<AppState>,
@@ -89,6 +119,18 @@ async fn create_calving(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/reproduction/calvings/{id}",
+    request_body = UpdateCalving,
+    responses(
+        (status = 200, description = "Calving updated", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Calving ID")),
+    security(("cookie_auth" = []))
+)]
 async fn update_calving(
     _claims: Claims,
     State(state): State<AppState>,
@@ -100,6 +142,18 @@ async fn update_calving(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/reproduction/calvings/{id}",
+    responses(
+        (status = 200, description = "Calving deleted", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "Calving ID")),
+    security(("cookie_auth" = []))
+)]
 async fn delete_calving(
     _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
@@ -109,19 +163,37 @@ async fn delete_calving(
     Ok(Json(json!({ "message": "Deleted" })))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/inseminations",
+    responses(
+        (status = 200, description = "List of inseminations", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(ReproductionFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_inseminations(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<ReproductionFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = reproduction_service::list_inseminations(&state.pool, &filter).await?;
-    let total = reproduction_service::count_inseminations(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || reproduction_service::list_inseminations(pool, f), || reproduction_service::count_inseminations(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/inseminations/{id}",
+    responses(
+        (status = 200, description = "Insemination found", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Insemination ID")),
+    security(("cookie_auth" = []))
+)]
 async fn get_insemination(
     _claims: Claims,
     State(state): State<AppState>,
@@ -133,6 +205,17 @@ async fn get_insemination(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/reproduction/inseminations",
+    request_body = CreateInsemination,
+    responses(
+        (status = 201, description = "Insemination created", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn create_insemination(
     _claims: Claims,
     State(state): State<AppState>,
@@ -143,6 +226,18 @@ async fn create_insemination(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/reproduction/inseminations/{id}",
+    request_body = UpdateInsemination,
+    responses(
+        (status = 200, description = "Insemination updated", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Insemination ID")),
+    security(("cookie_auth" = []))
+)]
 async fn update_insemination(
     _claims: Claims,
     State(state): State<AppState>,
@@ -154,6 +249,18 @@ async fn update_insemination(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/reproduction/inseminations/{id}",
+    responses(
+        (status = 200, description = "Insemination deleted", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "Insemination ID")),
+    security(("cookie_auth" = []))
+)]
 async fn delete_insemination(
     _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
@@ -163,19 +270,37 @@ async fn delete_insemination(
     Ok(Json(json!({ "message": "Deleted" })))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/pregnancies",
+    responses(
+        (status = 200, description = "List of pregnancies", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(ReproductionFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_pregnancies(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<ReproductionFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = reproduction_service::list_pregnancies(&state.pool, &filter).await?;
-    let total = reproduction_service::count_pregnancies(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || reproduction_service::list_pregnancies(pool, f), || reproduction_service::count_pregnancies(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/pregnancies/{id}",
+    responses(
+        (status = 200, description = "Pregnancy found", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Pregnancy ID")),
+    security(("cookie_auth" = []))
+)]
 async fn get_pregnancy(
     _claims: Claims,
     State(state): State<AppState>,
@@ -187,6 +312,17 @@ async fn get_pregnancy(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/reproduction/pregnancies",
+    request_body = CreatePregnancy,
+    responses(
+        (status = 201, description = "Pregnancy created", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn create_pregnancy(
     _claims: Claims,
     State(state): State<AppState>,
@@ -197,6 +333,18 @@ async fn create_pregnancy(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/reproduction/pregnancies/{id}",
+    request_body = UpdatePregnancy,
+    responses(
+        (status = 200, description = "Pregnancy updated", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Pregnancy ID")),
+    security(("cookie_auth" = []))
+)]
 async fn update_pregnancy(
     _claims: Claims,
     State(state): State<AppState>,
@@ -208,6 +356,18 @@ async fn update_pregnancy(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/reproduction/pregnancies/{id}",
+    responses(
+        (status = 200, description = "Pregnancy deleted", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "Pregnancy ID")),
+    security(("cookie_auth" = []))
+)]
 async fn delete_pregnancy(
     _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
@@ -217,19 +377,37 @@ async fn delete_pregnancy(
     Ok(Json(json!({ "message": "Deleted" })))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/heats",
+    responses(
+        (status = 200, description = "List of heats", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(ReproductionFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_heats(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<ReproductionFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = reproduction_service::list_heats(&state.pool, &filter).await?;
-    let total = reproduction_service::count_heats(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || reproduction_service::list_heats(pool, f), || reproduction_service::count_heats(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/heats/{id}",
+    responses(
+        (status = 200, description = "Heat found", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Heat ID")),
+    security(("cookie_auth" = []))
+)]
 async fn get_heat(
     _claims: Claims,
     State(state): State<AppState>,
@@ -241,6 +419,17 @@ async fn get_heat(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/reproduction/heats",
+    request_body = CreateHeat,
+    responses(
+        (status = 201, description = "Heat created", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn create_heat(
     _claims: Claims,
     State(state): State<AppState>,
@@ -251,6 +440,18 @@ async fn create_heat(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/reproduction/heats/{id}",
+    request_body = UpdateHeat,
+    responses(
+        (status = 200, description = "Heat updated", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Heat ID")),
+    security(("cookie_auth" = []))
+)]
 async fn update_heat(
     _claims: Claims,
     State(state): State<AppState>,
@@ -262,6 +463,18 @@ async fn update_heat(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/reproduction/heats/{id}",
+    responses(
+        (status = 200, description = "Heat deleted", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "Heat ID")),
+    security(("cookie_auth" = []))
+)]
 async fn delete_heat(
     _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
@@ -271,19 +484,37 @@ async fn delete_heat(
     Ok(Json(json!({ "message": "Deleted" })))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/dryoffs",
+    responses(
+        (status = 200, description = "List of dry-offs", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(ReproductionFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_dryoffs(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<ReproductionFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = reproduction_service::list_dryoffs(&state.pool, &filter).await?;
-    let total = reproduction_service::count_dryoffs(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || reproduction_service::list_dryoffs(pool, f), || reproduction_service::count_dryoffs(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/dryoffs/{id}",
+    responses(
+        (status = 200, description = "Dry-off found", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Dry-off ID")),
+    security(("cookie_auth" = []))
+)]
 async fn get_dryoff(
     _claims: Claims,
     State(state): State<AppState>,
@@ -295,6 +526,17 @@ async fn get_dryoff(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/reproduction/dryoffs",
+    request_body = CreateDryOff,
+    responses(
+        (status = 201, description = "Dry-off created", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn create_dryoff(
     _claims: Claims,
     State(state): State<AppState>,
@@ -305,6 +547,18 @@ async fn create_dryoff(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/reproduction/dryoffs/{id}",
+    request_body = UpdateDryOff,
+    responses(
+        (status = 200, description = "Dry-off updated", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Dry-off ID")),
+    security(("cookie_auth" = []))
+)]
 async fn update_dryoff(
     _claims: Claims,
     State(state): State<AppState>,
@@ -316,6 +570,18 @@ async fn update_dryoff(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/reproduction/dryoffs/{id}",
+    responses(
+        (status = 200, description = "Dry-off deleted", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "Dry-off ID")),
+    security(("cookie_auth" = []))
+)]
 async fn delete_dryoff(
     _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
@@ -325,6 +591,15 @@ async fn delete_dryoff(
     Ok(Json(json!({ "message": "Deleted" })))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/reproduction/status",
+    responses(
+        (status = 200, description = "Current reproduction status", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn current_status(
     _claims: Claims,
     State(state): State<AppState>,

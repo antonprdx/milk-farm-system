@@ -103,6 +103,7 @@
 	<div class="flex-1 py-2 overflow-y-auto">
 		{#each navItems as item (item.href)}
 			{#if !item.adminOnly || isAdmin}
+				{@const Icon = item.icon}
 				<a
 					href={item.href}
 					onclick={handleNavClick}
@@ -114,7 +115,7 @@
 						: 'text-slate-300 hover:bg-slate-700 dark:hover:bg-slate-800 hover:text-white'}"
 					aria-current={isActive(item.href, $page.url.pathname) ? 'page' : undefined}
 				>
-					<svelte:component this={item.icon} size={20} class="flex-shrink-0" />
+					<Icon size={20} class="flex-shrink-0" />
 					{#if !collapsed}
 						<span class="whitespace-nowrap">{item.label}</span>
 					{/if}

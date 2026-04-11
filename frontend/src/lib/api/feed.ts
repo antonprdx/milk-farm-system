@@ -45,7 +45,7 @@ export interface FeedGroup {
 }
 
 export interface FeedFilter {
-	animal_id?: number;
+	animal_id?: string;
 	from_date?: string;
 	till_date?: string;
 	page?: number;

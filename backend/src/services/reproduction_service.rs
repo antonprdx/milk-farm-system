@@ -11,11 +11,11 @@ pub async fn list_calvings(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Calving>(
-        "SELECT * FROM calvings WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM calvings WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR calving_date >= $2) AND ($3::date IS NULL OR calving_date <= $3)
          ORDER BY calving_date DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -27,10 +27,10 @@ pub async fn list_calvings(
 
 pub async fn count_calvings(pool: &PgPool, filter: &ReproductionFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM calvings WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM calvings WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR calving_date >= $2) AND ($3::date IS NULL OR calving_date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -99,11 +99,11 @@ pub async fn list_inseminations(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Insemination>(
-        "SELECT * FROM inseminations WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM inseminations WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR insemination_date >= $2) AND ($3::date IS NULL OR insemination_date <= $3)
          ORDER BY insemination_date DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -118,10 +118,10 @@ pub async fn count_inseminations(
     filter: &ReproductionFilter,
 ) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM inseminations WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM inseminations WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR insemination_date >= $2) AND ($3::date IS NULL OR insemination_date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -157,11 +157,11 @@ pub async fn list_pregnancies(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Pregnancy>(
-        "SELECT * FROM pregnancies WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM pregnancies WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR pregnancy_date >= $2) AND ($3::date IS NULL OR pregnancy_date <= $3)
          ORDER BY pregnancy_date DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -176,10 +176,10 @@ pub async fn count_pregnancies(
     filter: &ReproductionFilter,
 ) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM pregnancies WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM pregnancies WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR pregnancy_date >= $2) AND ($3::date IS NULL OR pregnancy_date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -208,11 +208,11 @@ pub async fn list_heats(pool: &PgPool, filter: &ReproductionFilter) -> Result<Ve
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Heat>(
-        "SELECT * FROM heats WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM heats WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR heat_date >= $2) AND ($3::date IS NULL OR heat_date <= $3)
          ORDER BY heat_date DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -224,10 +224,10 @@ pub async fn list_heats(pool: &PgPool, filter: &ReproductionFilter) -> Result<Ve
 
 pub async fn count_heats(pool: &PgPool, filter: &ReproductionFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM heats WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM heats WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR heat_date >= $2) AND ($3::date IS NULL OR heat_date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -254,11 +254,11 @@ pub async fn list_dryoffs(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, DryOff>(
-        "SELECT * FROM dry_offs WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM dry_offs WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR dry_off_date >= $2) AND ($3::date IS NULL OR dry_off_date <= $3)
          ORDER BY dry_off_date DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -270,10 +270,10 @@ pub async fn list_dryoffs(
 
 pub async fn count_dryoffs(pool: &PgPool, filter: &ReproductionFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM dry_offs WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM dry_offs WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR dry_off_date >= $2) AND ($3::date IS NULL OR dry_off_date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -628,7 +628,7 @@ mod tests {
         .await
         .unwrap();
         let filter = ReproductionFilter {
-            animal_id: Some(a1),
+            animal_id: Some(a1.to_string()),
             life_number: None,
             from_date: None,
             till_date: None,

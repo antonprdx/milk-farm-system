@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { auth } from '$lib/stores/auth';
+	import { preferences } from '$lib/stores/preferences';
 	import { login } from '$lib/api/auth';
 	import { goto } from '$app/navigation';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
@@ -30,6 +31,7 @@
 			loading = true;
 			const result = await login(username, password);
 			auth.login(result.username, result.role, result.must_change_password);
+			preferences.loadFromServer();
 			goto('/');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Ошибка входа';

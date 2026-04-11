@@ -12,6 +12,7 @@
 		id = '',
 		disabled = false,
 		error = '',
+		onblur,
 	}: {
 		label: string;
 		type?: string;
@@ -25,6 +26,7 @@
 		id?: string;
 		disabled?: boolean;
 		error?: string;
+		onblur?: (() => void) | undefined;
 	} = $props();
 
 	const baseClass =
@@ -46,7 +48,7 @@
 		<label for={id} class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
 			>{label}{required ? ' *' : ''}</label
 		>
-		<select {id} bind:value class={inputClass} {disabled}>
+		<select {id} bind:value class={inputClass} {disabled} {onblur}>
 			{#each options as opt (opt.value)}
 				<option value={opt.value}>{opt.label}</option>
 			{/each}
@@ -60,7 +62,7 @@
 		<label for={id} class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
 			>{label}{required ? ' *' : ''}</label
 		>
-		<textarea {id} bind:value {rows} {placeholder} {disabled} class="{inputClass} resize-none"
+		<textarea {id} bind:value {rows} {placeholder} {disabled} {onblur} class="{inputClass} resize-none"
 		></textarea>
 		{#if error}
 			<p class="mt-1 text-xs text-red-500 dark:text-red-400">{error}</p>
@@ -71,7 +73,7 @@
 		<label for={id} class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
 			>{label}{required ? ' *' : ''}</label
 		>
-		<input {id} {type} bind:value {placeholder} {required} {step} {disabled} class={inputClass} />
+		<input {id} {type} bind:value {placeholder} {required} {step} {disabled} {onblur} class={inputClass} />
 		{#if error}
 			<p class="mt-1 text-xs text-red-500 dark:text-red-400">{error}</p>
 		{/if}

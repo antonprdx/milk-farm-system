@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use milk_farm_backend::{config, create_app, seed_admin, state::AppStateInner};
+use milk_farm_backend::{
+    config, create_app, seed_admin, services::system_settings_service, state::AppStateInner,
+};
 
 use tracing_subscriber::EnvFilter;
 
@@ -8,15 +10,43 @@ use tracing_subscriber::EnvFilter;
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+    let log_format = std::env::var("LOG_FORMAT").unwrap_or_default();
+    if log_format == "json" {
+        tracing_subscriber::fmt()
+            .json()
+            .with_env_filter(EnvFilter::from_default_env())
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(EnvFilter::from_default_env())
+            .init();
+    }
 
     let cfg = config::Config::from_env()?;
-    let pool = sqlx::PgPool::connect(&cfg.database_url).await?;
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(
+            std::env::var("DB_MAX_CONNECTIONS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(20),
+        )
+        .min_connections(
+            std::env::var("DB_MIN_CONNECTIONS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(2),
+        )
+        .acquire_timeout(std::time::Duration::from_secs(5))
+        .idle_timeout(std::time::Duration::from_secs(600))
+        .max_lifetime(std::time::Duration::from_secs(1800))
+        .connect(&cfg.database_url)
+        .await?;
     sqlx::migrate!("./migrations").run(&pool).await?;
 
     seed_admin(&pool).await?;
+
+    system_settings_service::start_time();
+    milk_farm_backend::middleware::metrics::init();
 
     let state = Arc::new(AppStateInner {
         pool,
@@ -29,7 +59,11 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Server running on http://{}", addr);
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(async {
+            shutdown_signal().await;
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            tracing::warn!("Graceful shutdown timed out after 30s");
+        })
         .await?;
 
     Ok(())

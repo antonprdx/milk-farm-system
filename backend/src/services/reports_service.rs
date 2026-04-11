@@ -30,32 +30,35 @@ pub async fn milk_summary(
     from_date: Option<chrono::NaiveDate>,
     till_date: Option<chrono::NaiveDate>,
 ) -> Result<MilkSummary, AppError> {
-    let (total_milk,): (f64,) = sqlx::query_as(
-        "SELECT COALESCE(SUM(milk_amount), 0) FROM milk_day_productions WHERE ($1::date IS NULL OR date >= $1) AND ($2::date IS NULL OR date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
-
-    let (count_days,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM milk_day_productions WHERE ($1::date IS NULL OR date >= $1) AND ($2::date IS NULL OR date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
-
-    let (avg_per_animal,): (Option<f64>,) = sqlx::query_as(
-        "SELECT AVG(milk_amount) FROM milk_day_productions WHERE ($1::date IS NULL OR date >= $1) AND ($2::date IS NULL OR date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+    let (total_milk, count_days, avg_per_animal) = tokio::try_join!(
+        async {
+            let (v,): (f64,) = sqlx::query_as(
+                "SELECT COALESCE(SUM(milk_amount), 0) FROM milk_day_productions WHERE ($1::date IS NULL OR date >= $1) AND ($2::date IS NULL OR date <= $2)"
+            )
+            .bind(from_date)
+            .bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+        async {
+            let (v,): (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM milk_day_productions WHERE ($1::date IS NULL OR date >= $1) AND ($2::date IS NULL OR date <= $2)"
+            )
+            .bind(from_date)
+            .bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+        async {
+            let (v,): (Option<f64>,) = sqlx::query_as(
+                "SELECT AVG(milk_amount) FROM milk_day_productions WHERE ($1::date IS NULL OR date >= $1) AND ($2::date IS NULL OR date <= $2)"
+            )
+            .bind(from_date)
+            .bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+    )?;
 
     Ok(MilkSummary {
         total_milk,
@@ -69,50 +72,48 @@ pub async fn reproduction_summary(
     from_date: Option<chrono::NaiveDate>,
     till_date: Option<chrono::NaiveDate>,
 ) -> Result<ReproductionSummary, AppError> {
-    let (total_calvings,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM calvings WHERE ($1::date IS NULL OR calving_date >= $1) AND ($2::date IS NULL OR calving_date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| { tracing::error!("calvings query error: {:?}", e); AppError::Database(e) })?;
-
-    let (total_inseminations,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM inseminations WHERE ($1::date IS NULL OR insemination_date >= $1) AND ($2::date IS NULL OR insemination_date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
-
-    let (total_pregnancies,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM pregnancies WHERE ($1::date IS NULL OR pregnancy_date >= $1) AND ($2::date IS NULL OR pregnancy_date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
-
-    let (total_heats,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM heats WHERE ($1::date IS NULL OR heat_date >= $1) AND ($2::date IS NULL OR heat_date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
-
-    let (total_dry_offs,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM dry_offs WHERE ($1::date IS NULL OR dry_off_date >= $1) AND ($2::date IS NULL OR dry_off_date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+    let (total_calvings, total_inseminations, total_pregnancies, total_heats, total_dry_offs) = tokio::try_join!(
+        async {
+            let (v,): (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM calvings WHERE ($1::date IS NULL OR calving_date >= $1) AND ($2::date IS NULL OR calving_date <= $2)"
+            )
+            .bind(from_date).bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+        async {
+            let (v,): (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM inseminations WHERE ($1::date IS NULL OR insemination_date >= $1) AND ($2::date IS NULL OR insemination_date <= $2)"
+            )
+            .bind(from_date).bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+        async {
+            let (v,): (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM pregnancies WHERE ($1::date IS NULL OR pregnancy_date >= $1) AND ($2::date IS NULL OR pregnancy_date <= $2)"
+            )
+            .bind(from_date).bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+        async {
+            let (v,): (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM heats WHERE ($1::date IS NULL OR heat_date >= $1) AND ($2::date IS NULL OR heat_date <= $2)"
+            )
+            .bind(from_date).bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+        async {
+            let (v,): (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM dry_offs WHERE ($1::date IS NULL OR dry_off_date >= $1) AND ($2::date IS NULL OR dry_off_date <= $2)"
+            )
+            .bind(from_date).bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+    )?;
 
     Ok(ReproductionSummary {
         total_calvings,
@@ -128,23 +129,24 @@ pub async fn feed_summary(
     from_date: Option<chrono::NaiveDate>,
     till_date: Option<chrono::NaiveDate>,
 ) -> Result<FeedSummary, AppError> {
-    let (total_feed,): (f64,) = sqlx::query_as(
-        "SELECT COALESCE(SUM(total), 0) FROM feed_day_amounts WHERE ($1::date IS NULL OR feed_date >= $1) AND ($2::date IS NULL OR feed_date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
-
-    let (total_visits,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM feed_visits WHERE ($1::date IS NULL OR visit_datetime::date >= $1) AND ($2::date IS NULL OR visit_datetime::date <= $2)"
-    )
-    .bind(from_date)
-    .bind(till_date)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+    let (total_feed, total_visits) = tokio::try_join!(
+        async {
+            let (v,): (f64,) = sqlx::query_as(
+                "SELECT COALESCE(SUM(total), 0) FROM feed_day_amounts WHERE ($1::date IS NULL OR feed_date >= $1) AND ($2::date IS NULL OR feed_date <= $2)"
+            )
+            .bind(from_date).bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+        async {
+            let (v,): (i64,) = sqlx::query_as(
+                "SELECT COUNT(*) FROM feed_visits WHERE ($1::date IS NULL OR visit_datetime::date >= $1) AND ($2::date IS NULL OR visit_datetime::date <= $2)"
+            )
+            .bind(from_date).bind(till_date)
+            .fetch_one(pool).await.map_err(AppError::Database)?;
+            Ok::<_, AppError>(v)
+        },
+    )?;
 
     Ok(FeedSummary {
         total_feed_kg: total_feed,
@@ -275,6 +277,133 @@ pub async fn export_feed_csv(
         ));
     }
     Ok(csv)
+}
+
+#[allow(clippy::type_complexity)]
+pub async fn milk_export_rows(
+    pool: &PgPool,
+    from_date: Option<chrono::NaiveDate>,
+    till_date: Option<chrono::NaiveDate>,
+) -> Result<Vec<Vec<String>>, AppError> {
+    let rows: Vec<(
+        String,
+        String,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+        Option<f64>,
+    )> = sqlx::query_as(
+        "SELECT a.name, md.date::text, md.milk_amount, md.avg_amount, md.avg_weight, md.isk
+         FROM milk_day_productions md
+         JOIN animals a ON a.id = md.animal_id
+         WHERE ($1::date IS NULL OR md.date >= $1) AND ($2::date IS NULL OR md.date <= $2)
+         ORDER BY md.date DESC, a.name",
+    )
+    .bind(from_date)
+    .bind(till_date)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(name, date, milk, avg_amount, avg_weight, isk)| {
+            vec![
+                name,
+                date,
+                milk.map_or(String::new(), |v| format!("{:.1}", v)),
+                avg_amount.map_or(String::new(), |v| format!("{:.1}", v)),
+                avg_weight.map_or(String::new(), |v| format!("{:.1}", v)),
+                isk.map_or(String::new(), |v| format!("{:.1}", v)),
+            ]
+        })
+        .collect())
+}
+
+pub async fn calvings_export_rows(
+    pool: &PgPool,
+    from_date: Option<chrono::NaiveDate>,
+    till_date: Option<chrono::NaiveDate>,
+) -> Result<Vec<Vec<String>>, AppError> {
+    let rows: Vec<(String, String, Option<String>, Option<i32>)> = sqlx::query_as(
+        "SELECT a.name, c.calving_date::text, c.remarks, c.lac_number
+         FROM calvings c JOIN animals a ON a.id = c.animal_id
+         WHERE ($1::date IS NULL OR c.calving_date >= $1) AND ($2::date IS NULL OR c.calving_date <= $2)
+         ORDER BY c.calving_date DESC",
+    )
+    .bind(from_date)
+    .bind(till_date)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(name, date, remarks, lac)| {
+            vec![
+                name,
+                date,
+                remarks.unwrap_or_default(),
+                lac.map_or(String::new(), |v| v.to_string()),
+            ]
+        })
+        .collect())
+}
+
+pub async fn inseminations_export_rows(
+    pool: &PgPool,
+    from_date: Option<chrono::NaiveDate>,
+    till_date: Option<chrono::NaiveDate>,
+) -> Result<Vec<Vec<String>>, AppError> {
+    let rows: Vec<(String, String, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT a.name, i.insemination_date::text, i.sire_code, i.insemination_type
+         FROM inseminations i JOIN animals a ON a.id = i.animal_id
+         WHERE ($1::date IS NULL OR i.insemination_date >= $1) AND ($2::date IS NULL OR i.insemination_date <= $2)
+         ORDER BY i.insemination_date DESC",
+    )
+    .bind(from_date)
+    .bind(till_date)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(name, date, sire, itype)| {
+            vec![
+                name,
+                date,
+                sire.unwrap_or_default(),
+                itype.unwrap_or_default(),
+            ]
+        })
+        .collect())
+}
+
+pub async fn feed_export_rows(
+    pool: &PgPool,
+    from_date: Option<chrono::NaiveDate>,
+    till_date: Option<chrono::NaiveDate>,
+) -> Result<Vec<Vec<String>>, AppError> {
+    let rows: Vec<(String, String, i32, f64)> = sqlx::query_as(
+        "SELECT a.name, f.feed_date::text, f.feed_number, f.total
+         FROM feed_day_amounts f
+         JOIN animals a ON a.id = f.animal_id
+         WHERE ($1::date IS NULL OR f.feed_date >= $1) AND ($2::date IS NULL OR f.feed_date <= $2)
+         ORDER BY f.feed_date DESC, a.name",
+    )
+    .bind(from_date)
+    .bind(till_date)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(name, date, feed_num, total)| {
+            vec![name, date, feed_num.to_string(), format!("{:.1}", total)]
+        })
+        .collect())
 }
 
 fn escape_csv(s: &str) -> String {

@@ -32,6 +32,10 @@ pub async fn list(pool: &PgPool, filter: &AnimalFilter) -> Result<Vec<Animal>, A
         .name
         .as_ref()
         .map(|n| format!("%{}%", escape_like(n)));
+    let search_pattern = filter
+        .search
+        .as_ref()
+        .map(|s| format!("%{}%", escape_like(s)));
 
     sqlx::query_as::<_, Animal>(
         "SELECT * FROM animals WHERE ($1::text IS NULL OR life_number = $1)
@@ -39,6 +43,7 @@ pub async fn list(pool: &PgPool, filter: &AnimalFilter) -> Result<Vec<Animal>, A
          AND ($3::bool IS NULL OR active = $3)
          AND ($4::gender_type IS NULL OR gender = $4)
          AND ($5::text IS NULL OR name ILIKE $5)
+         AND ($8::text IS NULL OR (name ILIKE $8 OR life_number ILIKE $8 OR ucn_number ILIKE $8))
          ORDER BY id LIMIT $6 OFFSET $7",
     )
     .bind(&filter.life_number)
@@ -48,6 +53,7 @@ pub async fn list(pool: &PgPool, filter: &AnimalFilter) -> Result<Vec<Animal>, A
     .bind(&name_pattern)
     .bind(pag.per_page)
     .bind(pag.offset)
+    .bind(&search_pattern)
     .fetch_all(pool)
     .await
     .map_err(AppError::Database)
@@ -58,19 +64,25 @@ pub async fn count(pool: &PgPool, filter: &AnimalFilter) -> Result<i64, AppError
         .name
         .as_ref()
         .map(|n| format!("%{}%", escape_like(n)));
+    let search_pattern = filter
+        .search
+        .as_ref()
+        .map(|s| format!("%{}%", escape_like(s)));
 
     let row: (i64,) = sqlx::query_as(
         "SELECT COUNT(*) FROM animals WHERE ($1::text IS NULL OR life_number = $1)
          AND ($2::text IS NULL OR ucn_number = $2)
          AND ($3::bool IS NULL OR active = $3)
          AND ($4::gender_type IS NULL OR gender = $4)
-         AND ($5::text IS NULL OR name ILIKE $5)",
+         AND ($5::text IS NULL OR name ILIKE $5)
+         AND ($6::text IS NULL OR (name ILIKE $6 OR life_number ILIKE $6 OR ucn_number ILIKE $6))",
     )
     .bind(&filter.life_number)
     .bind(&filter.ucn_number)
     .bind(filter.active)
     .bind(&filter.gender)
     .bind(&name_pattern)
+    .bind(&search_pattern)
     .fetch_one(pool)
     .await
     .map_err(AppError::Database)?;
@@ -212,6 +224,7 @@ mod tests {
     async fn test_list_animals(pool: PgPool) {
         create(&pool, &create_female_req()).await.unwrap();
         let filter = AnimalFilter {
+            search: None,
             life_number: None,
             ucn_number: None,
             name: None,
@@ -230,6 +243,7 @@ mod tests {
     async fn test_list_filter_by_active(pool: PgPool) {
         create(&pool, &create_female_req()).await.unwrap();
         let filter = AnimalFilter {
+            search: None,
             life_number: None,
             ucn_number: None,
             name: None,
@@ -246,6 +260,7 @@ mod tests {
     async fn test_list_filter_by_gender(pool: PgPool) {
         create(&pool, &create_female_req()).await.unwrap();
         let filter = AnimalFilter {
+            search: None,
             life_number: None,
             ucn_number: None,
             name: None,
@@ -262,6 +277,7 @@ mod tests {
     async fn test_list_filter_by_ucn(pool: PgPool) {
         create(&pool, &create_female_req()).await.unwrap();
         let filter = AnimalFilter {
+            search: None,
             life_number: None,
             ucn_number: Some("UCN001".into()),
             name: None,
@@ -311,11 +327,63 @@ mod tests {
     }
 
     #[sqlx::test(migrations = "./migrations")]
+    async fn test_search_by_name(pool: PgPool) {
+        create(&pool, &create_female_req()).await.unwrap();
+        let filter = AnimalFilter {
+            search: Some("Buren".into()),
+            life_number: None,
+            ucn_number: None,
+            name: None,
+            active: None,
+            gender: None,
+            page: None,
+            per_page: None,
+        };
+        let animals = list(&pool, &filter).await.unwrap();
+        assert_eq!(animals.len(), 1);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn test_search_by_life_number(pool: PgPool) {
+        create(&pool, &create_female_req()).await.unwrap();
+        let filter = AnimalFilter {
+            search: Some("LN00".into()),
+            life_number: None,
+            ucn_number: None,
+            name: None,
+            active: None,
+            gender: None,
+            page: None,
+            per_page: None,
+        };
+        let animals = list(&pool, &filter).await.unwrap();
+        assert_eq!(animals.len(), 1);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn test_search_no_match(pool: PgPool) {
+        create(&pool, &create_female_req()).await.unwrap();
+        let filter = AnimalFilter {
+            search: Some("ZZZ_nonexistent".into()),
+            life_number: None,
+            ucn_number: None,
+            name: None,
+            active: None,
+            gender: None,
+            page: None,
+            per_page: None,
+        };
+        let animals = list(&pool, &filter).await.unwrap();
+        assert!(animals.is_empty());
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
     async fn test_pagination(pool: PgPool) {
         for _ in 0..5 {
             create(&pool, &create_female_req()).await.unwrap();
         }
         let filter = AnimalFilter {
+            search: None,
             life_number: None,
             ucn_number: None,
             name: None,
@@ -327,6 +395,7 @@ mod tests {
         let page1 = list(&pool, &filter).await.unwrap();
         assert_eq!(page1.len(), 2);
         let filter2 = AnimalFilter {
+            search: None,
             life_number: None,
             ucn_number: None,
             name: None,

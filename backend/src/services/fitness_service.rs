@@ -10,12 +10,12 @@ pub async fn list_activities(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Activity>(
-        "SELECT * FROM activities WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM activities WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR activity_datetime::date >= $2)
          AND ($3::date IS NULL OR activity_datetime::date <= $3)
          ORDER BY activity_datetime DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -27,11 +27,11 @@ pub async fn list_activities(
 
 pub async fn count_activities(pool: &PgPool, filter: &FitnessFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM activities WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM activities WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR activity_datetime::date >= $2)
          AND ($3::date IS NULL OR activity_datetime::date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -47,11 +47,11 @@ pub async fn list_ruminations(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, Rumination>(
-        "SELECT * FROM ruminations WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM ruminations WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR date >= $2) AND ($3::date IS NULL OR date <= $3)
          ORDER BY date DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -63,10 +63,10 @@ pub async fn list_ruminations(
 
 pub async fn count_ruminations(pool: &PgPool, filter: &FitnessFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM ruminations WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM ruminations WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR date >= $2) AND ($3::date IS NULL OR date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -127,7 +127,7 @@ mod tests {
         .unwrap();
 
         let filter = FitnessFilter {
-            animal_id: Some(animal_id),
+            animal_id: Some(animal_id.to_string()),
             from_date: None,
             till_date: None,
             page: None,
@@ -150,7 +150,7 @@ mod tests {
         .unwrap();
 
         let filter = FitnessFilter {
-            animal_id: Some(animal_id),
+            animal_id: Some(animal_id.to_string()),
             from_date: None,
             till_date: None,
             page: None,

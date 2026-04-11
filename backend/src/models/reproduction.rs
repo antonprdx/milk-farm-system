@@ -4,7 +4,7 @@ use sqlx::FromRow;
 
 pub use super::{BirthRemarkType, GenderType};
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct Calving {
     pub id: i32,
     pub animal_id: i32,
@@ -14,7 +14,7 @@ pub struct Calving {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct Calf {
     pub id: i32,
     pub calving_id: i32,
@@ -30,7 +30,7 @@ pub struct Calf {
     pub born_dead_reason_id: Option<i32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct Insemination {
     pub id: i32,
     pub animal_id: i32,
@@ -41,7 +41,7 @@ pub struct Insemination {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct Pregnancy {
     pub id: i32,
     pub animal_id: i32,
@@ -51,7 +51,7 @@ pub struct Pregnancy {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct Heat {
     pub id: i32,
     pub animal_id: i32,
@@ -59,7 +59,7 @@ pub struct Heat {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct DryOff {
     pub id: i32,
     pub animal_id: i32,
@@ -67,7 +67,7 @@ pub struct DryOff {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateCalving {
     pub animal_id: i32,
     pub calving_date: NaiveDate,
@@ -103,7 +103,7 @@ impl CreateCalving {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateCalf {
     pub life_number: Option<String>,
     pub gender: GenderType,
@@ -128,7 +128,7 @@ impl CreateCalf {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateInsemination {
     pub animal_id: i32,
     pub insemination_date: NaiveDate,
@@ -149,7 +149,7 @@ impl CreateInsemination {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreatePregnancy {
     pub animal_id: i32,
     pub pregnancy_date: NaiveDate,
@@ -168,7 +168,7 @@ impl CreatePregnancy {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateHeat {
     pub animal_id: i32,
     pub heat_date: NaiveDate,
@@ -183,7 +183,7 @@ impl CreateHeat {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateDryOff {
     pub animal_id: i32,
     pub dry_off_date: NaiveDate,
@@ -198,7 +198,7 @@ impl CreateDryOff {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateCalving {
     pub calving_date: Option<NaiveDate>,
     pub remarks: Option<String>,
@@ -223,7 +223,7 @@ impl UpdateCalving {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateInsemination {
     pub insemination_date: Option<NaiveDate>,
     pub sire_code: Option<String>,
@@ -244,7 +244,7 @@ impl UpdateInsemination {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdatePregnancy {
     pub pregnancy_date: Option<NaiveDate>,
     pub pregnancy_type: Option<String>,
@@ -265,7 +265,7 @@ impl UpdatePregnancy {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateHeat {
     pub heat_date: Option<NaiveDate>,
 }
@@ -280,7 +280,7 @@ impl UpdateHeat {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateDryOff {
     pub dry_off_date: Option<NaiveDate>,
 }
@@ -295,9 +295,9 @@ impl UpdateDryOff {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct ReproductionFilter {
-    pub animal_id: Option<i32>,
+    pub animal_id: Option<String>,
     pub life_number: Option<String>,
     pub from_date: Option<NaiveDate>,
     pub till_date: Option<NaiveDate>,
