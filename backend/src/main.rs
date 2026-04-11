@@ -51,7 +51,15 @@ async fn main() -> anyhow::Result<()> {
     let state = Arc::new(AppStateInner {
         pool,
         config: cfg.clone(),
+        lely_cancel: tokio_util::sync::CancellationToken::new(),
     });
+
+    if state.config.lely.enabled {
+        milk_farm_backend::lely::sync::start_sync_scheduler(state.clone());
+    } else {
+        tracing::info!("Интеграция Lely отключена (LELY_ENABLED=false)");
+    }
+
     let app = create_app(state);
 
     let addr = cfg.addr();

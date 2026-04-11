@@ -28,6 +28,9 @@ utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
 genpdf = "0.2.0"
 prometheus = "0.13"
 tokio-retry = "0.3"
+tokio-util = { version = "0.7", features = ["rt"] }
+reqwest = { version = "0.12", features = ["rustls-tls", "json"] }
+futures = "0.3"
 url = "2"
 
 [dev-dependencies]

@@ -1,6 +1,16 @@
 use anyhow::Context;
 
 #[derive(Debug, Clone)]
+pub struct LelyConfig {
+    pub enabled: bool,
+    pub base_url: String,
+    pub username: String,
+    pub password: String,
+    pub farm_key: String,
+    pub sync_interval_secs: u64,
+}
+
+#[derive(Debug, Clone)]
 pub struct Config {
     pub database_url: String,
     pub jwt_secret: String,
@@ -11,6 +21,7 @@ pub struct Config {
     pub jwt_access_ttl_secs: u64,
     pub jwt_refresh_ttl_secs: u64,
     pub trust_proxy: bool,
+    pub lely: LelyConfig,
 }
 
 impl Config {
@@ -54,6 +65,20 @@ impl Config {
                 .unwrap_or_else(|_| "false".into())
                 .parse()
                 .unwrap_or(false),
+            lely: LelyConfig {
+                enabled: std::env::var("LELY_ENABLED")
+                    .unwrap_or_else(|_| "false".into())
+                    .parse()
+                    .unwrap_or(false),
+                base_url: std::env::var("LELY_BASE_URL").unwrap_or_else(|_| String::new()),
+                username: std::env::var("LELY_USERNAME").unwrap_or_else(|_| String::new()),
+                password: std::env::var("LELY_PASSWORD").unwrap_or_else(|_| String::new()),
+                farm_key: std::env::var("LELY_FARM_KEY").unwrap_or_else(|_| String::new()),
+                sync_interval_secs: std::env::var("LELY_SYNC_INTERVAL_SECS")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(300),
+            },
         })
     }
 

@@ -17,6 +17,13 @@
 		type JwtTtlSettings,
 		type AlertThresholds,
 	} from '$lib/api/settings';
+	import {
+		getLelyStatus,
+		triggerLelySync,
+		getLelyConfig,
+		type LelySyncStatus,
+		type LelyConfigResponse,
+	} from '$lib/api/lely';
 	import { preferences } from '$lib/stores/preferences';
 	import { auth } from '$lib/stores/auth';
 	import { theme } from '$lib/stores/theme';
@@ -40,6 +47,8 @@
 		Users,
 		Settings,
 		BarChart3,
+		RefreshCw,
+		Plug,
 	} from 'lucide-svelte';
 
 	let dataTable: DataTable | undefined = $state();
@@ -98,6 +107,12 @@
 	let threshActivityDrop = $state('');
 	let threshSaving = $state(false);
 
+	// Lely integration
+	let lelyStatus = $state<LelySyncStatus[]>([]);
+	let lelyConfig = $state<LelyConfigResponse | null>(null);
+	let lelySyncing = $state(false);
+	let lelyLoading = $state(false);
+
 	let tabs = $derived([
 		{ key: 'profile', label: 'Профиль' },
 		{ key: 'interface', label: 'Интерфейс' },
@@ -107,6 +122,7 @@
 					{ key: 'system', label: 'Система' },
 					{ key: 'security', label: 'Безопасность' },
 					{ key: 'alerts', label: 'Уведомления' },
+					{ key: 'lely', label: 'Интеграция' },
 				]
 			: []),
 	]);
@@ -137,6 +153,18 @@
 						threshActivityDrop = t.alert_activity_drop_pct.toString();
 					})
 					.catch((e) => console.warn('Failed to load alert thresholds', e));
+				lelyLoading = true;
+				getLelyConfig()
+					.then((c) => {
+						lelyConfig = c;
+					})
+					.catch((e) => console.warn('Failed to load Lely config', e));
+				getLelyStatus()
+					.then((s) => {
+						lelyStatus = s;
+					})
+					.catch((e) => console.warn('Failed to load Lely status', e))
+					.finally(() => (lelyLoading = false));
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';
@@ -721,6 +749,168 @@
 						</button>
 					</div>
 				</div>
+			{/if}
+		</div>
+	</section>
+{/if}
+
+<!-- Lely Integration Tab (admin) -->
+{#if activeTab === 'lely' && isAdmin}
+	<section class="space-y-6">
+		<div
+			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-6"
+		>
+			<h2
+				class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2"
+			>
+				<Plug size={18} /> Подключение Lely
+			</h2>
+			{#if lelyConfig}
+				<div class="space-y-3 text-sm">
+					<div class="flex justify-between">
+						<span class="text-slate-500 dark:text-slate-400">Статус</span>
+						<span
+							class="px-2 py-0.5 rounded text-xs font-medium {lelyConfig.enabled
+								? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+								: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}"
+						>
+							{lelyConfig.enabled ? 'Включена' : 'Отключена'}
+						</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-slate-500 dark:text-slate-400">URL сервера</span>
+						<span class="text-slate-800 dark:text-slate-200">{lelyConfig.base_url || '—'}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-slate-500 dark:text-slate-400">Пользователь</span>
+						<span class="text-slate-800 dark:text-slate-200">{lelyConfig.username || '—'}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-slate-500 dark:text-slate-400">FarmKey</span>
+						<span class="text-slate-800 dark:text-slate-200"
+							>{lelyConfig.farm_key_set ? '••••••' : 'Не задан'}</span
+						>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-slate-500 dark:text-slate-400">Интервал синхр.</span>
+						<span class="text-slate-800 dark:text-slate-200"
+							>{lelyConfig.sync_interval_secs < 60
+								? `${lelyConfig.sync_interval_secs}с`
+								: `${Math.floor(lelyConfig.sync_interval_secs / 60)}м`}</span
+						>
+					</div>
+					<p class="text-xs text-slate-400 pt-2">
+						Настройки задаются через переменные окружения (LELY_*)
+					</p>
+				</div>
+			{:else}
+				<div class="animate-pulse space-y-2">
+					{#each Array(4) as _, i (i)}
+						<div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
+					{/each}
+				</div>
+			{/if}
+
+			<div class="flex justify-end mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+				<button
+					onclick={async () => {
+						try {
+							lelySyncing = true;
+							await triggerLelySync();
+							toasts.success('Синхронизация запущена');
+						} catch (e) {
+							toasts.error(e instanceof Error ? e.message : 'Ошибка');
+						} finally {
+							lelySyncing = false;
+						}
+					}}
+					disabled={lelySyncing || !lelyConfig?.enabled}
+					class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+				>
+					<RefreshCw size={14} />
+					{lelySyncing ? 'Запуск...' : 'Синхронизировать'}
+				</button>
+			</div>
+		</div>
+
+		<div
+			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-6"
+		>
+			<h2
+				class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2"
+			>
+				<RefreshCw size={18} /> Статус синхронизации
+			</h2>
+			{#if lelyLoading}
+				<div class="animate-pulse space-y-2">
+					{#each Array(6) as _, i (i)}
+						<div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-full"></div>
+					{/each}
+				</div>
+			{:else if lelyStatus.length > 0}
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-slate-200 dark:border-slate-700">
+								<th class="text-left py-2 px-2 text-slate-500 dark:text-slate-400 font-medium"
+									>Тип</th
+								>
+								<th class="text-left py-2 px-2 text-slate-500 dark:text-slate-400 font-medium"
+									>Статус</th
+								>
+								<th class="text-right py-2 px-2 text-slate-500 dark:text-slate-400 font-medium"
+									>Записей</th
+								>
+								<th class="text-left py-2 px-2 text-slate-500 dark:text-slate-400 font-medium"
+									>Последняя синхр.</th
+								>
+								<th class="text-left py-2 px-2 text-slate-500 dark:text-slate-400 font-medium"
+									>Ошибка</th
+								>
+							</tr>
+						</thead>
+						<tbody>
+							{#each lelyStatus as s (s.entity_type)}
+								<tr
+									class="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+								>
+									<td class="py-2 px-2 font-mono text-xs">{s.entity_type}</td>
+									<td class="py-2 px-2">
+										<span
+											class="px-1.5 py-0.5 rounded text-xs font-medium {s.status ===
+											'success'
+												? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+												: s.status === 'error'
+													? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+													: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}"
+										>
+											{s.status === 'success'
+												? 'ОК'
+												: s.status === 'error'
+													? 'Ошибка'
+													: s.status === 'running'
+														? 'Выполняется'
+														: 'Ожидание'}
+										</span>
+									</td>
+									<td class="py-2 px-2 text-right text-slate-600 dark:text-slate-300"
+										>{s.records_synced}</td
+									>
+									<td class="py-2 px-2 text-slate-500 dark:text-slate-400 text-xs"
+										>{s.last_synced_at
+											? new Date(s.last_synced_at).toLocaleString('ru-RU')
+											: '—'}</td
+									>
+									<td class="py-2 px-2 text-red-500 text-xs max-w-[200px] truncate"
+										>{s.error_message || ''}</td
+									>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else}
+				<p class="text-sm text-slate-400">Нет данных о синхронизации</p>
 			{/if}
 		</div>
 	</section>
