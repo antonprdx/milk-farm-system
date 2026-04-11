@@ -12,7 +12,7 @@ use common::*;
 async fn create_test_animal(app: &axum::Router) -> i64 {
     let req = auth_request_with_body(
         "POST",
-        "/api/animals",
+        "/api/v1/animals",
         &admin_token(),
         json!({
             "gender": "female",
@@ -28,7 +28,7 @@ async fn create_test_animal(app: &axum::Router) -> i64 {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_feed_day_amounts(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/feed/day-amounts", &admin_token());
+    let req = auth_request("GET", "/api/v1/feed/day-amounts", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;
@@ -38,7 +38,7 @@ async fn test_feed_day_amounts(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_feed_visits(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/feed/visits", &admin_token());
+    let req = auth_request("GET", "/api/v1/feed/visits", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -46,7 +46,7 @@ async fn test_feed_visits(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_feed_types(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/feed/types", &admin_token());
+    let req = auth_request("GET", "/api/v1/feed/types", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -54,7 +54,7 @@ async fn test_feed_types(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_feed_groups(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/feed/groups", &admin_token());
+    let req = auth_request("GET", "/api/v1/feed/groups", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -63,7 +63,7 @@ async fn test_feed_groups(pool: sqlx::PgPool) {
 async fn test_feed_requires_auth(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let req = axum::http::Request::builder()
-        .uri("/api/feed/day-amounts")
+        .uri("/api/v1/feed/day-amounts")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
@@ -73,7 +73,7 @@ async fn test_feed_requires_auth(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_fitness_activities(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/fitness/activities", &admin_token());
+    let req = auth_request("GET", "/api/v1/fitness/activities", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -81,7 +81,7 @@ async fn test_fitness_activities(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_fitness_ruminations(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/fitness/ruminations", &admin_token());
+    let req = auth_request("GET", "/api/v1/fitness/ruminations", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -90,7 +90,7 @@ async fn test_fitness_ruminations(pool: sqlx::PgPool) {
 async fn test_fitness_requires_auth(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let req = axum::http::Request::builder()
-        .uri("/api/fitness/activities")
+        .uri("/api/v1/fitness/activities")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
@@ -100,7 +100,7 @@ async fn test_fitness_requires_auth(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_grazing(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/grazing", &admin_token());
+    let req = auth_request("GET", "/api/v1/grazing", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
@@ -109,7 +109,7 @@ async fn test_grazing(pool: sqlx::PgPool) {
 async fn test_grazing_requires_auth(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let req = axum::http::Request::builder()
-        .uri("/api/grazing")
+        .uri("/api/v1/grazing")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
@@ -120,7 +120,7 @@ async fn test_grazing_requires_auth(pool: sqlx::PgPool) {
 async fn test_locations_requires_auth(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let req = axum::http::Request::builder()
-        .uri("/api/locations")
+        .uri("/api/v1/locations")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
@@ -130,7 +130,7 @@ async fn test_locations_requires_auth(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_locations_list(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/locations", &admin_token());
+    let req = auth_request("GET", "/api/v1/locations", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;

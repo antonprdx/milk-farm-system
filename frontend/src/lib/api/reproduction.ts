@@ -102,7 +102,7 @@ export interface UpdateDryOff {
 }
 
 export interface ReproductionFilter {
-	animal_id?: number;
+	animal_id?: string;
 	from_date?: string;
 	till_date?: string;
 	page?: number;

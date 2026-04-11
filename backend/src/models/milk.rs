@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct MilkDayProduction {
     pub id: i32,
     pub animal_id: i32,
@@ -14,7 +14,7 @@ pub struct MilkDayProduction {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct MilkVisit {
     pub id: i32,
     pub animal_id: i32,
@@ -25,7 +25,7 @@ pub struct MilkVisit {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct MilkQuality {
     pub id: i32,
     pub animal_id: i32,
@@ -44,7 +44,7 @@ pub struct MilkQuality {
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateMilkDayProduction {
     pub animal_id: i32,
     pub date: NaiveDate,
@@ -66,7 +66,7 @@ impl CreateMilkDayProduction {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateMilkDayProduction {
     pub date: Option<NaiveDate>,
     pub milk_amount: Option<f64>,
@@ -88,9 +88,9 @@ impl UpdateMilkDayProduction {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct MilkFilter {
-    pub animal_id: Option<i32>,
+    pub animal_id: Option<String>,
     pub from_date: Option<NaiveDate>,
     pub till_date: Option<NaiveDate>,
     pub page: Option<i64>,

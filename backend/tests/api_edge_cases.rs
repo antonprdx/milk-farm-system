@@ -172,6 +172,7 @@ async fn test_unauthorized_invalid_token(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_user_cannot_delete_contact(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
+    seed_test_user(&pool).await;
     let app = make_app(pool);
     let req = auth_request("DELETE", "/api/v1/contacts/1", &user_token());
     let resp = app.oneshot(req).await.unwrap();

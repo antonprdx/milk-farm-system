@@ -1,13 +1,15 @@
-<script lang="ts" context="module">
+<script module lang="ts">
 	/* eslint-disable svelte/prefer-svelte-reactivity */
 	import type { MilkDayProduction } from '$lib/api/milk';
 </script>
 
 <script lang="ts">
-	import { Chart, registerables } from 'chart.js';
+	import { Chart, BarController, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js';
 	import { theme } from '$lib/stores/theme';
+	import { defaultTooltip, defaultScales } from '$lib/utils/chartHelpers';
+	import { debounce } from '$lib/utils/debounce';
 
-	Chart.register(...registerables);
+	Chart.register(BarController, CategoryScale, LinearScale, BarElement, Tooltip);
 
 	type Granularity = 'day' | 'week';
 
@@ -17,7 +19,7 @@
 
 	let { productions }: Props = $props();
 
-	let canvas: HTMLCanvasElement;
+	let canvas: HTMLCanvasElement | undefined = $state();
 	let chart: Chart | null = null;
 	let granularity = $state<Granularity>('day');
 
@@ -69,8 +71,6 @@
 		}
 
 		const isDark = $theme === 'dark';
-		const gridColor = isDark ? 'rgba(148,163,184,0.15)' : 'rgba(203,213,225,0.5)';
-		const textColor = isDark ? '#94a3b8' : '#64748b';
 
 		const { labels, values } =
 			granularity === 'day' ? aggregateByDay(productions) : aggregateByWeek(productions);
@@ -98,43 +98,23 @@
 				maintainAspectRatio: false,
 				plugins: {
 					legend: { display: false },
-					tooltip: {
-						backgroundColor: isDark ? '#1e293b' : '#fff',
-						titleColor: isDark ? '#e2e8f0' : '#1e293b',
-						bodyColor: isDark ? '#94a3b8' : '#475569',
-						borderColor: isDark ? '#334155' : '#e2e8f0',
-						borderWidth: 1,
-						padding: 10,
-						cornerRadius: 8,
-						callbacks: {
-							label: (ctx) => `${ctx.parsed.y?.toFixed(1) ?? '0'} л`,
-						},
-					},
+					tooltip: defaultTooltip(isDark, {
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						label: (ctx: any) => `${ctx.parsed.y?.toFixed(1) ?? '0'} л`,
+					}),
 				},
-				scales: {
-					x: {
-						grid: { display: false },
-						ticks: { color: textColor, maxRotation: 45, font: { size: 11 } },
-					},
-					y: {
-						beginAtZero: true,
-						grid: { color: gridColor },
-						ticks: {
-							color: textColor,
-							font: { size: 11 },
-							callback: (v) => `${v} л`,
-						},
-					},
-				},
+				scales: defaultScales(isDark, (v) => `${v} л`),
 			},
 		});
 	}
+
+	let debouncedBuild = debounce(() => buildChart(), 50);
 
 	$effect(() => {
 		productions;
 		granularity;
 		$theme;
-		buildChart();
+		debouncedBuild();
 	});
 
 	$effect(() => {

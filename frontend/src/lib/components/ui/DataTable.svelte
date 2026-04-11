@@ -1,28 +1,47 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import EmptyState from './EmptyState.svelte';
 
 	type Column = {
 		key: string;
 		label: string;
 		align?: 'left' | 'right' | 'center';
+		sortable?: boolean;
 	};
 
 	let {
 		columns = [],
 		colspan,
 		loading = false,
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		emptyText = 'Нет данных',
+		sortField = $bindable(''),
+		sortDir = $bindable<'asc' | 'desc'>('asc'),
 		children,
 	}: {
 		columns: Column[];
 		colspan?: number;
 		loading?: boolean;
 		emptyText?: string;
+		sortField?: string;
+		sortDir?: 'asc' | 'desc';
 		children: Snippet;
 	} = $props();
 
 	let cols = $derived(colspan ?? columns.length);
+	let hasRows = $state(false);
+
+	export function setHasRows(v: boolean) {
+		hasRows = v;
+	}
+
+	function toggleSort(key: string) {
+		if (sortField === key) {
+			sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortField = key;
+			sortDir = 'asc';
+		}
+	}
 </script>
 
 <div
@@ -40,9 +59,18 @@
 								? 'text-right'
 								: col.align === 'center'
 									? 'text-center'
-									: 'text-left'} px-4 py-3 text-slate-600 dark:text-slate-400 font-medium"
-							>{col.label}</th
+									: 'text-left'} px-4 py-3 text-slate-600 dark:text-slate-400 font-medium {col.sortable
+								? 'cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200'
+								: ''}"
+							onclick={col.sortable ? () => toggleSort(col.key) : undefined}
 						>
+							<span class="inline-flex items-center gap-1">
+								{col.label}
+								{#if col.sortable && sortField === col.key}
+									<span class="text-blue-500 text-xs">{sortDir === 'asc' ? '↑' : '↓'}</span>
+								{/if}
+							</span>
+						</th>
 					{/each}
 				</tr>
 			</thead>
@@ -63,6 +91,12 @@
 							{/each}
 						</tr>
 					{/each}
+				{:else if !hasRows}
+					<tr>
+						<td colspan={cols} class="p-0">
+							<EmptyState message={emptyText} />
+						</td>
+					</tr>
 				{:else}
 					{@render children()}
 				{/if}

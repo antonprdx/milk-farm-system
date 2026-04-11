@@ -5,74 +5,49 @@
 		type Activity,
 		type Rumination,
 	} from '$lib/api/fitness';
-	import { onMount } from 'svelte';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import FilterBar from '$lib/components/ui/FilterBar.svelte';
 	import TabBar from '$lib/components/ui/TabBar.svelte';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import { formatDatetime } from '$lib/utils/format';
+	import { usePaginatedList } from '$lib/utils/usePaginatedList.svelte';
 
 	type Tab = 'activities' | 'ruminations';
 
 	let tab = $state<Tab>('activities');
-	let loading = $state(true);
-	let error = $state('');
 
+	let dtActivities: DataTable | undefined = $state();
+	let dtRuminations: DataTable | undefined = $state();
 	let activities = $state<Activity[]>([]);
 	let ruminations = $state<Rumination[]>([]);
 
-	let fromDate = $state('');
-	let tillDate = $state('');
-	let animalId = $state('');
-
-	let page = $state(1);
-	let total = $state(0);
-	let initialized = $state(false);
-
-	function getFilter() {
-		return {
-			animal_id: animalId ? Number(animalId) : undefined,
-			from_date: fromDate || undefined,
-			till_date: tillDate || undefined,
-			page,
-			per_page: 50,
-		};
-	}
+	const list = usePaginatedList({ perPage: 50 });
 
 	async function load() {
-		try {
-			loading = true;
-			error = '';
-			if (tab === 'activities') {
-				const res = await listActivities(getFilter());
-				activities = res.data;
-				total = res.total;
-			} else {
-				const res = await listRuminations(getFilter());
-				ruminations = res.data;
-				total = res.total;
-			}
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Ошибка загрузки';
-		} finally {
-			loading = false;
+		const params = {
+			animal_id: list.animalId || undefined,
+			from_date: list.fromDate || undefined,
+			till_date: list.tillDate || undefined,
+			page: list.page,
+			per_page: list.perPage,
+		};
+		if (tab === 'activities') {
+			await list.load(() => listActivities(params), (d) => { activities = d; }, dtActivities);
+		} else {
+			await list.load(() => listRuminations(params), (d) => { ruminations = d; }, dtRuminations);
 		}
 	}
 
 	function switchTab(t: Tab) {
 		tab = t;
-		page = 1;
+		list.resetPage();
 		load();
 	}
 
-	onMount(() => {
-		initialized = true;
-		load();
-	});
 	$effect(() => {
-		page;
-		if (initialized) load();
+		list.page;
+		load();
 	});
 </script>
 
@@ -91,8 +66,8 @@
 	onchange={(t: string) => switchTab(t as Tab)}
 />
 
-<FilterBar bind:fromDate bind:tillDate bind:animalId onsearch={load} />
-<ErrorAlert message={error} />
+<FilterBar bind:fromDate={list.fromDate} bind:tillDate={list.tillDate} bind:animalId={list.animalId} onsearch={load} />
+<ErrorAlert message={list.error} />
 
 {#if tab === 'activities'}
 	<DataTable
@@ -102,45 +77,39 @@
 			{ key: 'activity_counter', label: 'Счётчик активности', align: 'right' },
 			{ key: 'heat_attention', label: 'Внимание (охота)', align: 'center' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtActivities}
+		emptyText="Нет данных"
 	>
-		{#if activities.length === 0}
+		{#each activities as a, i (i)}
 			<tr
-				><td colspan="4" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each activities as a, i (i)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3"
+					><a
+						href="/animals/{a.animal_id}"
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
+						>#{a.animal_id}</a
+					></td
 				>
-					<td class="px-4 py-3"
-						><a
-							href="/animals/{a.animal_id}"
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
-							>#{a.animal_id}</a
-						></td
-					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400"
-						>{formatDatetime(a.activity_datetime)}</td
-					>
-					<td class="px-4 py-3 text-right font-medium">{a.activity_counter ?? '—'}</td>
-					<td class="px-4 py-3 text-center">
-						{#if a.heat_attention}
-							<span
-								class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/50 text-orange-700"
-								>Да</span
-							>
-						{:else}
-							<span class="text-slate-400 dark:text-slate-500">—</span>
-						{/if}
-					</td>
-				</tr>
-			{/each}
-		{/if}
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400"
+					>{formatDatetime(a.activity_datetime)}</td
+				>
+				<td class="px-4 py-3 text-right font-medium">{a.activity_counter ?? '—'}</td>
+				<td class="px-4 py-3 text-center">
+					{#if a.heat_attention}
+						<span
+							class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 dark:bg-orange-900/50 text-orange-700"
+							>Да</span
+						>
+					{:else}
+						<span class="text-slate-400 dark:text-slate-500">—</span>
+					{/if}
+				</td>
+			</tr>
+		{/each}
 	</DataTable>
-	<Pagination bind:page {total} perPage={50} />
+	<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />
 {:else}
 	<DataTable
 		columns={[
@@ -149,34 +118,28 @@
 			{ key: 'eating_seconds', label: 'Приём пищи, мин', align: 'right' },
 			{ key: 'rumination_minutes', label: 'Жвачка, мин', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtRuminations}
+		emptyText="Нет данных"
 	>
-		{#if ruminations.length === 0}
+		{#each ruminations as r, i (i)}
 			<tr
-				><td colspan="4" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each ruminations as r, i (i)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3"
+					><a
+						href="/animals/{r.animal_id}"
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
+						>#{r.animal_id}</a
+					></td
 				>
-					<td class="px-4 py-3"
-						><a
-							href="/animals/{r.animal_id}"
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
-							>#{r.animal_id}</a
-						></td
-					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{r.date}</td>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{r.eating_seconds != null ? Math.round(r.eating_seconds / 60) : '—'}</td
-					>
-					<td class="px-4 py-3 text-right font-medium">{r.rumination_minutes ?? '—'}</td>
-				</tr>
-			{/each}
-		{/if}
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{r.date}</td>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{r.eating_seconds != null ? Math.round(r.eating_seconds / 60) : '—'}</td
+				>
+				<td class="px-4 py-3 text-right font-medium">{r.rumination_minutes ?? '—'}</td>
+			</tr>
+		{/each}
 	</DataTable>
-	<Pagination bind:page {total} perPage={50} />
+	<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />
 {/if}

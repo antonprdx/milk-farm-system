@@ -29,6 +29,7 @@ export interface AnimalListResponse {
 }
 
 export interface AnimalFilter {
+	search?: string;
 	life_number?: string;
 	ucn_number?: string;
 	active?: boolean;
@@ -88,4 +89,59 @@ export function updateAnimal(id: number, data: UpdateAnimal) {
 
 export function deleteAnimal(id: number) {
 	return del<{ message: string }>(`/animals/${id}`);
+}
+
+export interface TimelineEvent {
+	date: string;
+	event_type: string;
+	description: string;
+}
+
+export interface TimelineResponse {
+	data: TimelineEvent[];
+	total: number;
+	page: number;
+	per_page: number;
+}
+
+export function getAnimalTimeline(id: number, page = 1, perPage = 50) {
+	return api<TimelineResponse>(`/animals/${id}/timeline?page=${page}&per_page=${perPage}`);
+}
+
+export interface MilkDataPoint {
+	date: string;
+	amount: number;
+}
+
+export interface SccDataPoint {
+	date: string;
+	scc: number;
+}
+
+export interface LatestMetrics {
+	avg_milk_30d: number | null;
+	last_scc: number | null;
+	avg_weight_30d: number | null;
+	avg_isk_30d: number | null;
+}
+
+export interface ReproductionSummary {
+	last_calving_date: string | null;
+	total_inseminations: number;
+	expected_calving_date: string | null;
+	is_pregnant: boolean;
+	lactation_number: number | null;
+	days_in_milk: number | null;
+	is_dry: boolean;
+}
+
+export interface AnimalStats {
+	milk_production_30d: MilkDataPoint[];
+	scc_trend_90d: SccDataPoint[];
+	latest_metrics: LatestMetrics;
+	reproduction: ReproductionSummary;
+}
+
+export function getAnimalStats(id: number) {
+	return api<AnimalStats>(`/animals/${id}/stats`);
 }

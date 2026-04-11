@@ -4,8 +4,11 @@
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';
 	import { toasts } from '$lib/stores/toast';
+	import { useFormDirty } from '$lib/utils/useFormDirty.svelte';
 	import { useFormValidation } from '$lib/utils/useFormValidation.svelte';
 	import { rules } from '$lib/utils/validators';
+
+	const dirty = useFormDirty();
 
 	let form = $state<CreateAnimal>({
 		gender: 'female',
@@ -30,6 +33,7 @@
 		try {
 			loading = true;
 			const res = await createAnimal(form);
+			dirty.reset();
 			toasts.success('Животное создано');
 			goto(`/animals/${res.data.id}`);
 		} catch (e) {
@@ -58,6 +62,8 @@
 
 <form
 	onsubmit={handleSubmit}
+	oninput={dirty.markDirty}
+	onchange={dirty.markDirty}
 	class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-6"
 >
 	<div class="grid grid-cols-1 md:grid-cols-2 gap-6">

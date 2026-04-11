@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct BulkTankTest {
     pub id: i32,
     pub date: NaiveDate,
@@ -13,7 +13,7 @@ pub struct BulkTankTest {
     pub ffa: Option<f64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateBulkTankTest {
     pub date: NaiveDate,
     pub fat: f64,
@@ -42,7 +42,7 @@ impl CreateBulkTankTest {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateBulkTankTest {
     pub date: Option<NaiveDate>,
     pub fat: Option<f64>,
@@ -79,7 +79,7 @@ impl UpdateBulkTankTest {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct BulkTankFilter {
     pub from_date: Option<NaiveDate>,
     pub till_date: Option<NaiveDate>,

@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct KpiResponse {
     pub avg_calving_interval_days: Option<f64>,
     pub conception_rate_pct: Option<f64>,
@@ -12,13 +12,13 @@ pub struct KpiResponse {
     pub culling_risk: Vec<CullingRiskEntry>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct LactationAvg {
     pub lac: i32,
     pub avg_milk: Option<f64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct CullingRiskEntry {
     pub animal_id: i32,
     pub name: Option<String>,
@@ -27,7 +27,7 @@ pub struct CullingRiskEntry {
     pub reasons: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct Alert {
     pub alert_type: String,
     pub severity: String,
@@ -37,19 +37,19 @@ pub struct Alert {
     pub value: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct AlertsResponse {
     pub alerts: Vec<Alert>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct DailyMilkPoint {
     pub date: String,
     pub total_milk: Option<f64>,
     pub cow_count: Option<i64>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct ForecastPoint {
     pub date: String,
     pub predicted: f64,
@@ -57,14 +57,14 @@ pub struct ForecastPoint {
     pub upper: f64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct MilkTrendResponse {
     pub daily: Vec<DailyMilkPoint>,
     pub forecast: Vec<ForecastPoint>,
     pub trend_direction: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct ExpectedCalving {
     pub animal_id: i32,
     pub name: Option<String>,
@@ -74,7 +74,7 @@ pub struct ExpectedCalving {
     pub days_left: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct ExpectedHeat {
     pub animal_id: i32,
     pub name: Option<String>,
@@ -85,7 +85,7 @@ pub struct ExpectedHeat {
     pub overdue: bool,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct DryOffRecommendation {
     pub animal_id: i32,
     pub name: Option<String>,
@@ -95,14 +95,14 @@ pub struct DryOffRecommendation {
     pub days_until_dry_off: i64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct ReproductionForecastResponse {
     pub expected_calvings: Vec<ExpectedCalving>,
     pub expected_heats: Vec<ExpectedHeat>,
     pub dry_off_recommendations: Vec<DryOffRecommendation>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct FeedForecastResponse {
     pub weekly_feed_kg: Option<f64>,
     pub predicted_next_week_kg: f64,

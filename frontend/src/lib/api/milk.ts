@@ -57,7 +57,7 @@ export interface UpdateMilkDayProduction {
 }
 
 export interface MilkFilter {
-	animal_id?: number;
+	animal_id?: string;
 	from_date?: string;
 	till_date?: string;
 	page?: number;

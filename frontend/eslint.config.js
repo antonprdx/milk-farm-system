@@ -35,6 +35,7 @@ export default tseslint.config(
 		rules: {
 			'@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
 			'svelte/no-unused-svelte-ignore': 'warn',
+			'svelte/no-navigation-without-resolve': 'off',
 		},
 	},
 );

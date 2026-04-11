@@ -33,61 +33,50 @@
 	import Modal from '$lib/components/ui/Modal.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import FormField from '$lib/components/ui/FormField.svelte';
+	import AnimalSelect from '$lib/components/ui/AnimalSelect.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
-	import { toasts } from '$lib/stores/toast';
+	import { useCrudModal } from '$lib/utils/useCrudModal.svelte';
+	import { usePaginatedList } from '$lib/utils/usePaginatedList.svelte';
 	import { useFormValidation } from '$lib/utils/useFormValidation.svelte';
 	import { rules } from '$lib/utils/validators';
 	import { Pencil, Trash2 } from 'lucide-svelte';
 
 	type Tab = 'calvings' | 'inseminations' | 'pregnancies' | 'heats' | 'dryoffs';
-	type ModalMode = 'create' | 'edit';
 
 	let tab = $state<Tab>('calvings');
-	let loading = $state(true);
-	let error = $state('');
 
+	let dtCalvings: DataTable | undefined = $state();
+	let dtInseminations: DataTable | undefined = $state();
+	let dtPregnancies: DataTable | undefined = $state();
+	let dtHeats: DataTable | undefined = $state();
+	let dtDryoffs: DataTable | undefined = $state();
 	let calvings = $state<Calving[]>([]);
 	let inseminations = $state<Insemination[]>([]);
 	let pregnancies = $state<Pregnancy[]>([]);
 	let heats = $state<Heat[]>([]);
 	let dryoffs = $state<DryOff[]>([]);
 
-	let fromDate = $state('');
-	let tillDate = $state('');
-	let animalId = $state('');
-
-	let modalMode = $state<ModalMode>('create');
-	let showModal = $state(false);
-	let modalLoading = $state(false);
-	let modalError = $state('');
-	let editingId = $state(0);
-
-	let showDelete = $state(false);
-	let deleteLoading = $state(false);
-	let deleteId = $state(0);
-
-	let total = $state(0);
-	let page = $state(1);
-	let perPage = 20;
+	const list = usePaginatedList();
+	const crud = useCrudModal();
 
 	let today = new Date().toISOString().slice(0, 10);
 
-	let calvingForm = $state({ animal_id: '', calving_date: today, remarks: '', lac_number: '' });
+	let calvingForm = $state({ animal_id: undefined as number | undefined, calving_date: today, remarks: '', lac_number: '' });
 	let inseminationForm = $state({
-		animal_id: '',
+		animal_id: undefined as number | undefined,
 		insemination_date: today,
 		sire_code: '',
 		insemination_type: '',
 		charge_number: '',
 	});
 	let pregnancyForm = $state({
-		animal_id: '',
+		animal_id: undefined as number | undefined,
 		pregnancy_date: today,
 		pregnancy_type: '',
 		insemination_date: '',
 	});
-	let heatForm = $state({ animal_id: '', heat_date: today });
-	let dryoffForm = $state({ animal_id: '', dry_off_date: today });
+	let heatForm = $state({ animal_id: undefined as number | undefined, heat_date: today });
+	let dryoffForm = $state({ animal_id: undefined as number | undefined, dry_off_date: today });
 
 	let editCalvingForm = $state({ calving_date: '', remarks: '', lac_number: '' });
 	let editInseminationForm = $state({
@@ -112,205 +101,230 @@
 
 	const modalTitle = $derived(
 		tab === 'calvings'
-			? modalMode === 'create'
+			? crud.modalMode === 'create'
 				? 'Новый отёл'
 				: 'Редактировать отёл'
 			: tab === 'inseminations'
-				? modalMode === 'create'
+				? crud.modalMode === 'create'
 					? 'Новое осеменение'
 					: 'Редактировать осеменение'
 				: tab === 'pregnancies'
-					? modalMode === 'create'
+					? crud.modalMode === 'create'
 						? 'Новая стельность'
 						: 'Редактировать стельность'
 					: tab === 'heats'
-						? modalMode === 'create'
+						? crud.modalMode === 'create'
 							? 'Новая охота'
 							: 'Редактировать охоту'
-						: modalMode === 'create'
+						: crud.modalMode === 'create'
 							? 'Новый запуск'
 							: 'Редактировать запуск',
 	);
 
 	function getFilter() {
 		return {
-			animal_id: animalId ? Number(animalId) : undefined,
-			from_date: fromDate || undefined,
-			till_date: tillDate || undefined,
+			animal_id: list.animalId || undefined,
+			from_date: list.fromDate || undefined,
+			till_date: list.tillDate || undefined,
 		};
 	}
 
 	async function load() {
-		try {
-			loading = true;
-			error = '';
-			const filter = { ...getFilter(), page, per_page: perPage };
-			switch (tab) {
-				case 'calvings': {
-					const r = await listCalvings(filter);
-					calvings = r.data;
-					total = r.total;
-					break;
-				}
-				case 'inseminations': {
-					const r = await listInseminations(filter);
-					inseminations = r.data;
-					total = r.total;
-					break;
-				}
-				case 'pregnancies': {
-					const r = await listPregnancies(filter);
-					pregnancies = r.data;
-					total = r.total;
-					break;
-				}
-				case 'heats': {
-					const r = await listHeats(filter);
-					heats = r.data;
-					total = r.total;
-					break;
-				}
-				case 'dryoffs': {
-					const r = await listDryOffs(filter);
-					dryoffs = r.data;
-					total = r.total;
-					break;
-				}
-			}
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Ошибка загрузки';
-		} finally {
-			loading = false;
+		const params = { ...getFilter(), page: list.page, per_page: list.perPage };
+		switch (tab) {
+			case 'calvings':
+				await list.load(() => listCalvings(params), (d) => { calvings = d; }, dtCalvings);
+				break;
+			case 'inseminations':
+				await list.load(() => listInseminations(params), (d) => { inseminations = d; }, dtInseminations);
+				break;
+			case 'pregnancies':
+				await list.load(() => listPregnancies(params), (d) => { pregnancies = d; }, dtPregnancies);
+				break;
+			case 'heats':
+				await list.load(() => listHeats(params), (d) => { heats = d; }, dtHeats);
+				break;
+			case 'dryoffs':
+				await list.load(() => listDryOffs(params), (d) => { dryoffs = d; }, dtDryoffs);
+				break;
 		}
 	}
 
 	function switchTab(t: Tab) {
 		tab = t;
-		page = 1;
+		list.resetPage();
 		load();
 	}
 
-	function openCreate() {
-		modalMode = 'create';
-		modalError = '';
-		v.clear();
-		resetCreateForms();
-		showModal = true;
-	}
-
 	function resetCreateForms() {
-		calvingForm = { animal_id: '', calving_date: today, remarks: '', lac_number: '' };
+		calvingForm = { animal_id: undefined, calving_date: today, remarks: '', lac_number: '' };
 		inseminationForm = {
-			animal_id: '',
+			animal_id: undefined,
 			insemination_date: today,
 			sire_code: '',
 			insemination_type: '',
 			charge_number: '',
 		};
 		pregnancyForm = {
-			animal_id: '',
+			animal_id: undefined,
 			pregnancy_date: today,
 			pregnancy_type: '',
 			insemination_date: '',
 		};
-		heatForm = { animal_id: '', heat_date: today };
-		dryoffForm = { animal_id: '', dry_off_date: today };
+		heatForm = { animal_id: undefined, heat_date: today };
+		dryoffForm = { animal_id: undefined, dry_off_date: today };
+	}
+
+	function openCreate() {
+		v.clear();
+		resetCreateForms();
+		crud.openCreate();
 	}
 
 	function openEditCalving(c: Calving) {
-		modalMode = 'edit';
-		editingId = c.id;
-		modalError = '';
-		v.clear();
 		editCalvingForm = {
 			calving_date: c.calving_date,
 			remarks: c.remarks ?? '',
 			lac_number: c.lac_number != null ? String(c.lac_number) : '',
 		};
-		showModal = true;
+		v.clear();
+		crud.openEdit(c.id);
 	}
 	function openEditInsemination(i: Insemination) {
-		modalMode = 'edit';
-		editingId = i.id;
-		modalError = '';
-		v.clear();
 		editInseminationForm = {
 			insemination_date: i.insemination_date,
 			sire_code: i.sire_code ?? '',
 			insemination_type: i.insemination_type ?? '',
 			charge_number: i.charge_number ?? '',
 		};
-		showModal = true;
+		v.clear();
+		crud.openEdit(i.id);
 	}
 	function openEditPregnancy(p: Pregnancy) {
-		modalMode = 'edit';
-		editingId = p.id;
-		modalError = '';
-		v.clear();
 		editPregnancyForm = {
 			pregnancy_date: p.pregnancy_date,
 			pregnancy_type: p.pregnancy_type ?? '',
 			insemination_date: p.insemination_date ?? '',
 		};
-		showModal = true;
+		v.clear();
+		crud.openEdit(p.id);
 	}
 	function openEditHeat(h: Heat) {
-		modalMode = 'edit';
-		editingId = h.id;
-		modalError = '';
-		v.clear();
 		editHeatForm = { heat_date: h.heat_date };
-		showModal = true;
+		v.clear();
+		crud.openEdit(h.id);
 	}
 	function openEditDryoff(d: DryOff) {
-		modalMode = 'edit';
-		editingId = d.id;
-		modalError = '';
-		v.clear();
 		editDryoffForm = { dry_off_date: d.dry_off_date };
-		showModal = true;
+		v.clear();
+		crud.openEdit(d.id);
 	}
 
-	function confirmDelete(id: number) {
-		deleteId = id;
-		showDelete = true;
+	async function handleCreateSubmit() {
+		switch (tab) {
+			case 'calvings':
+				await createCalving({
+					animal_id: calvingForm.animal_id!,
+					calving_date: calvingForm.calving_date,
+					remarks: calvingForm.remarks || undefined,
+					lac_number: calvingForm.lac_number ? Number(calvingForm.lac_number) : undefined,
+				});
+				break;
+			case 'inseminations':
+				await createInsemination({
+					animal_id: inseminationForm.animal_id!,
+					insemination_date: inseminationForm.insemination_date,
+					sire_code: inseminationForm.sire_code || undefined,
+					insemination_type: inseminationForm.insemination_type || undefined,
+					charge_number: inseminationForm.charge_number || undefined,
+				});
+				break;
+			case 'pregnancies':
+				await createPregnancy({
+					animal_id: pregnancyForm.animal_id!,
+					pregnancy_date: pregnancyForm.pregnancy_date,
+					pregnancy_type: pregnancyForm.pregnancy_type || undefined,
+					insemination_date: pregnancyForm.insemination_date || undefined,
+				});
+				break;
+			case 'heats':
+				await createHeat({ animal_id: heatForm.animal_id!, heat_date: heatForm.heat_date });
+				break;
+			case 'dryoffs':
+				await createDryOff({
+					animal_id: dryoffForm.animal_id!,
+					dry_off_date: dryoffForm.dry_off_date,
+				});
+				break;
+		}
+	}
+
+	async function handleEditSubmit() {
+		switch (tab) {
+			case 'calvings':
+				await updateCalving(crud.editingId, {
+					calving_date: editCalvingForm.calving_date || undefined,
+					remarks: editCalvingForm.remarks || undefined,
+					lac_number: editCalvingForm.lac_number ? Number(editCalvingForm.lac_number) : undefined,
+				});
+				break;
+			case 'inseminations':
+				await updateInsemination(crud.editingId, {
+					insemination_date: editInseminationForm.insemination_date || undefined,
+					sire_code: editInseminationForm.sire_code || undefined,
+					insemination_type: editInseminationForm.insemination_type || undefined,
+					charge_number: editInseminationForm.charge_number || undefined,
+				});
+				break;
+			case 'pregnancies':
+				await updatePregnancy(crud.editingId, {
+					pregnancy_date: editPregnancyForm.pregnancy_date || undefined,
+					pregnancy_type: editPregnancyForm.pregnancy_type || undefined,
+					insemination_date: editPregnancyForm.insemination_date || undefined,
+				});
+				break;
+			case 'heats':
+				await updateHeat(crud.editingId, { heat_date: editHeatForm.heat_date || undefined });
+				break;
+			case 'dryoffs':
+				await updateDryOff(crud.editingId, { dry_off_date: editDryoffForm.dry_off_date || undefined });
+				break;
+		}
 	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		modalError = '';
 		const req = [rules.required()];
-		const posId = [rules.required(), rules.positive('Укажите ID животного')];
 		let valid = true;
-		if (modalMode === 'create') {
+		if (crud.modalMode === 'create') {
 			switch (tab) {
 				case 'calvings':
 					valid = v.validateAll({
-						animal_id: { value: calvingForm.animal_id, rules: posId },
+						animal_id: { value: calvingForm.animal_id, rules: req },
 						calving_date: { value: calvingForm.calving_date, rules: req },
 					});
 					break;
 				case 'inseminations':
 					valid = v.validateAll({
-						animal_id: { value: inseminationForm.animal_id, rules: posId },
+						animal_id: { value: inseminationForm.animal_id, rules: req },
 						insemination_date: { value: inseminationForm.insemination_date, rules: req },
 					});
 					break;
 				case 'pregnancies':
 					valid = v.validateAll({
-						animal_id: { value: pregnancyForm.animal_id, rules: posId },
+						animal_id: { value: pregnancyForm.animal_id, rules: req },
 						pregnancy_date: { value: pregnancyForm.pregnancy_date, rules: req },
 					});
 					break;
 				case 'heats':
 					valid = v.validateAll({
-						animal_id: { value: heatForm.animal_id, rules: posId },
+						animal_id: { value: heatForm.animal_id, rules: req },
 						heat_date: { value: heatForm.heat_date, rules: req },
 					});
 					break;
 				case 'dryoffs':
 					valid = v.validateAll({
-						animal_id: { value: dryoffForm.animal_id, rules: posId },
+						animal_id: { value: dryoffForm.animal_id, rules: req },
 						dry_off_date: { value: dryoffForm.dry_off_date, rules: req },
 					});
 					break;
@@ -343,129 +357,30 @@
 			}
 		}
 		if (!valid) return;
-		try {
-			modalLoading = true;
-			if (modalMode === 'create') {
-				await handleCreateSubmit();
-			} else {
-				await handleEditSubmit();
-			}
-			showModal = false;
-			load();
-		} catch (e) {
-			modalError = e instanceof Error ? e.message : 'Ошибка';
-		} finally {
-			modalLoading = false;
-		}
-	}
-
-	async function handleCreateSubmit() {
-		switch (tab) {
-			case 'calvings':
-				await createCalving({
-					animal_id: Number(calvingForm.animal_id),
-					calving_date: calvingForm.calving_date,
-					remarks: calvingForm.remarks || undefined,
-					lac_number: calvingForm.lac_number ? Number(calvingForm.lac_number) : undefined,
-				});
-				break;
-			case 'inseminations':
-				await createInsemination({
-					animal_id: Number(inseminationForm.animal_id),
-					insemination_date: inseminationForm.insemination_date,
-					sire_code: inseminationForm.sire_code || undefined,
-					insemination_type: inseminationForm.insemination_type || undefined,
-					charge_number: inseminationForm.charge_number || undefined,
-				});
-				break;
-			case 'pregnancies':
-				await createPregnancy({
-					animal_id: Number(pregnancyForm.animal_id),
-					pregnancy_date: pregnancyForm.pregnancy_date,
-					pregnancy_type: pregnancyForm.pregnancy_type || undefined,
-					insemination_date: pregnancyForm.insemination_date || undefined,
-				});
-				break;
-			case 'heats':
-				await createHeat({ animal_id: Number(heatForm.animal_id), heat_date: heatForm.heat_date });
-				break;
-			case 'dryoffs':
-				await createDryOff({
-					animal_id: Number(dryoffForm.animal_id),
-					dry_off_date: dryoffForm.dry_off_date,
-				});
-				break;
-		}
-		toasts.success('Запись создана');
-	}
-
-	async function handleEditSubmit() {
-		switch (tab) {
-			case 'calvings':
-				await updateCalving(editingId, {
-					calving_date: editCalvingForm.calving_date || undefined,
-					remarks: editCalvingForm.remarks || undefined,
-					lac_number: editCalvingForm.lac_number ? Number(editCalvingForm.lac_number) : undefined,
-				});
-				break;
-			case 'inseminations':
-				await updateInsemination(editingId, {
-					insemination_date: editInseminationForm.insemination_date || undefined,
-					sire_code: editInseminationForm.sire_code || undefined,
-					insemination_type: editInseminationForm.insemination_type || undefined,
-					charge_number: editInseminationForm.charge_number || undefined,
-				});
-				break;
-			case 'pregnancies':
-				await updatePregnancy(editingId, {
-					pregnancy_date: editPregnancyForm.pregnancy_date || undefined,
-					pregnancy_type: editPregnancyForm.pregnancy_type || undefined,
-					insemination_date: editPregnancyForm.insemination_date || undefined,
-				});
-				break;
-			case 'heats':
-				await updateHeat(editingId, { heat_date: editHeatForm.heat_date || undefined });
-				break;
-			case 'dryoffs':
-				await updateDryOff(editingId, { dry_off_date: editDryoffForm.dry_off_date || undefined });
-				break;
-		}
-		toasts.success('Запись обновлена');
+		await crud.submit(
+			() => (crud.modalMode === 'create' ? handleCreateSubmit() : handleEditSubmit()),
+			crud.modalMode === 'create' ? 'Запись создана' : 'Запись обновлена',
+			load,
+		);
 	}
 
 	async function handleDelete() {
-		try {
-			deleteLoading = true;
+		const deleteFn = () => {
 			switch (tab) {
-				case 'calvings':
-					await deleteCalving(deleteId);
-					break;
-				case 'inseminations':
-					await deleteInsemination(deleteId);
-					break;
-				case 'pregnancies':
-					await deletePregnancy(deleteId);
-					break;
-				case 'heats':
-					await deleteHeat(deleteId);
-					break;
-				case 'dryoffs':
-					await deleteDryOff(deleteId);
-					break;
+				case 'calvings': return deleteCalving(crud.deleteId);
+				case 'inseminations': return deleteInsemination(crud.deleteId);
+				case 'pregnancies': return deletePregnancy(crud.deleteId);
+				case 'heats': return deleteHeat(crud.deleteId);
+				case 'dryoffs': return deleteDryOff(crud.deleteId);
 			}
-			showDelete = false;
-			toasts.success('Запись удалена');
-			load();
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Ошибка удаления';
-			showDelete = false;
-		} finally {
-			deleteLoading = false;
-		}
+		};
+		await crud.remove(deleteFn, load, (msg) => {
+			list.error = msg;
+		});
 	}
 
 	$effect(() => {
-		page;
+		list.page;
 		tab;
 		load();
 	});
@@ -486,8 +401,8 @@
 </div>
 
 <TabBar tabs={tabConfig} bind:active={tab} onchange={(t: string) => switchTab(t as Tab)} />
-<FilterBar bind:fromDate bind:tillDate bind:animalId onsearch={load} />
-<ErrorAlert message={error} />
+<FilterBar bind:fromDate={list.fromDate} bind:tillDate={list.tillDate} bind:animalId={list.animalId} onsearch={load} />
+<ErrorAlert message={list.error} />
 
 {#if tab === 'calvings'}
 	<DataTable
@@ -499,47 +414,41 @@
 			{ key: 'lac_number', label: 'Лактация', align: 'right' },
 			{ key: 'actions', label: '', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtCalvings}
+		emptyText="Нет данных"
 	>
-		{#if calvings.length === 0}
+		{#each calvings as c (`calving-${c.id}`)}
 			<tr
-				><td colspan="6" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each calvings as c (`calving-${c.id}`)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{c.id}</td>
+				<td class="px-4 py-3"
+					><a
+						href="/animals/{c.animal_id}"
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
+						>#{c.animal_id}</a
+					></td
 				>
-					<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{c.id}</td>
-					<td class="px-4 py-3"
-						><a
-							href="/animals/{c.animal_id}"
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
-							>#{c.animal_id}</a
-						></td
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{c.calving_date}</td>
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{c.remarks || '—'}</td>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+					>{c.lac_number ?? '—'}</td
+				>
+				<td class="px-4 py-3 text-right">
+					<button
+						onclick={() => openEditCalving(c)}
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
+						><Pencil size={14} /></button
 					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{c.calving_date}</td>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{c.remarks || '—'}</td>
-					<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-						>{c.lac_number ?? '—'}</td
+					<button
+						onclick={() => crud.confirmDelete(c.id)}
+						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+						><Trash2 size={14} /></button
 					>
-					<td class="px-4 py-3 text-right">
-						<button
-							onclick={() => openEditCalving(c)}
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
-							><Pencil size={14} /></button
-						>
-						<button
-							onclick={() => confirmDelete(c.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
-							><Trash2 size={14} /></button
-						>
-					</td>
-				</tr>
-			{/each}
-		{/if}
+				</td>
+			</tr>
+		{/each}
 	</DataTable>
 {:else if tab === 'inseminations'}
 	<DataTable
@@ -552,48 +461,42 @@
 			{ key: 'charge_number', label: 'Партия' },
 			{ key: 'actions', label: '', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtInseminations}
+		emptyText="Нет данных"
 	>
-		{#if inseminations.length === 0}
+		{#each inseminations as i (`insem-${i.id}`)}
 			<tr
-				><td colspan="7" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each inseminations as i (`insem-${i.id}`)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{i.id}</td>
+				<td class="px-4 py-3"
+					><a
+						href="/animals/{i.animal_id}"
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
+						>#{i.animal_id}</a
+					></td
 				>
-					<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{i.id}</td>
-					<td class="px-4 py-3"
-						><a
-							href="/animals/{i.animal_id}"
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
-							>#{i.animal_id}</a
-						></td
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{i.insemination_date}</td>
+				<td class="px-4 py-3 font-mono text-slate-600 dark:text-slate-400"
+					>{i.sire_code || '—'}</td
+				>
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{i.insemination_type || '—'}</td>
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{i.charge_number || '—'}</td>
+				<td class="px-4 py-3 text-right">
+					<button
+						onclick={() => openEditInsemination(i)}
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
+						><Pencil size={14} /></button
 					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{i.insemination_date}</td>
-					<td class="px-4 py-3 font-mono text-slate-600 dark:text-slate-400"
-						>{i.sire_code || '—'}</td
+					<button
+						onclick={() => crud.confirmDelete(i.id)}
+						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+						><Trash2 size={14} /></button
 					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{i.insemination_type || '—'}</td>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{i.charge_number || '—'}</td>
-					<td class="px-4 py-3 text-right">
-						<button
-							onclick={() => openEditInsemination(i)}
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
-							><Pencil size={14} /></button
-						>
-						<button
-							onclick={() => confirmDelete(i.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
-							><Trash2 size={14} /></button
-						>
-					</td>
-				</tr>
-			{/each}
-		{/if}
+				</td>
+			</tr>
+		{/each}
 	</DataTable>
 {:else if tab === 'pregnancies'}
 	<DataTable
@@ -605,45 +508,39 @@
 			{ key: 'insemination_date', label: 'Дата осеменения' },
 			{ key: 'actions', label: '', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtPregnancies}
+		emptyText="Нет данных"
 	>
-		{#if pregnancies.length === 0}
+		{#each pregnancies as p (`preg-${p.id}`)}
 			<tr
-				><td colspan="6" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each pregnancies as p (`preg-${p.id}`)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{p.id}</td>
+				<td class="px-4 py-3"
+					><a
+						href="/animals/{p.animal_id}"
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
+						>#{p.animal_id}</a
+					></td
 				>
-					<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{p.id}</td>
-					<td class="px-4 py-3"
-						><a
-							href="/animals/{p.animal_id}"
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
-							>#{p.animal_id}</a
-						></td
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{p.pregnancy_date}</td>
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{p.pregnancy_type || '—'}</td>
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{p.insemination_date || '—'}</td>
+				<td class="px-4 py-3 text-right">
+					<button
+						onclick={() => openEditPregnancy(p)}
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
+						><Pencil size={14} /></button
 					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{p.pregnancy_date}</td>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{p.pregnancy_type || '—'}</td>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{p.insemination_date || '—'}</td>
-					<td class="px-4 py-3 text-right">
-						<button
-							onclick={() => openEditPregnancy(p)}
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
-							><Pencil size={14} /></button
-						>
-						<button
-							onclick={() => confirmDelete(p.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
-							><Trash2 size={14} /></button
-						>
-					</td>
-				</tr>
-			{/each}
-		{/if}
+					<button
+						onclick={() => crud.confirmDelete(p.id)}
+						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+						><Trash2 size={14} /></button
+					>
+				</td>
+			</tr>
+		{/each}
 	</DataTable>
 {:else if tab === 'heats'}
 	<DataTable
@@ -653,43 +550,37 @@
 			{ key: 'heat_date', label: 'Дата охоты' },
 			{ key: 'actions', label: '', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtHeats}
+		emptyText="Нет данных"
 	>
-		{#if heats.length === 0}
+		{#each heats as h (`heat-${h.id}`)}
 			<tr
-				><td colspan="4" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each heats as h (`heat-${h.id}`)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{h.id}</td>
+				<td class="px-4 py-3"
+					><a
+						href="/animals/{h.animal_id}"
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
+						>#{h.animal_id}</a
+					></td
 				>
-					<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{h.id}</td>
-					<td class="px-4 py-3"
-						><a
-							href="/animals/{h.animal_id}"
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
-							>#{h.animal_id}</a
-						></td
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{h.heat_date}</td>
+				<td class="px-4 py-3 text-right">
+					<button
+						onclick={() => openEditHeat(h)}
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
+						><Pencil size={14} /></button
 					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{h.heat_date}</td>
-					<td class="px-4 py-3 text-right">
-						<button
-							onclick={() => openEditHeat(h)}
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
-							><Pencil size={14} /></button
-						>
-						<button
-							onclick={() => confirmDelete(h.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
-							><Trash2 size={14} /></button
-						>
-					</td>
-				</tr>
-			{/each}
-		{/if}
+					<button
+						onclick={() => crud.confirmDelete(h.id)}
+						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+						><Trash2 size={14} /></button
+					>
+				</td>
+			</tr>
+		{/each}
 	</DataTable>
 {:else}
 	<DataTable
@@ -699,55 +590,48 @@
 			{ key: 'dry_off_date', label: 'Дата запуска' },
 			{ key: 'actions', label: '', align: 'right' },
 		]}
-		{loading}
+		loading={list.loading}
+		bind:this={dtDryoffs}
+		emptyText="Нет данных"
 	>
-		{#if dryoffs.length === 0}
+		{#each dryoffs as d (`dryoff-${d.id}`)}
 			<tr
-				><td colspan="4" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-					>Нет данных</td
-				></tr
+				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 			>
-		{:else}
-			{#each dryoffs as d (`dryoff-${d.id}`)}
-				<tr
-					class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+				<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{d.id}</td>
+				<td class="px-4 py-3"
+					><a
+						href="/animals/{d.animal_id}"
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
+						>#{d.animal_id}</a
+					></td
 				>
-					<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{d.id}</td>
-					<td class="px-4 py-3"
-						><a
-							href="/animals/{d.animal_id}"
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400"
-							>#{d.animal_id}</a
-						></td
+				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{d.dry_off_date}</td>
+				<td class="px-4 py-3 text-right">
+					<button
+						onclick={() => openEditDryoff(d)}
+						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
+						><Pencil size={14} /></button
 					>
-					<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{d.dry_off_date}</td>
-					<td class="px-4 py-3 text-right">
-						<button
-							onclick={() => openEditDryoff(d)}
-							class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
-							><Pencil size={14} /></button
-						>
-						<button
-							onclick={() => confirmDelete(d.id)}
-							class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
-							><Trash2 size={14} /></button
-						>
-					</td>
-				</tr>
-			{/each}
-		{/if}
+					<button
+						onclick={() => crud.confirmDelete(d.id)}
+						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+						><Trash2 size={14} /></button
+					>
+				</td>
+			</tr>
+		{/each}
 	</DataTable>
 {/if}
 
-<Modal open={showModal} title={modalTitle} onclose={() => (showModal = false)}>
-	<ErrorAlert message={modalError} />
+<Modal open={crud.showModal} title={modalTitle} onclose={crud.close}>
+	<ErrorAlert message={crud.modalError} />
 	<form onsubmit={handleSubmit} class="space-y-4">
-		{#if modalMode === 'create'}
+		{#if crud.modalMode === 'create'}
 			{#if tab === 'calvings'}
-				<FormField
+				<AnimalSelect
 					id="m-animal"
-					label="ID животного"
-					type="number"
+					label="Животное"
 					bind:value={calvingForm.animal_id}
 					required
 					error={v.getError('animal_id')}
@@ -768,10 +652,9 @@
 					bind:value={calvingForm.lac_number}
 				/>
 			{:else if tab === 'inseminations'}
-				<FormField
+				<AnimalSelect
 					id="m-animal"
-					label="ID животного"
-					type="number"
+					label="Животное"
 					bind:value={inseminationForm.animal_id}
 					required
 					error={v.getError('animal_id')}
@@ -793,10 +676,9 @@
 				/>
 				<FormField id="m-charge" label="Номер партии" bind:value={inseminationForm.charge_number} />
 			{:else if tab === 'pregnancies'}
-				<FormField
+				<AnimalSelect
 					id="m-animal"
-					label="ID животного"
-					type="number"
+					label="Животное"
 					bind:value={pregnancyForm.animal_id}
 					required
 					error={v.getError('animal_id')}
@@ -817,10 +699,9 @@
 					bind:value={pregnancyForm.insemination_date}
 				/>
 			{:else if tab === 'heats'}
-				<FormField
+				<AnimalSelect
 					id="m-animal"
-					label="ID животного"
-					type="number"
+					label="Животное"
 					bind:value={heatForm.animal_id}
 					required
 					error={v.getError('animal_id')}
@@ -834,10 +715,9 @@
 					error={v.getError('heat_date')}
 				/>
 			{:else}
-				<FormField
+				<AnimalSelect
 					id="m-animal"
-					label="ID животного"
-					type="number"
+					label="Животное"
 					bind:value={dryoffForm.animal_id}
 					required
 					error={v.getError('animal_id')}
@@ -925,28 +805,28 @@
 		<div class="flex gap-3 justify-end pt-2">
 			<button
 				type="button"
-				onclick={() => (showModal = false)}
+				onclick={crud.close}
 				class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:bg-slate-800/50 cursor-pointer"
 				>Отмена</button
 			>
 			<button
 				type="submit"
-				disabled={modalLoading}
+				disabled={crud.modalLoading}
 				class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 cursor-pointer"
 			>
-				{modalLoading ? 'Сохранение...' : modalMode === 'create' ? 'Создать' : 'Сохранить'}
+				{crud.modalLoading ? 'Сохранение...' : crud.modalMode === 'create' ? 'Создать' : 'Сохранить'}
 			</button>
 		</div>
 	</form>
 </Modal>
 
 <ConfirmDialog
-	open={showDelete}
+	open={crud.showDelete}
 	title="Удалить запись?"
 	message="Это действие нельзя отменить."
-	loading={deleteLoading}
+	loading={crud.deleteLoading}
 	onconfirm={handleDelete}
-	oncancel={() => (showDelete = false)}
+	oncancel={crud.closeDelete}
 />
 
-<Pagination bind:page {total} {perPage} />
+<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />

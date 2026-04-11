@@ -8,6 +8,13 @@ function createThemeStore() {
 
 	return {
 		subscribe: store.subscribe,
+		set: (val: 'light' | 'dark') => {
+			if (browser) {
+				localStorage.setItem('theme', val);
+				document.documentElement.classList.toggle('dark', val === 'dark');
+			}
+			store.set(val);
+		},
 		toggle: () => {
 			const next = get(store) === 'dark' ? 'light' : 'dark';
 			if (browser) {

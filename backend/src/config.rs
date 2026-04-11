@@ -10,6 +10,7 @@ pub struct Config {
     pub secure_cookies: bool,
     pub jwt_access_ttl_secs: u64,
     pub jwt_refresh_ttl_secs: u64,
+    pub trust_proxy: bool,
 }
 
 impl Config {
@@ -49,6 +50,10 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(604800),
+            trust_proxy: std::env::var("TRUST_PROXY")
+                .unwrap_or_else(|_| "false".into())
+                .parse()
+                .unwrap_or(false),
         })
     }
 

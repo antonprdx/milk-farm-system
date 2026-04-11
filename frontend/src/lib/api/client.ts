@@ -1,4 +1,6 @@
 import { buildQuery as _buildQuery } from '$lib/utils/query';
+import { auth } from '$lib/stores/auth';
+import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1';
@@ -55,10 +57,8 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 					return retryRes.json();
 				}
 			}
-			localStorage.removeItem('username');
-			localStorage.removeItem('role');
-			localStorage.removeItem('mustChangePassword');
-			window.location.href = '/auth/login';
+			auth.logout();
+			goto('/auth/login');
 			throw new Error('Сессия истекла. Войдите заново.');
 		}
 		const err = await res.json().catch(() => ({ error: res.statusText }));

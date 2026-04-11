@@ -12,7 +12,7 @@ use common::*;
 async fn test_list_animals_requires_auth(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let req = Request::builder()
-        .uri("/api/animals")
+        .uri("/api/v1/animals")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();
@@ -22,7 +22,7 @@ async fn test_list_animals_requires_auth(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_list_animals_empty(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/animals", &admin_token());
+    let req = auth_request("GET", "/api/v1/animals", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;
@@ -35,7 +35,7 @@ async fn test_create_animal(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let req = auth_request_with_body(
         "POST",
-        "/api/animals",
+        "/api/v1/animals",
         &admin_token(),
         json!({
             "gender": "female",
@@ -56,7 +56,7 @@ async fn test_get_animal_by_id(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let create_req = auth_request_with_body(
         "POST",
-        "/api/animals",
+        "/api/v1/animals",
         &admin_token(),
         json!({
             "gender": "female",
@@ -67,7 +67,7 @@ async fn test_get_animal_by_id(pool: sqlx::PgPool) {
     let body: Value = read_body_json(resp.into_body()).await;
     let id = body["data"]["id"].as_i64().unwrap();
 
-    let get_req = auth_request("GET", &format!("/api/animals/{}", id), &admin_token());
+    let get_req = auth_request("GET", &format!("/api/v1/animals/{}", id), &admin_token());
     let resp2 = app.oneshot(get_req).await.unwrap();
     assert_eq!(resp2.status(), StatusCode::OK);
     let body2: Value = read_body_json(resp2.into_body()).await;
@@ -77,7 +77,7 @@ async fn test_get_animal_by_id(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_get_animal_not_found(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/animals/99999", &admin_token());
+    let req = auth_request("GET", "/api/v1/animals/99999", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
@@ -87,7 +87,7 @@ async fn test_update_animal(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let create_req = auth_request_with_body(
         "POST",
-        "/api/animals",
+        "/api/v1/animals",
         &admin_token(),
         json!({
             "gender": "female",
@@ -102,7 +102,7 @@ async fn test_update_animal(pool: sqlx::PgPool) {
 
     let update_req = auth_request_with_body(
         "PUT",
-        &format!("/api/animals/{}", id),
+        &format!("/api/v1/animals/{}", id),
         &admin_token(),
         json!({
             "name": "New",
@@ -121,7 +121,7 @@ async fn test_delete_animal(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let create_req = auth_request_with_body(
         "POST",
-        "/api/animals",
+        "/api/v1/animals",
         &admin_token(),
         json!({
             "gender": "male",
@@ -133,11 +133,11 @@ async fn test_delete_animal(pool: sqlx::PgPool) {
         .as_i64()
         .unwrap();
 
-    let delete_req = auth_request("DELETE", &format!("/api/animals/{}", id), &admin_token());
+    let delete_req = auth_request("DELETE", &format!("/api/v1/animals/{}", id), &admin_token());
     let resp2 = app.clone().oneshot(delete_req).await.unwrap();
     assert_eq!(resp2.status(), StatusCode::OK);
 
-    let get_req = auth_request("GET", &format!("/api/animals/{}", id), &admin_token());
+    let get_req = auth_request("GET", &format!("/api/v1/animals/{}", id), &admin_token());
     let resp3 = app.oneshot(get_req).await.unwrap();
     assert_eq!(resp3.status(), StatusCode::OK);
     let body3: Value = read_body_json(resp3.into_body()).await;
@@ -150,7 +150,7 @@ async fn test_list_animals_with_filters(pool: sqlx::PgPool) {
     app.clone()
         .oneshot(auth_request_with_body(
             "POST",
-            "/api/animals",
+            "/api/v1/animals",
             &admin_token(),
             json!({
                 "gender": "female", "birth_date": "2020-01-01"
@@ -161,7 +161,7 @@ async fn test_list_animals_with_filters(pool: sqlx::PgPool) {
     app.clone()
         .oneshot(auth_request_with_body(
             "POST",
-            "/api/animals",
+            "/api/v1/animals",
             &admin_token(),
             json!({
                 "gender": "male", "birth_date": "2021-01-01"
@@ -170,7 +170,7 @@ async fn test_list_animals_with_filters(pool: sqlx::PgPool) {
         .await
         .unwrap();
 
-    let req = auth_request("GET", "/api/animals?gender=female", &admin_token());
+    let req = auth_request("GET", "/api/v1/animals?gender=female", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     let body: Value = read_body_json(resp.into_body()).await;
     assert_eq!(body["total"], 1);

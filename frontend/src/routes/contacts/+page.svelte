@@ -17,15 +17,13 @@
 	import { useFormValidation } from '$lib/utils/useFormValidation.svelte';
 	import { rules } from '$lib/utils/validators';
 	import { useCrudModal } from '$lib/utils/useCrudModal.svelte';
+	import { usePaginatedList } from '$lib/utils/usePaginatedList.svelte';
 	import { Pencil, Trash2 } from 'lucide-svelte';
 
+	let dataTable: DataTable;
 	let contacts = $state<Contact[]>([]);
-	let loading = $state(true);
-	let error = $state('');
-	let total = $state(0);
-	let page = $state(1);
-	let perPage = 20;
 
+	const list = usePaginatedList();
 	const crud = useCrudModal();
 
 	let form = $state<CreateContact & { active: boolean }>({
@@ -44,17 +42,13 @@
 	const v = useFormValidation();
 
 	async function load() {
-		try {
-			loading = true;
-			error = '';
-			const res = await listContacts({ page, per_page: perPage });
-			contacts = res.data;
-			total = res.total;
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Ошибка загрузки';
-		} finally {
-			loading = false;
-		}
+		await list.load(
+			() => listContacts({ page: list.page, per_page: list.perPage }),
+			(data) => {
+				contacts = data;
+			},
+			dataTable,
+		);
 	}
 
 	function openCreate() {
@@ -129,13 +123,13 @@
 			() => deleteContact(crud.deleteId),
 			load,
 			(msg) => {
-				error = msg;
+				list.error = msg;
 			},
 		);
 	}
 
 	$effect(() => {
-		page;
+		list.page;
 		load();
 	});
 </script>
@@ -154,7 +148,7 @@
 	</button>
 </div>
 
-<ErrorAlert message={error} />
+<ErrorAlert message={list.error} />
 
 <DataTable
 	columns={[
@@ -165,55 +159,49 @@
 		{ key: 'active', label: 'Статус' },
 		{ key: 'actions', label: 'Действия', align: 'right' },
 	]}
-	{loading}
+	loading={list.loading}
+	bind:this={dataTable}
+	emptyText="Нет контактов"
 >
-	{#if contacts.length === 0}
+	{#each contacts as c (c.id)}
 		<tr
-			><td colspan="6" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-				>Нет контактов</td
-			></tr
+			class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 		>
-	{:else}
-		{#each contacts as c (c.id)}
-			<tr
-				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
-			>
-				<td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{c.name}</td>
-				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{c.company_name || '—'}</td>
-				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">
-					{#if c.phone_cell}<span class="block">{c.phone_cell}</span>{/if}
-					{#if c.phone_home}<span class="block text-xs text-slate-400 dark:text-slate-500"
-							>{c.phone_home}</span
-						>{/if}
-					{#if !c.phone_cell && !c.phone_home}—{/if}
-				</td>
-				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{c.email || '—'}</td>
-				<td class="px-4 py-3">
-					<span
-						class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {c.active
-							? 'bg-green-100 dark:bg-green-900/50 text-green-700'
-							: 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'}"
+			<td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{c.name}</td>
+			<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{c.company_name || '—'}</td>
+			<td class="px-4 py-3 text-slate-600 dark:text-slate-400">
+				{#if c.phone_cell}<span class="block">{c.phone_cell}</span>{/if}
+				{#if c.phone_home}<span class="block text-xs text-slate-400 dark:text-slate-500"
+						>{c.phone_home}</span
+					>{/if}
+				{#if !c.phone_cell && !c.phone_home}—{/if}
+			</td>
+			<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{c.email || '—'}</td>
+			<td class="px-4 py-3">
+				<span
+					class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {c.active
+						? 'bg-green-100 dark:bg-green-900/50 text-green-700'
+						: 'bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400'}"
+				>
+					{c.active ? 'Активен' : 'Неактивен'}
+				</span>
+			</td>
+			<td class="px-4 py-3 text-right">
+				<div class="flex gap-2 justify-end">
+					<button
+						onclick={() => openEdit(c)}
+						class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded transition-colors cursor-pointer"
+						><Pencil size={14} /></button
 					>
-						{c.active ? 'Активен' : 'Неактивен'}
-					</span>
-				</td>
-				<td class="px-4 py-3 text-right">
-					<div class="flex gap-2 justify-end">
-						<button
-							onclick={() => openEdit(c)}
-							class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded transition-colors cursor-pointer"
-							><Pencil size={14} /></button
-						>
-						<button
-							onclick={() => crud.confirmDelete(c.id)}
-							class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/50 rounded transition-colors cursor-pointer"
-							><Trash2 size={14} /></button
-						>
-					</div>
-				</td>
-			</tr>
-		{/each}
-	{/if}
+					<button
+						onclick={() => crud.confirmDelete(c.id)}
+						class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/50 rounded transition-colors cursor-pointer"
+						><Trash2 size={14} /></button
+					>
+				</div>
+			</td>
+		</tr>
+	{/each}
 </DataTable>
 
 <Modal
@@ -270,4 +258,4 @@
 	oncancel={crud.closeDelete}
 />
 
-<Pagination bind:page {total} {perPage} />
+<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />

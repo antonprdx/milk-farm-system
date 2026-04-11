@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
 use crate::models::milk::{CreateMilkDayProduction, MilkFilter, UpdateMilkDayProduction};
+use crate::models::pagination::paginated;
 use crate::services::milk_service;
 use crate::state::AppState;
 
@@ -25,19 +26,37 @@ pub fn routes() -> Router<AppState> {
         .route("/milk/quality", get(list_quality))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/milk/day-productions",
+    responses(
+        (status = 200, description = "List of milk day productions", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(MilkFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_productions(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<MilkFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = milk_service::list_productions(&state.pool, &filter).await?;
-    let total = milk_service::count_productions(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || milk_service::list_productions(pool, f), || milk_service::count_productions(pool, f)).await
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/milk/day-productions",
+    request_body = CreateMilkDayProduction,
+    responses(
+        (status = 201, description = "Production created", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn create_production(
     _claims: Claims,
     State(state): State<AppState>,
@@ -48,6 +67,17 @@ async fn create_production(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/milk/day-productions/{id}",
+    responses(
+        (status = 200, description = "Production found", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Production ID")),
+    security(("cookie_auth" = []))
+)]
 async fn get_production(
     _claims: Claims,
     State(state): State<AppState>,
@@ -59,6 +89,18 @@ async fn get_production(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/milk/day-productions/{id}",
+    request_body = UpdateMilkDayProduction,
+    responses(
+        (status = 200, description = "Production updated", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Production ID")),
+    security(("cookie_auth" = []))
+)]
 async fn update_production(
     _claims: Claims,
     State(state): State<AppState>,
@@ -70,6 +112,18 @@ async fn update_production(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/milk/day-productions/{id}",
+    responses(
+        (status = 200, description = "Production deleted", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "Production ID")),
+    security(("cookie_auth" = []))
+)]
 async fn delete_production(
     _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
@@ -79,28 +133,42 @@ async fn delete_production(
     Ok(Json(json!({ "message": "Deleted" })))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/milk/visits",
+    responses(
+        (status = 200, description = "List of milk visits", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(MilkFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_visits(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<MilkFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = milk_service::list_visits(&state.pool, &filter).await?;
-    let total = milk_service::count_visits(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || milk_service::list_visits(pool, f), || milk_service::count_visits(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/milk/quality",
+    responses(
+        (status = 200, description = "List of milk quality records", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(MilkFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list_quality(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<MilkFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = milk_service::list_quality(&state.pool, &filter).await?;
-    let total = milk_service::count_quality(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || milk_service::list_quality(pool, f), || milk_service::count_quality(pool, f)).await
 }

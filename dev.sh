@@ -34,7 +34,7 @@ echo "Starting backend..."
 BACKEND_PID=$!
 
 echo "Waiting for backend to be ready..."
-until curl -sf http://localhost:3000/api/health > /dev/null 2>&1; do
+until curl -sf http://localhost:3000/api/v1/health > /dev/null 2>&1; do
     sleep 1
 done
 echo "Backend is ready."

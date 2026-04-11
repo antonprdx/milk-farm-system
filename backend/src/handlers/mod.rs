@@ -1,20 +1,24 @@
-mod analytics;
-mod animals;
-mod auth;
-mod bulk_tank;
-mod contacts;
-mod feed;
-mod fitness;
-mod grazing;
-mod locations;
-mod milk;
-mod reports;
-mod reproduction;
-mod settings;
+pub(crate) mod analytics;
+pub(crate) mod animals;
+pub(crate) mod auth;
+pub(crate) mod bulk_tank;
+pub(crate) mod contacts;
+pub(crate) mod feed;
+pub(crate) mod fitness;
+pub(crate) mod grazing;
+pub(crate) mod locations;
+pub(crate) mod milk;
+pub(crate) mod reports;
+pub(crate) mod reproduction;
+pub(crate) mod settings;
 
 use axum::Router;
 
 use crate::state::AppState;
+
+pub use analytics::TrendQuery;
+pub use reports::ReportFilter;
+pub use settings::{ChangePasswordRequest, UpdateRoleRequest};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

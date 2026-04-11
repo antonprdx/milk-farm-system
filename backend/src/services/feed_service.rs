@@ -10,11 +10,11 @@ pub async fn list_day_amounts(
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, FeedDayAmount>(
-        "SELECT * FROM feed_day_amounts WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM feed_day_amounts WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR feed_date >= $2) AND ($3::date IS NULL OR feed_date <= $3)
          ORDER BY feed_date DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -26,10 +26,10 @@ pub async fn list_day_amounts(
 
 pub async fn count_day_amounts(pool: &PgPool, filter: &FeedFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM feed_day_amounts WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM feed_day_amounts WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR feed_date >= $2) AND ($3::date IS NULL OR feed_date <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -42,11 +42,11 @@ pub async fn list_visits(pool: &PgPool, filter: &FeedFilter) -> Result<Vec<FeedV
     let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
 
     sqlx::query_as::<_, FeedVisit>(
-        "SELECT * FROM feed_visits WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT * FROM feed_visits WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR visit_datetime >= $2) AND ($3::date IS NULL OR visit_datetime <= $3)
          ORDER BY visit_datetime DESC LIMIT $4 OFFSET $5",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .bind(pag.per_page)
@@ -58,10 +58,10 @@ pub async fn list_visits(pool: &PgPool, filter: &FeedFilter) -> Result<Vec<FeedV
 
 pub async fn count_visits(pool: &PgPool, filter: &FeedFilter) -> Result<i64, AppError> {
     let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM feed_visits WHERE ($1::int IS NULL OR animal_id = $1)
+        "SELECT COUNT(*) FROM feed_visits WHERE ($1::text IS NULL OR animal_id::text LIKE $1 || '%')
          AND ($2::date IS NULL OR visit_datetime >= $2) AND ($3::date IS NULL OR visit_datetime <= $3)",
     )
-    .bind(filter.animal_id)
+    .bind(filter.animal_id.clone())
     .bind(filter.from_date)
     .bind(filter.till_date)
     .fetch_one(pool)
@@ -164,7 +164,7 @@ mod tests {
         .unwrap();
 
         let filter = FeedFilter {
-            animal_id: Some(animal_id),
+            animal_id: Some(animal_id.to_string()),
             from_date: None,
             till_date: None,
             page: None,
@@ -187,7 +187,7 @@ mod tests {
         .unwrap();
 
         let filter = FeedFilter {
-            animal_id: Some(animal_id),
+            animal_id: Some(animal_id.to_string()),
             from_date: None,
             till_date: None,
             page: None,

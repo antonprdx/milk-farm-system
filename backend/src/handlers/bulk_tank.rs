@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
 use crate::models::bulk_tank::{BulkTankFilter, CreateBulkTankTest, UpdateBulkTankTest};
+use crate::models::pagination::paginated;
 use crate::services::bulk_tank_service;
 use crate::state::AppState;
 
@@ -15,19 +16,37 @@ pub fn routes() -> Router<AppState> {
         .route("/bulk-tank/{id}", get(get_by_id).put(update).delete(remove))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/bulk-tank",
+    responses(
+        (status = 200, description = "List of bulk tank tests", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(BulkTankFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<BulkTankFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let pag = crate::models::pagination::Pagination::from_filter(filter.page, filter.per_page);
-    let data = bulk_tank_service::list(&state.pool, &filter).await?;
-    let total = bulk_tank_service::count(&state.pool, &filter).await?;
-    Ok(Json(
-        json!({ "data": data, "total": total, "page": pag.page, "per_page": pag.per_page }),
-    ))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || bulk_tank_service::list(pool, f), || bulk_tank_service::count(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/bulk-tank/{id}",
+    responses(
+        (status = 200, description = "Bulk tank test found", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Bulk tank test ID")),
+    security(("cookie_auth" = []))
+)]
 async fn get_by_id(
     _claims: Claims,
     State(state): State<AppState>,
@@ -39,6 +58,17 @@ async fn get_by_id(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/bulk-tank",
+    request_body = CreateBulkTankTest,
+    responses(
+        (status = 201, description = "Bulk tank test created", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn create(
     _claims: Claims,
     State(state): State<AppState>,
@@ -49,6 +79,18 @@ async fn create(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/bulk-tank/{id}",
+    request_body = UpdateBulkTankTest,
+    responses(
+        (status = 200, description = "Bulk tank test updated", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Bulk tank test ID")),
+    security(("cookie_auth" = []))
+)]
 async fn update(
     _claims: Claims,
     State(state): State<AppState>,
@@ -60,6 +102,18 @@ async fn update(
     Ok(Json(json!({ "data": item })))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/bulk-tank/{id}",
+    responses(
+        (status = 200, description = "Bulk tank test deleted", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "Bulk tank test ID")),
+    security(("cookie_auth" = []))
+)]
 async fn remove(
     _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,

@@ -17,19 +17,21 @@
 	import { fmtNum } from '$lib/utils/format';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import { useCrudModal } from '$lib/utils/useCrudModal.svelte';
+	import { usePaginatedList } from '$lib/utils/usePaginatedList.svelte';
+	import { useFormValidation } from '$lib/utils/useFormValidation.svelte';
+	import { rules } from '$lib/utils/validators';
 	import { Pencil, Trash2 } from 'lucide-svelte';
 
-	let loading = $state(true);
-	let error = $state('');
+	let dataTable: DataTable;
 	let tests = $state<BulkTankTest[]>([]);
 
-	let filter = $state({ from_date: '', till_date: '' });
-
-	let total = $state(0);
-	let page = $state(1);
-	let perPage = 20;
-
+	const list = usePaginatedList();
 	const crud = useCrudModal();
+	const v = useFormValidation();
+
+	const dateRules = [rules.required()];
+	const fatRules = [rules.required(), rules.percentage()];
+	const proteinRules = [rules.required(), rules.percentage()];
 
 	let today = new Date().toISOString().slice(0, 10);
 
@@ -37,26 +39,24 @@
 	let editForm = $state<UpdateBulkTankTest>({});
 
 	async function load() {
-		try {
-			loading = true;
-			error = '';
-			const res = await listBulkTankTests({
-				from_date: filter.from_date || undefined,
-				till_date: filter.till_date || undefined,
-				page,
-				per_page: perPage,
-			});
-			tests = res.data;
-			total = res.total;
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Ошибка загрузки';
-		} finally {
-			loading = false;
-		}
+		await list.load(
+			() =>
+				listBulkTankTests({
+					from_date: list.fromDate || undefined,
+					till_date: list.tillDate || undefined,
+					page: list.page,
+					per_page: list.perPage,
+				}),
+			(data) => {
+				tests = data;
+			},
+			dataTable,
+		);
 	}
 
 	function openCreate() {
 		createForm = { date: today, fat: 3.8, protein: 3.2 };
+		v.clear();
 		crud.openCreate();
 	}
 
@@ -69,11 +69,27 @@
 			scc: t.scc ?? undefined,
 			ffa: t.ffa ?? undefined,
 		};
+		v.clear();
 		crud.openEdit(t.id);
 	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+		let valid: boolean;
+		if (crud.modalMode === 'create') {
+			valid = v.validateAll({
+				date: { value: createForm.date, rules: dateRules },
+				fat: { value: createForm.fat, rules: fatRules },
+				protein: { value: createForm.protein, rules: proteinRules },
+			});
+		} else {
+			valid = v.validateAll({
+				date: { value: editForm.date, rules: dateRules },
+				fat: { value: editForm.fat, rules: fatRules },
+				protein: { value: editForm.protein, rules: proteinRules },
+			});
+		}
+		if (!valid) return;
 		await crud.submit(
 			() =>
 				crud.modalMode === 'create'
@@ -89,13 +105,13 @@
 			() => deleteBulkTankTest(crud.deleteId),
 			load,
 			(msg) => {
-				error = msg;
+				list.error = msg;
 			},
 		);
 	}
 
 	$effect(() => {
-		page;
+		list.page;
 		load();
 	});
 </script>
@@ -115,12 +131,12 @@
 </div>
 
 <FilterBar
-	bind:fromDate={filter.from_date}
-	bind:tillDate={filter.till_date}
+	bind:fromDate={list.fromDate}
+	bind:tillDate={list.tillDate}
 	showAnimal={false}
 	onsearch={load}
 />
-<ErrorAlert message={error} />
+<ErrorAlert message={list.error} />
 
 <DataTable
 	columns={[
@@ -133,43 +149,37 @@
 		{ key: 'ffa', label: 'FFA', align: 'right' },
 		{ key: 'actions', label: '', align: 'right' },
 	]}
-	{loading}
+	loading={list.loading}
+	bind:this={dataTable}
+	emptyText="Нет данных"
 >
-	{#if tests.length === 0}
+	{#each tests as t (t.id)}
 		<tr
-			><td colspan="8" class="px-4 py-8 text-center text-slate-400 dark:text-slate-500"
-				>Нет данных</td
-			></tr
+			class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
 		>
-	{:else}
-		{#each tests as t (t.id)}
-			<tr
-				class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+			<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{t.id}</td>
+			<td class="px-4 py-3 font-medium">{t.date}</td>
+			<td class="px-4 py-3 text-right font-medium">{fmtNum(t.fat)}</td>
+			<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{fmtNum(t.protein)}</td>
+			<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{fmtNum(t.lactose)}</td>
+			<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{t.scc ?? '—'}</td>
+			<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
+				>{t.ffa != null ? fmtNum(t.ffa) : '—'}</td
 			>
-				<td class="px-4 py-3 text-slate-500 dark:text-slate-400">{t.id}</td>
-				<td class="px-4 py-3 font-medium">{t.date}</td>
-				<td class="px-4 py-3 text-right font-medium">{fmtNum(t.fat)}</td>
-				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{fmtNum(t.protein)}</td>
-				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{fmtNum(t.lactose)}</td>
-				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{t.scc ?? '—'}</td>
-				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-					>{t.ffa != null ? fmtNum(t.ffa) : '—'}</td
+			<td class="px-4 py-3 text-right">
+				<button
+					onclick={() => openEdit(t)}
+					class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
+					><Pencil size={14} /></button
 				>
-				<td class="px-4 py-3 text-right">
-					<button
-						onclick={() => openEdit(t)}
-						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
-						><Pencil size={14} /></button
-					>
-					<button
-						onclick={() => crud.confirmDelete(t.id)}
-						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
-						><Trash2 size={14} /></button
-					>
-				</td>
-			</tr>
-		{/each}
-	{/if}
+				<button
+					onclick={() => crud.confirmDelete(t.id)}
+					class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
+					><Trash2 size={14} /></button
+				>
+			</td>
+		</tr>
+	{/each}
 </DataTable>
 
 <Modal
@@ -180,7 +190,15 @@
 	<ErrorAlert message={crud.modalError} />
 	<form onsubmit={handleSubmit} class="space-y-4">
 		{#if crud.modalMode === 'create'}
-			<FormField id="c-date" label="Дата" type="date" bind:value={createForm.date} required />
+			<FormField
+				id="c-date"
+				label="Дата"
+				type="date"
+				bind:value={createForm.date}
+				required
+				error={v.getError('date')}
+				onblur={() => v.validateField('date', createForm.date, dateRules)}
+			/>
 			<div class="grid grid-cols-2 gap-3">
 				<FormField
 					id="c-fat"
@@ -189,6 +207,8 @@
 					bind:value={createForm.fat}
 					step="0.01"
 					required
+					error={v.getError('fat')}
+					onblur={() => v.validateField('fat', createForm.fat, fatRules)}
 				/>
 				<FormField
 					id="c-protein"
@@ -197,6 +217,8 @@
 					bind:value={createForm.protein}
 					step="0.01"
 					required
+					error={v.getError('protein')}
+					onblur={() => v.validateField('protein', createForm.protein, proteinRules)}
 				/>
 			</div>
 			<div class="grid grid-cols-3 gap-3">
@@ -211,7 +233,15 @@
 				<FormField id="c-ffa" label="FFA" type="number" bind:value={createForm.ffa} step="0.001" />
 			</div>
 		{:else}
-			<FormField id="e-date" label="Дата" type="date" bind:value={editForm.date} required />
+			<FormField
+				id="e-date"
+				label="Дата"
+				type="date"
+				bind:value={editForm.date}
+				required
+				error={v.getError('date')}
+				onblur={() => v.validateField('date', editForm.date, dateRules)}
+			/>
 			<div class="grid grid-cols-2 gap-3">
 				<FormField
 					id="e-fat"
@@ -220,6 +250,8 @@
 					bind:value={editForm.fat}
 					step="0.01"
 					required
+					error={v.getError('fat')}
+					onblur={() => v.validateField('fat', editForm.fat, fatRules)}
 				/>
 				<FormField
 					id="e-protein"
@@ -228,6 +260,8 @@
 					bind:value={editForm.protein}
 					step="0.01"
 					required
+					error={v.getError('protein')}
+					onblur={() => v.validateField('protein', editForm.protein, proteinRules)}
 				/>
 			</div>
 			<div class="grid grid-cols-3 gap-3">
@@ -273,4 +307,4 @@
 	oncancel={crud.closeDelete}
 />
 
-<Pagination bind:page {total} {perPage} />
+<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />

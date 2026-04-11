@@ -4,7 +4,7 @@ use sqlx::FromRow;
 
 pub use super::GenderType;
 
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, utoipa::ToSchema)]
 pub struct Animal {
     pub id: i32,
     pub life_number: Option<String>,
@@ -28,7 +28,7 @@ pub struct Animal {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateAnimal {
     pub life_number: Option<String>,
     pub name: Option<String>,
@@ -79,7 +79,7 @@ impl CreateAnimal {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateAnimal {
     pub name: Option<String>,
     pub hair_color_code: Option<String>,
@@ -114,8 +114,9 @@ impl UpdateAnimal {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct AnimalFilter {
+    pub search: Option<String>,
     pub life_number: Option<String>,
     pub ucn_number: Option<String>,
     pub name: Option<String>,

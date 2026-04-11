@@ -6,25 +6,51 @@ use serde_json::{Value, json};
 use crate::errors::AppError;
 use crate::middleware::auth::{AdminGuard, Claims};
 use crate::models::animal::{AnimalFilter, CreateAnimal, UpdateAnimal};
-use crate::services::animal_service;
+use crate::models::animal_stats::AnimalStats;
+use crate::models::pagination::{Pagination, paginated};
+use crate::models::timeline::{TimelineFilter, TimelineResponse};
+use crate::services::{animal_service, animal_stats_service, timeline_service};
 use crate::state::AppState;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/animals", get(list).post(create))
         .route("/animals/{id}", get(get_by_id).put(update).delete(remove))
+        .route("/animals/{id}/timeline", get(timeline))
+        .route("/animals/{id}/stats", get(stats))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/animals",
+    responses(
+        (status = 200, description = "List of animals", body = serde_json::Value),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(AnimalFilter),
+    security(("cookie_auth" = []))
+)]
 async fn list(
     _claims: Claims,
     State(state): State<AppState>,
     Query(filter): Query<AnimalFilter>,
 ) -> Result<Json<Value>, AppError> {
-    let animals = animal_service::list(&state.pool, &filter).await?;
-    let total = animal_service::count(&state.pool, &filter).await?;
-    Ok(Json(json!({ "data": animals, "total": total })))
+    let pool = &state.pool;
+    let f = &filter;
+    paginated(filter.page, filter.per_page, || animal_service::list(pool, f), || animal_service::count(pool, f)).await
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/v1/animals/{id}",
+    responses(
+        (status = 200, description = "Animal found", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Animal ID")),
+    security(("cookie_auth" = []))
+)]
 async fn get_by_id(
     _claims: Claims,
     State(state): State<AppState>,
@@ -36,6 +62,18 @@ async fn get_by_id(
     Ok(Json(json!({ "data": animal })))
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/v1/animals",
+    request_body = CreateAnimal,
+    responses(
+        (status = 201, description = "Animal created", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    security(("cookie_auth" = []))
+)]
 async fn create(
     _admin: AdminGuard,
     State(state): State<AppState>,
@@ -46,6 +84,19 @@ async fn create(
     Ok(Json(json!({ "data": animal })))
 }
 
+#[utoipa::path(
+    put,
+    path = "/api/v1/animals/{id}",
+    request_body = UpdateAnimal,
+    responses(
+        (status = 200, description = "Animal updated", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "Animal ID")),
+    security(("cookie_auth" = []))
+)]
 async fn update(
     _admin: AdminGuard,
     State(state): State<AppState>,
@@ -57,6 +108,18 @@ async fn update(
     Ok(Json(json!({ "data": animal })))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/api/v1/animals/{id}",
+    responses(
+        (status = 200, description = "Animal deleted", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "Animal ID")),
+    security(("cookie_auth" = []))
+)]
 async fn remove(
     _admin: AdminGuard,
     State(state): State<AppState>,
@@ -64,4 +127,61 @@ async fn remove(
 ) -> Result<Json<Value>, AppError> {
     animal_service::delete(&state.pool, id).await?;
     Ok(Json(json!({ "message": "Deleted" })))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/animals/{id}/timeline",
+    responses(
+        (status = 200, description = "Timeline events", body = TimelineResponse),
+        (status = 404, description = "Animal not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(
+        ("id" = i32, Path, description = "Animal ID"),
+        TimelineFilter
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn timeline(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Path(id): Path<i32>,
+    Query(filter): Query<TimelineFilter>,
+) -> Result<Json<TimelineResponse>, AppError> {
+    animal_service::ensure_exists(&state.pool, id).await?;
+    let pag = Pagination::from_filter(filter.page, filter.per_page);
+    let (data, total) = tokio::join!(
+        timeline_service::list(&state.pool, id, filter.page, filter.per_page),
+        timeline_service::count(&state.pool, id),
+    );
+    let data = data?;
+    let total = total?;
+    Ok(Json(TimelineResponse {
+        data,
+        total,
+        page: pag.page,
+        per_page: pag.per_page,
+    }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/animals/{id}/stats",
+    responses(
+        (status = 200, description = "Animal statistics", body = AnimalStats),
+        (status = 404, description = "Animal not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Animal ID")),
+    security(("cookie_auth" = []))
+)]
+async fn stats(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Path(id): Path<i32>,
+) -> Result<Json<AnimalStats>, AppError> {
+    animal_service::ensure_exists(&state.pool, id).await?;
+    let stats = animal_stats_service::get_animal_stats(&state.pool, id).await?;
+    Ok(Json(stats))
 }

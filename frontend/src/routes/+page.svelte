@@ -1,9 +1,22 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Chart, registerables } from 'chart.js';
+	import { Chart, LineController, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
 	import { theme } from '$lib/stores/theme';
+	import { defaultTooltip, defaultScales, themeColors } from '$lib/utils/chartHelpers';
+	import { debounce } from '$lib/utils/debounce';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
-	import { Beef, Milk, Heart, Wheat, Users, RefreshCw } from 'lucide-svelte';
+	import {
+		Beef,
+		Milk,
+		Heart,
+		Wheat,
+		Users,
+		RefreshCw,
+		Activity,
+		Database,
+		Server,
+		CircleAlert,
+	} from 'lucide-svelte';
 	import {
 		getKpi,
 		getAlerts,
@@ -17,7 +30,14 @@
 		type FeedForecastResponse,
 	} from '$lib/api/analytics';
 
-	Chart.register(...registerables);
+	Chart.register(LineController, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+
+	interface SystemStatus {
+		api: 'ok' | 'error' | 'checking';
+		db: 'ok' | 'error' | 'checking';
+	}
+
+	let systemStatus = $state<SystemStatus>({ api: 'checking', db: 'checking' });
 
 	let error = $state('');
 	let loading = $state(true);
@@ -26,8 +46,29 @@
 	let trend = $state<MilkTrendResponse | null>(null);
 	let repro = $state<ReproductionForecastResponse | null>(null);
 	let feed = $state<FeedForecastResponse | null>(null);
-	let trendCanvas: HTMLCanvasElement;
+	let trendCanvas: HTMLCanvasElement | undefined = $state();
 	let trendChart: Chart | null = null;
+
+	async function checkHealth() {
+		systemStatus = { api: 'checking', db: 'checking' };
+		try {
+			const base = import.meta.env.VITE_API_BASE || '/api/v1';
+			const res = await fetch(`${base}/health`, {
+				credentials: 'include',
+			});
+			if (res.ok) {
+				const data = await res.json();
+				systemStatus = {
+					api: 'ok',
+					db: data.db === 'ok' ? 'ok' : 'error',
+				};
+			} else {
+				systemStatus = { api: 'error', db: 'error' };
+			}
+		} catch {
+			systemStatus = { api: 'error', db: 'error' };
+		}
+	}
 
 	onMount(() => {
 		loadAll();
@@ -42,6 +83,7 @@
 	async function loadAll() {
 		error = '';
 		loading = true;
+		checkHealth();
 		try {
 			const results = await Promise.allSettled([
 				getKpi(),
@@ -112,8 +154,7 @@
 		}
 
 		const isDark = $theme === 'dark';
-		const gridColor = isDark ? 'rgba(148,163,184,0.15)' : 'rgba(203,213,225,0.5)';
-		const textColor = isDark ? '#94a3b8' : '#64748b';
+		const { textColor } = themeColors(isDark);
 
 		const allDates = [...trend.daily.map((d) => d.date), ...trend.forecast.map((f) => f.date)];
 		const actualData = trend.daily.map((d) => d.total_milk ?? null);
@@ -200,42 +241,26 @@
 					legend: {
 						labels: { color: textColor, usePointStyle: true, font: { size: 11 } },
 					},
-					tooltip: {
-						backgroundColor: isDark ? '#1e293b' : '#fff',
-						titleColor: isDark ? '#e2e8f0' : '#1e293b',
-						bodyColor: isDark ? '#94a3b8' : '#475569',
-						borderColor: isDark ? '#334155' : '#e2e8f0',
-						borderWidth: 1,
-						padding: 10,
-						cornerRadius: 8,
-						callbacks: {
-							label: (ctx) =>
+					tooltip: defaultTooltip(isDark, {
+							// eslint-disable-next-line @typescript-eslint/no-explicit-any
+							label: (ctx: any) =>
 								ctx.dataset.label?.includes('граница')
 									? ''
 									: `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1) ?? '—'} л`,
-						},
-					},
+						}),
 				},
-				scales: {
-					x: {
-						grid: { display: false },
-						ticks: { color: textColor, maxRotation: 45, font: { size: 10 } },
-					},
-					y: {
-						beginAtZero: true,
-						grid: { color: gridColor },
-						ticks: { color: textColor, font: { size: 11 }, callback: (v) => `${v} л` },
-					},
-				},
+				scales: defaultScales(isDark, (v) => `${v} л`),
 			},
 		});
 	}
+
+	let debouncedTrend = debounce(() => buildTrendChart(), 50);
 
 	$effect(() => {
 		trend;
 		$theme;
 		if (trendCanvas && trend) {
-			buildTrendChart();
+			debouncedTrend();
 		}
 	});
 </script>
@@ -255,6 +280,80 @@
 </div>
 
 <ErrorAlert message={error} />
+
+<!-- System Status -->
+<div
+	class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 mb-6"
+>
+	<div class="flex items-center gap-3 flex-wrap">
+		<span class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide"
+			>Статус системы</span
+		>
+		<div class="flex items-center gap-1.5">
+			{#if systemStatus.api === 'checking'}
+				<div
+					class="h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-600 animate-pulse"
+					title="Проверка..."
+				></div>
+			{:else if systemStatus.api === 'ok'}
+				<div class="h-2.5 w-2.5 rounded-full bg-green-500" title="API работает"></div>
+			{:else}
+				<div class="h-2.5 w-2.5 rounded-full bg-red-500" title="API недоступен"></div>
+			{/if}
+			<Server size={14} class="text-slate-400" />
+			<span
+				class="text-xs {systemStatus.api === 'ok'
+					? 'text-green-600 dark:text-green-400'
+					: systemStatus.api === 'error'
+						? 'text-red-600 dark:text-red-400'
+						: 'text-slate-400'}"
+			>
+				{systemStatus.api === 'checking'
+					? 'Проверка...'
+					: systemStatus.api === 'ok'
+						? 'API'
+						: 'API недоступен'}
+			</span>
+		</div>
+		<div class="flex items-center gap-1.5">
+			{#if systemStatus.db === 'checking'}
+				<div
+					class="h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-600 animate-pulse"
+					title="Проверка..."
+				></div>
+			{:else if systemStatus.db === 'ok'}
+				<div class="h-2.5 w-2.5 rounded-full bg-green-500" title="БД работает"></div>
+			{:else}
+				<div class="h-2.5 w-2.5 rounded-full bg-red-500" title="БД недоступна"></div>
+			{/if}
+			<Database size={14} class="text-slate-400" />
+			<span
+				class="text-xs {systemStatus.db === 'ok'
+					? 'text-green-600 dark:text-green-400'
+					: systemStatus.db === 'error'
+						? 'text-red-600 dark:text-red-400'
+						: 'text-slate-400'}"
+			>
+				{systemStatus.db === 'checking'
+					? 'Проверка...'
+					: systemStatus.db === 'ok'
+						? 'БД'
+						: 'БД недоступна'}
+			</span>
+		</div>
+		{#if systemStatus.api === 'error' || systemStatus.db === 'error'}
+			<div class="flex items-center gap-1 ml-auto">
+				<CircleAlert size={14} class="text-amber-500" />
+				<span class="text-xs text-amber-600 dark:text-amber-400">Часть сервисов недоступна</span>
+			</div>
+		{:else if systemStatus.api === 'ok' && systemStatus.db === 'ok'}
+			<div class="flex items-center gap-1 ml-auto">
+				<Activity size={14} class="text-green-500" />
+				<span class="text-xs text-green-600 dark:text-green-400">Все системы работают</span>
+			</div>
+		{/if}
+	</div>
+</div>
 
 {#if loading}
 	<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

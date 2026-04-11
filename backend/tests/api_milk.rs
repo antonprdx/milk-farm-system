@@ -10,7 +10,7 @@ use common::*;
 async fn create_test_animal(app: &axum::Router) -> i64 {
     let req = auth_request_with_body(
         "POST",
-        "/api/animals",
+        "/api/v1/animals",
         &admin_token(),
         json!({
             "gender": "female",
@@ -26,7 +26,7 @@ async fn create_test_animal(app: &axum::Router) -> i64 {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_list_productions_empty(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/milk/day-productions", &admin_token());
+    let req = auth_request("GET", "/api/v1/milk/day-productions", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     let body: Value = read_body_json(resp.into_body()).await;
     assert_eq!(body["data"].as_array().unwrap().len(), 0);
@@ -39,7 +39,7 @@ async fn test_create_production(pool: sqlx::PgPool) {
 
     let req = auth_request_with_body(
         "POST",
-        "/api/milk/day-productions",
+        "/api/v1/milk/day-productions",
         &admin_token(),
         json!({
             "animal_id": animal_id,
@@ -60,7 +60,7 @@ async fn test_get_production_by_id(pool: sqlx::PgPool) {
 
     let create_req = auth_request_with_body(
         "POST",
-        "/api/milk/day-productions",
+        "/api/v1/milk/day-productions",
         &admin_token(),
         json!({
             "animal_id": animal_id,
@@ -74,7 +74,7 @@ async fn test_get_production_by_id(pool: sqlx::PgPool) {
 
     let get_req = auth_request(
         "GET",
-        &format!("/api/milk/day-productions/{}", id),
+        &format!("/api/v1/milk/day-productions/{}", id),
         &admin_token(),
     );
     let resp2 = app.oneshot(get_req).await.unwrap();
@@ -85,7 +85,7 @@ async fn test_get_production_by_id(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_list_visits(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/milk/visits", &admin_token());
+    let req = auth_request("GET", "/api/v1/milk/visits", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     let body: Value = read_body_json(resp.into_body()).await;
     assert!(body["data"].is_array());
@@ -94,7 +94,7 @@ async fn test_list_visits(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_list_quality(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/milk/quality", &admin_token());
+    let req = auth_request("GET", "/api/v1/milk/quality", &admin_token());
     let resp = app.oneshot(req).await.unwrap();
     let body: Value = read_body_json(resp.into_body()).await;
     assert!(body["data"].is_array());
@@ -104,7 +104,7 @@ async fn test_list_quality(pool: sqlx::PgPool) {
 async fn test_milk_requires_auth(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
     let req = axum::http::Request::builder()
-        .uri("/api/milk/day-productions")
+        .uri("/api/v1/milk/day-productions")
         .body(Body::empty())
         .unwrap();
     let resp = app.oneshot(req).await.unwrap();

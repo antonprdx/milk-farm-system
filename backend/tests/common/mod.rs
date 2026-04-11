@@ -4,7 +4,7 @@ use axum::body::Body;
 use axum::http::Request;
 use http_body_util::BodyExt;
 use milk_farm_backend::config::Config;
-use milk_farm_backend::middleware::auth::create_token;
+use milk_farm_backend::middleware::auth::create_access_token;
 use milk_farm_backend::state::AppStateInner;
 use serde::de::DeserializeOwned;
 use sqlx::PgPool;
@@ -19,6 +19,7 @@ pub fn test_config() -> Config {
         secure_cookies: false,
         jwt_access_ttl_secs: 900,
         jwt_refresh_ttl_secs: 604800,
+        trust_proxy: false,
     }
 }
 
@@ -30,12 +31,12 @@ pub fn app_state(pool: PgPool) -> Arc<AppStateInner> {
 }
 
 pub fn admin_token() -> String {
-    create_token("admin", "admin", &test_config().jwt_secret).unwrap()
+    create_access_token("admin", "admin", false, &test_config().jwt_secret, 900).unwrap()
 }
 
 #[allow(dead_code)]
 pub fn user_token() -> String {
-    create_token("testuser", "user", &test_config().jwt_secret).unwrap()
+    create_access_token("testuser", "user", false, &test_config().jwt_secret, 900).unwrap()
 }
 
 pub fn auth_request(method: &str, uri: &str, token: &str) -> Request<Body> {
@@ -79,6 +80,16 @@ pub async fn read_body_string(body: Body) -> String {
 pub async fn seed_admin_user(pool: &PgPool) {
     let hash = bcrypt::hash("admin12345", bcrypt::DEFAULT_COST).unwrap();
     sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ('admin', $1, 'admin') ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash")
+        .bind(&hash)
+        .execute(pool)
+        .await
+        .unwrap();
+}
+
+#[allow(dead_code)]
+pub async fn seed_test_user(pool: &PgPool) {
+    let hash = bcrypt::hash("password123", bcrypt::DEFAULT_COST).unwrap();
+    sqlx::query("INSERT INTO users (username, password_hash, role) VALUES ('testuser', $1, 'user') ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash")
         .bind(&hash)
         .execute(pool)
         .await
