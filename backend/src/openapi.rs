@@ -2,6 +2,7 @@ use utoipa::Modify;
 use utoipa::OpenApi;
 use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 
+use crate::handlers::lely::{LelyConfigResponse, LelySyncStatus};
 use crate::handlers::{ChangePasswordRequest, ReportFilter, TrendQuery, UpdateRoleRequest};
 use crate::middleware::auth::{Claims, LoginRequest, RegisterRequest};
 use crate::models::analytics::{
@@ -154,7 +155,10 @@ impl Modify for SecurityAddon {
         crate::handlers::analytics::milk_trend,
         crate::handlers::analytics::reproduction_forecast,
         crate::handlers::analytics::feed_forecast,
-        crate::handlers::locations::list
+        crate::handlers::locations::list,
+        crate::handlers::lely::status,
+        crate::handlers::lely::trigger_sync,
+        crate::handlers::lely::get_config
     ),
     components(schemas(
         GenderType,
@@ -244,7 +248,9 @@ impl Modify for SecurityAddon {
         AlertThresholds,
         UpdateAlertThresholds,
         JwtTtlSettings,
-        UpdateJwtTtl
+        UpdateJwtTtl,
+        LelySyncStatus,
+        LelyConfigResponse
     )),
     modifiers(&SecurityAddon)
 )]

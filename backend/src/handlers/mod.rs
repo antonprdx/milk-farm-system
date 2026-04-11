@@ -6,6 +6,7 @@ pub(crate) mod contacts;
 pub(crate) mod feed;
 pub(crate) mod fitness;
 pub(crate) mod grazing;
+pub(crate) mod lely;
 pub(crate) mod locations;
 pub(crate) mod milk;
 pub(crate) mod reports;
@@ -35,4 +36,5 @@ pub fn routes() -> Router<AppState> {
         .merge(settings::routes())
         .merge(bulk_tank::routes())
         .merge(analytics::routes())
+        .merge(lely::routes())
 }

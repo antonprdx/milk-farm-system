@@ -1,6 +1,7 @@
 pub mod config;
 pub mod errors;
 pub mod handlers;
+pub mod lely;
 pub mod middleware;
 pub mod models;
 pub mod openapi;
