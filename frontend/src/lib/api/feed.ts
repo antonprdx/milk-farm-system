@@ -52,22 +52,24 @@ export interface FeedFilter {
 	per_page?: number;
 }
 
-export function listDayAmounts(filter: FeedFilter = {}) {
+export function listDayAmounts(filter: FeedFilter = {}, signal?: AbortSignal) {
 	return api<{ data: FeedDayAmount[]; total: number; page: number; per_page: number }>(
 		`/feed/day-amounts${buildQuery(filter)}`,
+		{ signal },
 	);
 }
 
-export function listVisits(filter: FeedFilter = {}) {
+export function listVisits(filter: FeedFilter = {}, signal?: AbortSignal) {
 	return api<{ data: FeedVisit[]; total: number; page: number; per_page: number }>(
 		`/feed/visits${buildQuery(filter)}`,
+		{ signal },
 	);
 }
 
-export function listTypes() {
-	return api<{ data: FeedType[] }>('/feed/types');
+export function listTypes(signal?: AbortSignal) {
+	return api<{ data: FeedType[] }>('/feed/types', { signal });
 }
 
-export function listGroups() {
-	return api<{ data: FeedGroup[] }>('/feed/groups');
+export function listGroups(signal?: AbortSignal) {
+	return api<{ data: FeedGroup[] }>('/feed/groups', { signal });
 }

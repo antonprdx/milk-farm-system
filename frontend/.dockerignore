@@ -1,5 +1,9 @@
 node_modules/
 .svelte-kit/
 build/
+.git/
 .env
-.git
+.env.*
+!.env.example
+*.md
+e2e/

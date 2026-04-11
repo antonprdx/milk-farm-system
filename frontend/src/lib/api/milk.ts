@@ -64,9 +64,10 @@ export interface MilkFilter {
 	per_page?: number;
 }
 
-export function listProductions(filter: MilkFilter = {}) {
+export function listProductions(filter: MilkFilter = {}, signal?: AbortSignal) {
 	return api<{ data: MilkDayProduction[]; total: number }>(
 		`/milk/day-productions${buildQuery(filter)}`,
+		{ signal },
 	);
 }
 
@@ -82,10 +83,10 @@ export function deleteProduction(id: number) {
 	return del<{ message: string }>(`/milk/day-productions/${id}`);
 }
 
-export function listVisits(filter: MilkFilter = {}) {
-	return api<{ data: MilkVisit[]; total: number }>(`/milk/visits${buildQuery(filter)}`);
+export function listVisits(filter: MilkFilter = {}, signal?: AbortSignal) {
+	return api<{ data: MilkVisit[]; total: number }>(`/milk/visits${buildQuery(filter)}`, { signal });
 }
 
-export function listQuality(filter: MilkFilter = {}) {
-	return api<{ data: MilkQuality[]; total: number }>(`/milk/quality${buildQuery(filter)}`);
+export function listQuality(filter: MilkFilter = {}, signal?: AbortSignal) {
+	return api<{ data: MilkQuality[]; total: number }>(`/milk/quality${buildQuery(filter)}`, { signal });
 }

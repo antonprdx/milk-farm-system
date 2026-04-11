@@ -42,10 +42,10 @@
 		};
 		switch (tab) {
 			case 'amounts':
-				await list.load(() => listDayAmounts(params), (d) => { amounts = d; }, dtAmounts);
+				await list.load((signal) => listDayAmounts(params, signal), (d) => { amounts = d; }, dtAmounts);
 				break;
 			case 'visits':
-				await list.load(() => listVisits(params), (d) => { visits = d; }, dtVisits);
+				await list.load((signal) => listVisits(params, signal), (d) => { visits = d; }, dtVisits);
 				break;
 			case 'types': {
 				try {

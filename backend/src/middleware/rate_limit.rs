@@ -8,9 +8,69 @@ use axum::http::{Method, Request, Response, StatusCode};
 use axum::response::IntoResponse;
 use tower::{Layer, Service};
 
-struct RateLimitEntry {
-    count: u32,
-    window_start: Instant,
+use crate::errors::AppError;
+
+pub struct RateLimitEntry {
+    pub count: u32,
+    pub window_start: Instant,
+}
+
+pub struct RateLimiter {
+    max: u32,
+    window_secs: u64,
+    entries: Mutex<HashMap<String, RateLimitEntry>>,
+}
+
+impl RateLimiter {
+    pub fn new(max: u32, window_secs: u64) -> Self {
+        Self {
+            max,
+            window_secs,
+            entries: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub fn check(&self, key: &str) -> Result<(), AppError> {
+        let mut map = self
+            .entries
+            .lock()
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("{}", e)))?;
+        let now = Instant::now();
+        if let Some(entry) = map.get_mut(key) {
+            if now.duration_since(entry.window_start).as_secs() > self.window_secs {
+                entry.count = 1;
+                entry.window_start = now;
+            } else if entry.count >= self.max {
+                return Err(AppError::RateLimited);
+            } else {
+                entry.count += 1;
+            }
+        } else {
+            map.insert(
+                key.to_string(),
+                RateLimitEntry {
+                    count: 1,
+                    window_start: now,
+                },
+            );
+        }
+        map.retain(|_, v| now.duration_since(v.window_start).as_secs() <= self.window_secs * 2);
+        Ok(())
+    }
+}
+
+pub fn extract_client_ip(headers: &axum::http::HeaderMap, trust_proxy: bool) -> String {
+    if trust_proxy
+        && let Some(forwarded) = headers.get("X-Forwarded-For")
+        && let Ok(val) = forwarded.to_str()
+        && let Some(ip) = val.split(',').next()
+    {
+        let ip = ip.trim().to_string();
+        if !ip.is_empty() {
+            return ip;
+        }
+    }
+    "unknown".to_string()
 }
 
 #[derive(Clone)]
@@ -51,7 +111,12 @@ pub struct RateLimitService<S> {
     max_requests: u32,
     window_secs: u64,
     trust_proxy: bool,
-    state: std::sync::Arc<Mutex<HashMap<String, RateLimitEntry>>>,
+    state: std::sync::Arc<Mutex<HashMap<String, InternalEntry>>>,
+}
+
+struct InternalEntry {
+    count: u32,
+    window_start: Instant,
 }
 
 impl<S> Clone for RateLimitService<S>
@@ -86,10 +151,7 @@ where
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let is_mutating = matches!(
-            *req.method(),
-            Method::POST | Method::PUT | Method::DELETE
-        );
+        let is_mutating = matches!(*req.method(), Method::POST | Method::PUT | Method::DELETE);
 
         if !is_mutating {
             let inner = self.inner.clone();
@@ -103,7 +165,9 @@ where
             let mut map = match self.state.lock() {
                 Ok(m) => m,
                 Err(_) => {
-                    return Box::pin(async { Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response()) })
+                    return Box::pin(async {
+                        Ok(StatusCode::INTERNAL_SERVER_ERROR.into_response())
+                    });
                 }
             };
             let now = Instant::now();
@@ -124,7 +188,7 @@ where
             } else {
                 map.insert(
                     key,
-                    RateLimitEntry {
+                    InternalEntry {
                         count: 1,
                         window_start: now,
                     },
@@ -145,16 +209,14 @@ where
 }
 
 fn extract_client_ip_from_request(req: &Request<Body>, trust_proxy: bool) -> String {
-    if trust_proxy {
-        if let Some(forwarded) = req.headers().get("X-Forwarded-For") {
-            if let Ok(val) = forwarded.to_str() {
-                if let Some(ip) = val.split(',').next() {
-                    let ip = ip.trim().to_string();
-                    if !ip.is_empty() {
-                        return ip;
-                    }
-                }
-            }
+    if trust_proxy
+        && let Some(forwarded) = req.headers().get("X-Forwarded-For")
+        && let Ok(val) = forwarded.to_str()
+        && let Some(ip) = val.split(',').next()
+    {
+        let ip = ip.trim().to_string();
+        if !ip.is_empty() {
+            return ip;
         }
     }
     "unknown".to_string()

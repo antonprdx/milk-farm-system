@@ -71,12 +71,12 @@ export interface UpdateAnimal {
 	active?: boolean;
 }
 
-export function listAnimals(filter: AnimalFilter = {}) {
-	return api<AnimalListResponse>(`/animals${buildQuery(filter)}`);
+export function listAnimals(filter: AnimalFilter = {}, signal?: AbortSignal) {
+	return api<AnimalListResponse>(`/animals${buildQuery(filter)}`, { signal });
 }
 
-export function getAnimal(id: number) {
-	return api<{ data: Animal }>(`/animals/${id}`);
+export function getAnimal(id: number, signal?: AbortSignal) {
+	return api<{ data: Animal }>(`/animals/${id}`, { signal });
 }
 
 export function createAnimal(data: CreateAnimal) {
@@ -104,8 +104,8 @@ export interface TimelineResponse {
 	per_page: number;
 }
 
-export function getAnimalTimeline(id: number, page = 1, perPage = 50) {
-	return api<TimelineResponse>(`/animals/${id}/timeline?page=${page}&per_page=${perPage}`);
+export function getAnimalTimeline(id: number, page = 1, perPage = 50, signal?: AbortSignal) {
+	return api<TimelineResponse>(`/animals/${id}/timeline?page=${page}&per_page=${perPage}`, { signal });
 }
 
 export interface MilkDataPoint {
@@ -142,6 +142,6 @@ export interface AnimalStats {
 	reproduction: ReproductionSummary;
 }
 
-export function getAnimalStats(id: number) {
-	return api<AnimalStats>(`/animals/${id}/stats`);
+export function getAnimalStats(id: number, signal?: AbortSignal) {
+	return api<AnimalStats>(`/animals/${id}/stats`, { signal });
 }

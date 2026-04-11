@@ -31,8 +31,8 @@ pub async fn seed_admin(pool: &sqlx::PgPool) -> anyhow::Result<()> {
 pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
     use axum::http::Method;
     use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, COOKIE};
-    use tower_http::cors::{AllowOrigin, CorsLayer};
     use tower_http::compression::CompressionLayer;
+    use tower_http::cors::{AllowOrigin, CorsLayer};
     use tower_http::trace::TraceLayer;
 
     let origins: Vec<_> = state
@@ -54,7 +54,8 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
     let swagger =
         utoipa_swagger_ui::SwaggerUi::new("/api/v1/docs").url("/api/v1/docs/openapi.json", api_doc);
 
-    let rate_limit = crate::middleware::rate_limit::RateLimitLayer::new(100, 60, state.config.trust_proxy);
+    let rate_limit =
+        crate::middleware::rate_limit::RateLimitLayer::new(100, 60, state.config.trust_proxy);
     let request_id = crate::middleware::request_id::RequestIdLayer;
     let metrics_layer = crate::middleware::metrics::MetricsLayer;
 

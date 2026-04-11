@@ -58,10 +58,7 @@ where
     })))
 }
 
-pub async fn simple_list<F, C, T>(
-    list_fn: F,
-    count_fn: C,
-) -> Result<Json<Value>, AppError>
+pub async fn simple_list<F, C, T>(list_fn: F, count_fn: C) -> Result<Json<Value>, AppError>
 where
     F: std::future::Future<Output = Result<Vec<T>, AppError>>,
     C: std::future::Future<Output = Result<i64, AppError>>,

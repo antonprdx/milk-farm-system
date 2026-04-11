@@ -19,21 +19,24 @@ export interface FeedSummary {
 	total_visits: number;
 }
 
-export async function getMilkSummary(from?: string, till?: string) {
+export async function getMilkSummary(from?: string, till?: string, signal?: AbortSignal) {
 	return api<MilkSummary>(
 		`/reports/milk-summary${buildQuery({ from_date: from, till_date: till })}`,
+		{ signal },
 	);
 }
 
-export async function getReproductionSummary(from?: string, till?: string) {
+export async function getReproductionSummary(from?: string, till?: string, signal?: AbortSignal) {
 	return api<ReproductionSummary>(
 		`/reports/reproduction-summary${buildQuery({ from_date: from, till_date: till })}`,
+		{ signal },
 	);
 }
 
-export async function getFeedSummary(from?: string, till?: string) {
+export async function getFeedSummary(from?: string, till?: string, signal?: AbortSignal) {
 	return api<FeedSummary>(
 		`/reports/feed-summary${buildQuery({ from_date: from, till_date: till })}`,
+		{ signal },
 	);
 }
 

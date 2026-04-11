@@ -1,34 +1,46 @@
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::time::Instant;
 
 use axum::body::Body;
 use axum::http::Request;
-use prometheus::{Encoder, IntCounterVec, HistogramVec, Opts, Registry, TextEncoder};
+use prometheus::{Encoder, HistogramVec, IntCounterVec, Opts, Registry, TextEncoder};
 use tower::Service;
 
 type BoxFuture<T, E> = Pin<Box<dyn std::future::Future<Output = Result<T, E>> + Send>>;
 
-lazy_static::lazy_static! {
-    pub static ref REGISTRY: Registry = Registry::new();
+pub static REGISTRY: LazyLock<Registry> = LazyLock::new(Registry::new);
 
-    pub static ref HTTP_REQUESTS_TOTAL: IntCounterVec = IntCounterVec::new(
+pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    IntCounterVec::new(
         Opts::new("http_requests_total", "Total number of HTTP requests"),
-        &["method", "route", "status"]
-    ).unwrap();
+        &["method", "route", "status"],
+    )
+    .unwrap()
+});
 
-    pub static ref HTTP_REQUEST_DURATION: HistogramVec = HistogramVec::new(
+pub static HTTP_REQUEST_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
+    HistogramVec::new(
         prometheus::HistogramOpts::new(
             "http_request_duration_seconds",
-            "HTTP request duration in seconds"
-        ).buckets(vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]),
-        &["method", "route"]
-    ).unwrap();
-}
+            "HTTP request duration in seconds",
+        )
+        .buckets(vec![
+            0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+        ]),
+        &["method", "route"],
+    )
+    .unwrap()
+});
 
 pub fn init() {
-    REGISTRY.register(Box::new(HTTP_REQUESTS_TOTAL.clone())).unwrap();
-    REGISTRY.register(Box::new(HTTP_REQUEST_DURATION.clone())).unwrap();
+    REGISTRY
+        .register(Box::new(HTTP_REQUESTS_TOTAL.clone()))
+        .unwrap();
+    REGISTRY
+        .register(Box::new(HTTP_REQUEST_DURATION.clone()))
+        .unwrap();
 }
 
 pub fn gather() -> String {

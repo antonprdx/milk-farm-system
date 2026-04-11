@@ -33,7 +33,13 @@ async fn list(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || bulk_tank_service::list(pool, f), || bulk_tank_service::count(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || bulk_tank_service::list(pool, f),
+        || bulk_tank_service::count(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -54,7 +60,7 @@ async fn get_by_id(
 ) -> Result<Json<Value>, AppError> {
     let item = bulk_tank_service::get_by_id(&state.pool, id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Bulk tank test {} not found", id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Запись анализа танка {} не найдена", id)))?;
     Ok(Json(json!({ "data": item })))
 }
 
@@ -65,12 +71,13 @@ async fn get_by_id(
     responses(
         (status = 201, description = "Bulk tank test created", body = serde_json::Value),
         (status = 400, description = "Validation error"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     security(("cookie_auth" = []))
 )]
 async fn create(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Json(req): Json<CreateBulkTankTest>,
 ) -> Result<Json<Value>, AppError> {
@@ -86,13 +93,14 @@ async fn create(
     responses(
         (status = 200, description = "Bulk tank test updated", body = serde_json::Value),
         (status = 404, description = "Not found"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     params(("id" = i32, Path, description = "Bulk tank test ID")),
     security(("cookie_auth" = []))
 )]
 async fn update(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(req): Json<UpdateBulkTankTest>,
@@ -120,5 +128,5 @@ async fn remove(
     Path(id): Path<i32>,
 ) -> Result<Json<Value>, AppError> {
     bulk_tank_service::delete(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "Deleted" })))
+    Ok(Json(json!({ "message": "Удалено" })))
 }

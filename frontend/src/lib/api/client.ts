@@ -8,6 +8,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1';
 type RequestOptions = {
 	method?: string;
 	body?: unknown;
+	signal?: AbortSignal;
 };
 
 let refreshingPromise: Promise<boolean> | null = null;
@@ -22,7 +23,8 @@ async function tryRefresh(): Promise<boolean> {
 				credentials: 'include',
 			});
 			return res.ok;
-		} catch {
+		} catch (e) {
+			console.warn('Token refresh failed', e);
 			return false;
 		} finally {
 			refreshingPromise = null;
@@ -41,6 +43,7 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 		headers,
 		credentials: 'include',
 		body: opts.body ? JSON.stringify(opts.body) : undefined,
+		signal: opts.signal,
 	});
 
 	if (!res.ok) {

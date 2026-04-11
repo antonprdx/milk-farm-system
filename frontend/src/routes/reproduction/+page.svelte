@@ -133,19 +133,19 @@
 		const params = { ...getFilter(), page: list.page, per_page: list.perPage };
 		switch (tab) {
 			case 'calvings':
-				await list.load(() => listCalvings(params), (d) => { calvings = d; }, dtCalvings);
+				await list.load((signal) => listCalvings(params, signal), (d) => { calvings = d; }, dtCalvings);
 				break;
 			case 'inseminations':
-				await list.load(() => listInseminations(params), (d) => { inseminations = d; }, dtInseminations);
+				await list.load((signal) => listInseminations(params, signal), (d) => { inseminations = d; }, dtInseminations);
 				break;
 			case 'pregnancies':
-				await list.load(() => listPregnancies(params), (d) => { pregnancies = d; }, dtPregnancies);
+				await list.load((signal) => listPregnancies(params, signal), (d) => { pregnancies = d; }, dtPregnancies);
 				break;
 			case 'heats':
-				await list.load(() => listHeats(params), (d) => { heats = d; }, dtHeats);
+				await list.load((signal) => listHeats(params, signal), (d) => { heats = d; }, dtHeats);
 				break;
 			case 'dryoffs':
-				await list.load(() => listDryOffs(params), (d) => { dryoffs = d; }, dtDryoffs);
+				await list.load((signal) => listDryOffs(params, signal), (d) => { dryoffs = d; }, dtDryoffs);
 				break;
 		}
 	}

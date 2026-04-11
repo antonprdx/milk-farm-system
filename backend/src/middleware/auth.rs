@@ -33,9 +33,9 @@ fn decode_token(token: &str, secret: &str) -> Result<Claims, AppError> {
     .map(|data| data.claims)
     .map_err(|e| match e.kind() {
         jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-            AppError::Unauthorized("Token expired".into())
+            AppError::Unauthorized("Токен просрочен".into())
         }
-        _ => AppError::Unauthorized("Invalid token".into()),
+        _ => AppError::Unauthorized("Недействительный токен".into()),
     })
 }
 
@@ -46,15 +46,18 @@ async fn verify_and_check_revocation(
 ) -> Result<Claims, AppError> {
     let claims = decode_token(token, secret)?;
     if crate::services::token_revocation_service::is_revoked(pool, &claims.jti).await? {
-        return Err(AppError::Unauthorized("Token revoked".into()));
+        return Err(AppError::Unauthorized("Токен отозван".into()));
     }
-    let user_exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)")
-        .bind(&claims.sub)
-        .fetch_one(pool)
-        .await
-        .map_err(AppError::Database)?;
+    let user_exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)")
+            .bind(&claims.sub)
+            .fetch_one(pool)
+            .await
+            .map_err(AppError::Database)?;
     if !user_exists {
-        return Err(AppError::Unauthorized("User account deactivated".into()));
+        return Err(AppError::Unauthorized(
+            "Учётная запись деактивирована".into(),
+        ));
     }
     Ok(claims)
 }
@@ -149,7 +152,7 @@ fn extract_token_from_cookies(headers: &HeaderMap) -> Option<String> {
 fn extract_token(parts: &Parts) -> Result<String, AppError> {
     extract_token_from_headers(&parts.headers)
         .or_else(|| extract_token_from_cookies(&parts.headers))
-        .ok_or_else(|| AppError::Unauthorized("Missing token".into()))
+        .ok_or_else(|| AppError::Unauthorized("Отсутствует токен".into()))
 }
 
 fn extract_token_str_from_headers(headers: &HeaderMap) -> Option<String> {
@@ -197,7 +200,7 @@ impl FromRequestParts<AppState> for AdminGuard {
             let token = token_result?;
             let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
             if claims.role != "admin" {
-                return Err(AppError::Forbidden("Admin access required".into()));
+                return Err(AppError::Forbidden("Требуются права администратора".into()));
             }
             Ok(AdminGuard)
         }

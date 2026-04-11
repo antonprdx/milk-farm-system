@@ -14,7 +14,9 @@ use crate::models::system_settings::{
     AlertThresholds, JwtTtlSettings, SystemInfo, UpdateAlertThresholds, UpdateJwtTtl,
 };
 use crate::models::user::UserPublic;
-use crate::services::{preferences_service, system_settings_service, token_revocation_service, user_service};
+use crate::services::{
+    preferences_service, system_settings_service, token_revocation_service, user_service,
+};
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -59,7 +61,7 @@ async fn resolve_user_id(pool: &sqlx::PgPool, username: &str) -> Result<i32, App
     user_service::find_by_username(pool, username)
         .await?
         .map(|u| u.id)
-        .ok_or_else(|| AppError::NotFound("User not found".into()))
+        .ok_or_else(|| AppError::NotFound("Пользователь не найден".into()))
 }
 
 #[utoipa::path(
@@ -102,7 +104,7 @@ async fn create_user(
     let hash = bcrypt::hash(&req.password, bcrypt::DEFAULT_COST)
         .map_err(|e| AppError::Internal(e.into()))?;
     user_service::create_user(&state.pool, &req.username, &hash, "user").await?;
-    Ok(Json(json!({ "message": "User created" })))
+    Ok(Json(json!({ "message": "Пользователь создан" })))
 }
 
 #[utoipa::path(
@@ -125,23 +127,23 @@ async fn change_password(
     req.validate()?;
     let user = user_service::find_by_username(&state.pool, &claims.0.sub)
         .await?
-        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
+        .ok_or_else(|| AppError::NotFound("Пользователь не найден".into()))?;
     let valid = bcrypt::verify(&req.old_password, &user.password_hash)
         .map_err(|e| AppError::Internal(e.into()))?;
     if !valid {
-        return Err(AppError::Unauthorized("Invalid old password".into()));
+        return Err(AppError::Unauthorized("Неверный старый пароль".into()));
     }
     let new_hash = bcrypt::hash(&req.new_password, bcrypt::DEFAULT_COST)
         .map_err(|e| AppError::Internal(e.into()))?;
     user_service::update_password_and_clear_flag(&state.pool, user.id, &new_hash).await?;
 
-    let exp = chrono::DateTime::from_timestamp(claims.0.exp as i64, 0)
-        .unwrap_or(chrono::Utc::now());
+    let exp =
+        chrono::DateTime::from_timestamp(claims.0.exp as i64, 0).unwrap_or(chrono::Utc::now());
     if let Err(e) = token_revocation_service::revoke(&state.pool, &claims.0.jti, exp).await {
         tracing::warn!(error = %e, jti = %claims.0.jti, "Failed to revoke token after password change");
     }
 
-    Ok(Json(json!({ "message": "Password changed" })))
+    Ok(Json(json!({ "message": "Пароль изменён" })))
 }
 
 #[utoipa::path(
@@ -164,12 +166,14 @@ async fn delete_user(
 ) -> Result<Json<Value>, AppError> {
     let target = user_service::find_by_id(&state.pool, id)
         .await?
-        .ok_or_else(|| AppError::NotFound("User not found".into()))?;
+        .ok_or_else(|| AppError::NotFound("Пользователь не найден".into()))?;
     if target.username == claims.sub {
-        return Err(AppError::Forbidden("Cannot delete your own account".into()));
+        return Err(AppError::Forbidden(
+            "Нельзя удалить свой собственный аккаунт".into(),
+        ));
     }
     user_service::delete_user(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "User deleted" })))
+    Ok(Json(json!({ "message": "Пользователь удалён" })))
 }
 
 #[utoipa::path(
@@ -193,11 +197,11 @@ async fn update_role(
 ) -> Result<Json<Value>, AppError> {
     if body.role != "admin" && body.role != "user" {
         return Err(AppError::BadRequest(
-            "Role must be 'admin' or 'user'".into(),
+            "Роль должна быть 'admin' или 'user'".into(),
         ));
     }
     user_service::update_role(&state.pool, id, &body.role).await?;
-    Ok(Json(json!({ "message": "Role updated" })))
+    Ok(Json(json!({ "message": "Роль обновлена" })))
 }
 
 #[utoipa::path(

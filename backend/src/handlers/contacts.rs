@@ -33,7 +33,13 @@ async fn list(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || contact_service::list(pool, f), || contact_service::count(pool)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || contact_service::list(pool, f),
+        || contact_service::count(pool),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -43,12 +49,13 @@ async fn list(
     responses(
         (status = 201, description = "Contact created", body = serde_json::Value),
         (status = 400, description = "Validation error"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     security(("cookie_auth" = []))
 )]
 async fn create(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Json(req): Json<CreateContact>,
 ) -> Result<Json<Value>, AppError> {
@@ -64,13 +71,14 @@ async fn create(
     responses(
         (status = 200, description = "Contact updated", body = serde_json::Value),
         (status = 404, description = "Not found"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     params(("id" = i32, Path, description = "Contact ID")),
     security(("cookie_auth" = []))
 )]
 async fn update(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(req): Json<UpdateContact>,
@@ -98,5 +106,5 @@ async fn remove(
     Path(id): Path<i32>,
 ) -> Result<Json<Value>, AppError> {
     contact_service::delete(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "Deleted" })))
+    Ok(Json(json!({ "message": "Удалено" })))
 }

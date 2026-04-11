@@ -33,7 +33,13 @@ async fn list_activities(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || fitness_service::list_activities(pool, f), || fitness_service::count_activities(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || fitness_service::list_activities(pool, f),
+        || fitness_service::count_activities(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -53,5 +59,11 @@ async fn list_ruminations(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || fitness_service::list_ruminations(pool, f), || fitness_service::count_ruminations(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || fitness_service::list_ruminations(pool, f),
+        || fitness_service::count_ruminations(pool, f),
+    )
+    .await
 }

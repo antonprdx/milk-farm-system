@@ -35,7 +35,13 @@ async fn list_day_amounts(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || feed_service::list_day_amounts(pool, f), || feed_service::count_day_amounts(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || feed_service::list_day_amounts(pool, f),
+        || feed_service::count_day_amounts(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -55,7 +61,13 @@ async fn list_visits(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || feed_service::list_visits(pool, f), || feed_service::count_visits(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || feed_service::list_visits(pool, f),
+        || feed_service::count_visits(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -72,7 +84,11 @@ async fn list_types(
     State(state): State<AppState>,
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
-    simple_list(feed_service::list_types(pool), feed_service::count_types(pool)).await
+    simple_list(
+        feed_service::list_types(pool),
+        feed_service::count_types(pool),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -89,5 +105,9 @@ async fn list_groups(
     State(state): State<AppState>,
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
-    simple_list(feed_service::list_groups(pool), feed_service::count_groups(pool)).await
+    simple_list(
+        feed_service::list_groups(pool),
+        feed_service::count_groups(pool),
+    )
+    .await
 }

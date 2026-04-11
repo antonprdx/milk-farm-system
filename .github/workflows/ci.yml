@@ -50,7 +50,9 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
 
       - name: Security audit
-        run: cargo install cargo-audit && cargo audit
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          working-directory: backend
 
       - name: Run tests
         run: cargo test
@@ -74,7 +76,7 @@ jobs:
         run: npm ci
 
       - name: Security audit
-        run: npm audit --production || true
+        run: npm audit --production --audit-level=high || true
 
       - name: Lint
         run: npm run lint

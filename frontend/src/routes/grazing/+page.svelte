@@ -13,13 +13,13 @@
 
 	async function load() {
 		await list.load(
-			() =>
+			(signal) =>
 				listGrazing({
 					from_date: list.fromDate || undefined,
 					till_date: list.tillDate || undefined,
 					page: list.page,
 					per_page: list.perPage,
-				}),
+				}, signal),
 			(d) => {
 				data = d;
 			},

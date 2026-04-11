@@ -35,8 +35,8 @@ export interface BulkTankFilter {
 	per_page?: number;
 }
 
-export function listBulkTankTests(filter: BulkTankFilter = {}) {
-	return api<{ data: BulkTankTest[]; total: number }>(`/bulk-tank${buildQuery(filter)}`);
+export function listBulkTankTests(filter: BulkTankFilter = {}, signal?: AbortSignal) {
+	return api<{ data: BulkTankTest[]; total: number }>(`/bulk-tank${buildQuery(filter)}`, { signal });
 }
 
 export function createBulkTankTest(data: CreateBulkTankTest) {

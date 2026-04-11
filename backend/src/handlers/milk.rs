@@ -43,7 +43,13 @@ async fn list_productions(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || milk_service::list_productions(pool, f), || milk_service::count_productions(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || milk_service::list_productions(pool, f),
+        || milk_service::count_productions(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -53,12 +59,13 @@ async fn list_productions(
     responses(
         (status = 201, description = "Production created", body = serde_json::Value),
         (status = 400, description = "Validation error"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     security(("cookie_auth" = []))
 )]
 async fn create_production(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Json(req): Json<CreateMilkDayProduction>,
 ) -> Result<Json<Value>, AppError> {
@@ -85,7 +92,7 @@ async fn get_production(
 ) -> Result<Json<Value>, AppError> {
     let item = milk_service::get_production(&state.pool, id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Production {} not found", id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Запись о надое {} не найдена", id)))?;
     Ok(Json(json!({ "data": item })))
 }
 
@@ -96,13 +103,14 @@ async fn get_production(
     responses(
         (status = 200, description = "Production updated", body = serde_json::Value),
         (status = 404, description = "Not found"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     params(("id" = i32, Path, description = "Production ID")),
     security(("cookie_auth" = []))
 )]
 async fn update_production(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(req): Json<UpdateMilkDayProduction>,
@@ -130,7 +138,7 @@ async fn delete_production(
     Path(id): Path<i32>,
 ) -> Result<Json<Value>, AppError> {
     milk_service::delete_production(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "Deleted" })))
+    Ok(Json(json!({ "message": "Удалено" })))
 }
 
 #[utoipa::path(
@@ -150,7 +158,13 @@ async fn list_visits(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || milk_service::list_visits(pool, f), || milk_service::count_visits(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || milk_service::list_visits(pool, f),
+        || milk_service::count_visits(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -170,5 +184,11 @@ async fn list_quality(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || milk_service::list_quality(pool, f), || milk_service::count_quality(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || milk_service::list_quality(pool, f),
+        || milk_service::count_quality(pool, f),
+    )
+    .await
 }

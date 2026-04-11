@@ -14,6 +14,7 @@
 		colspan,
 		loading = false,
 		emptyText = 'Нет данных',
+		initialRows = false,
 		sortField = $bindable(''),
 		sortDir = $bindable<'asc' | 'desc'>('asc'),
 		children,
@@ -22,13 +23,14 @@
 		colspan?: number;
 		loading?: boolean;
 		emptyText?: string;
+		initialRows?: boolean;
 		sortField?: string;
 		sortDir?: 'asc' | 'desc';
 		children: Snippet;
 	} = $props();
 
 	let cols = $derived(colspan ?? columns.length);
-	let hasRows = $state(false);
+	let hasRows = $state(initialRows);
 
 	export function setHasRows(v: boolean) {
 		hasRows = v;

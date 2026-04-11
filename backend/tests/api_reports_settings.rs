@@ -8,23 +8,6 @@ use tower::ServiceExt;
 
 use common::*;
 
-#[allow(dead_code)]
-async fn create_test_animal(app: &axum::Router) -> i64 {
-    let req = auth_request_with_body(
-        "POST",
-        "/api/v1/animals",
-        &admin_token(),
-        json!({
-            "gender": "female",
-            "birth_date": "2020-01-01"
-        }),
-    );
-    let resp = app.clone().oneshot(req).await.unwrap();
-    read_body_json::<Value>(resp.into_body()).await["data"]["id"]
-        .as_i64()
-        .unwrap()
-}
-
 #[sqlx::test(migrations = "./migrations")]
 async fn test_milk_summary(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
@@ -51,7 +34,11 @@ async fn test_milk_summary_with_date_filter(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_reproduction_summary(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));
-    let req = auth_request("GET", "/api/v1/reports/reproduction-summary", &admin_token());
+    let req = auth_request(
+        "GET",
+        "/api/v1/reports/reproduction-summary",
+        &admin_token(),
+    );
     let resp = app.oneshot(req).await.unwrap();
     let status = resp.status();
     let body_bytes = http_body_util::BodyExt::collect(resp.into_body())

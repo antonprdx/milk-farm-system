@@ -120,14 +120,14 @@
 			if (isAdmin) {
 				getSystemInfo()
 					.then((i) => (sysInfo = i))
-					.catch(() => {});
+					.catch((e) => console.warn('Failed to load system info', e));
 				getJwtTtl()
 					.then((t) => {
 						jwtTtl = t;
 						jwtAccessTtl = t.jwt_access_ttl_secs.toString();
 						jwtRefreshTtl = t.jwt_refresh_ttl_secs.toString();
 					})
-					.catch(() => {});
+					.catch((e) => console.warn('Failed to load JWT TTL settings', e));
 				getAlertThresholds()
 					.then((t) => {
 						thresholds = t;
@@ -136,7 +136,7 @@
 						threshDaysCalving = t.alert_days_before_calving.toString();
 						threshActivityDrop = t.alert_activity_drop_pct.toString();
 					})
-					.catch(() => {});
+					.catch((e) => console.warn('Failed to load alert thresholds', e));
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';

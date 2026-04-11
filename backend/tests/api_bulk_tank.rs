@@ -116,7 +116,11 @@ async fn test_delete_bulk_tank(pool: sqlx::PgPool) {
         .as_i64()
         .unwrap();
 
-    let del_req = auth_request("DELETE", &format!("/api/v1/bulk-tank/{}", id), &admin_token());
+    let del_req = auth_request(
+        "DELETE",
+        &format!("/api/v1/bulk-tank/{}", id),
+        &admin_token(),
+    );
     let resp2 = app.clone().oneshot(del_req).await.unwrap();
     assert_eq!(resp2.status(), axum::http::StatusCode::OK);
 

@@ -71,8 +71,8 @@
 			const res = await getAnimalTimeline(id, timelinePage, 30);
 			timeline = res.data;
 			timelineTotal = res.total;
-		} catch {
-			// non-critical
+		} catch (e) {
+			console.warn('Failed to load timeline', e);
 		} finally {
 			timelineLoading = false;
 		}
@@ -82,8 +82,8 @@
 		try {
 			statsLoading = true;
 			stats = await getAnimalStats(id);
-		} catch {
-			// non-critical
+		} catch (e) {
+			console.warn('Failed to load animal stats', e);
 		} finally {
 			statsLoading = false;
 		}

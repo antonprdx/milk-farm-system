@@ -50,13 +50,13 @@ export function validate(
 }
 
 export function validateForm(
-	fields: { value: string | number | undefined; rules: ValidationRule[] }[],
+	fields: { name: string; value: string | number | undefined; rules: ValidationRule[] }[],
 ): Record<string, string> {
 	const errors: Record<string, string> = {};
 	for (const field of fields) {
 		const err = validate(field.value, field.rules);
-		if (err && field.rules.length > 0) {
-			errors[field.rules[0].message || 'error'] = err;
+		if (err) {
+			errors[field.name] = err;
 		}
 	}
 	return errors;

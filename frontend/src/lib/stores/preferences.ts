@@ -44,8 +44,8 @@ function createPreferencesStore() {
 					localStorage.setItem('prefs.language', prefs.language);
 				}
 				store.set(prefs);
-			} catch {
-				// use defaults
+			} catch (e) {
+				console.warn('Failed to load preferences from server', e);
 			}
 		},
 		update: async (partial: Partial<UserPreferences>) => {
@@ -67,8 +67,8 @@ function createPreferencesStore() {
 					localStorage.setItem('prefs.compact_view', saved.compact_view.toString());
 					localStorage.setItem('prefs.language', saved.language);
 				}
-			} catch {
-				// optimistic update kept
+			} catch (e) {
+				console.warn('Failed to save preferences to server', e);
 			}
 		},
 	};

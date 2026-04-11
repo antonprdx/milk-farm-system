@@ -102,7 +102,10 @@ pub async fn delete(pool: &PgPool, id: i32) -> Result<(), AppError> {
         .map_err(AppError::Database)?;
 
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("BulkTankTest {} not found", id)));
+        return Err(AppError::NotFound(format!(
+            "Запись анализа танка {} не найдена",
+            id
+        )));
     }
 
     Ok(())

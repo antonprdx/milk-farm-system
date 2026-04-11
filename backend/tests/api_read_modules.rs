@@ -8,23 +8,6 @@ use tower::ServiceExt;
 
 use common::*;
 
-#[allow(dead_code)]
-async fn create_test_animal(app: &axum::Router) -> i64 {
-    let req = auth_request_with_body(
-        "POST",
-        "/api/v1/animals",
-        &admin_token(),
-        json!({
-            "gender": "female",
-            "birth_date": "2020-01-01"
-        }),
-    );
-    let resp = app.clone().oneshot(req).await.unwrap();
-    read_body_json::<Value>(resp.into_body()).await["data"]["id"]
-        .as_i64()
-        .unwrap()
-}
-
 #[sqlx::test(migrations = "./migrations")]
 async fn test_feed_day_amounts(pool: sqlx::PgPool) {
     let app = create_app(app_state(pool));

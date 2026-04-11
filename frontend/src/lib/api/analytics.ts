@@ -97,25 +97,25 @@ export interface FeedForecastResponse {
 	milk_per_feed: number | null;
 }
 
-export function getKpi() {
-	return api<KpiResponse>('/analytics/kpi');
+export function getKpi(signal?: AbortSignal) {
+	return api<KpiResponse>('/analytics/kpi', { signal });
 }
 
-export function getAlerts() {
-	return api<AlertsResponse>('/analytics/alerts');
+export function getAlerts(signal?: AbortSignal) {
+	return api<AlertsResponse>('/analytics/alerts', { signal });
 }
 
-export function getMilkTrend(days?: number, forecastDays?: number) {
+export function getMilkTrend(days?: number, forecastDays?: number, signal?: AbortSignal) {
 	const params: Record<string, string> = {};
 	if (days) params.days = String(days);
 	if (forecastDays) params.forecast_days = String(forecastDays);
-	return api<MilkTrendResponse>(`/analytics/milk-trend${buildQuery(params)}`);
+	return api<MilkTrendResponse>(`/analytics/milk-trend${buildQuery(params)}`, { signal });
 }
 
-export function getReproductionForecast() {
-	return api<ReproductionForecastResponse>('/analytics/reproduction-forecast');
+export function getReproductionForecast(signal?: AbortSignal) {
+	return api<ReproductionForecastResponse>('/analytics/reproduction-forecast', { signal });
 }
 
-export function getFeedForecast() {
-	return api<FeedForecastResponse>('/analytics/feed-forecast');
+export function getFeedForecast(signal?: AbortSignal) {
+	return api<FeedForecastResponse>('/analytics/feed-forecast', { signal });
 }

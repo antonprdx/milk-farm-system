@@ -8,22 +8,6 @@ use tower::ServiceExt;
 use common::*;
 use milk_farm_backend::create_app;
 
-async fn seed_animal_via_api(app: &axum::Router) -> i64 {
-    let req = auth_request_with_body(
-        "POST",
-        "/api/v1/animals",
-        &admin_token(),
-        json!({
-            "gender": "female",
-            "birth_date": "2020-01-01"
-        }),
-    );
-    let resp = app.clone().oneshot(req).await.unwrap();
-    read_body_json::<Value>(resp.into_body()).await["data"]["id"]
-        .as_i64()
-        .unwrap()
-}
-
 async fn seed_milk_production(app: &axum::Router, animal_id: i64) -> i64 {
     let req = auth_request_with_body(
         "POST",
@@ -134,7 +118,7 @@ async fn test_user_cannot_create_animals(pool: PgPool) {
 async fn test_user_cannot_update_animals(pool: PgPool) {
     seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
-    let animal_id = seed_animal_via_api(&app).await;
+    let animal_id = create_test_animal(&app).await;
     let token = user_token();
 
     let req = auth_request_with_body(
@@ -153,7 +137,7 @@ async fn test_user_cannot_update_animals(pool: PgPool) {
 async fn test_user_cannot_delete_animals(pool: PgPool) {
     seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
-    let animal_id = seed_animal_via_api(&app).await;
+    let animal_id = create_test_animal(&app).await;
     let token = user_token();
 
     let req = auth_request("DELETE", &format!("/api/v1/animals/{}", animal_id), &token);
@@ -165,7 +149,7 @@ async fn test_user_cannot_delete_animals(pool: PgPool) {
 async fn test_user_cannot_delete_milk_productions(pool: PgPool) {
     seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
-    let animal_id = seed_animal_via_api(&app).await;
+    let animal_id = create_test_animal(&app).await;
     let production_id = seed_milk_production(&app, animal_id).await;
     let token = user_token();
 
@@ -182,7 +166,7 @@ async fn test_user_cannot_delete_milk_productions(pool: PgPool) {
 async fn test_user_cannot_delete_calvings(pool: PgPool) {
     seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
-    let animal_id = seed_animal_via_api(&app).await;
+    let animal_id = create_test_animal(&app).await;
     let calving_id = seed_calving(&app, animal_id).await;
     let token = user_token();
 
@@ -199,7 +183,7 @@ async fn test_user_cannot_delete_calvings(pool: PgPool) {
 async fn test_user_cannot_delete_inseminations(pool: PgPool) {
     seed_test_user(&pool).await;
     let app = create_app(app_state(pool));
-    let animal_id = seed_animal_via_api(&app).await;
+    let animal_id = create_test_animal(&app).await;
     let insemination_id = seed_insemination(&app, animal_id).await;
     let token = user_token();
 
