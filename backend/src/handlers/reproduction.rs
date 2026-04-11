@@ -73,7 +73,13 @@ async fn list_calvings(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || reproduction_service::list_calvings(pool, f), || reproduction_service::count_calvings(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || reproduction_service::list_calvings(pool, f),
+        || reproduction_service::count_calvings(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -94,7 +100,7 @@ async fn get_calving(
 ) -> Result<Json<Value>, AppError> {
     let item = reproduction_service::get_calving(&state.pool, id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Calving {} not found", id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Запись об отёле {} не найдена", id)))?;
     Ok(Json(json!({ "data": item })))
 }
 
@@ -105,12 +111,13 @@ async fn get_calving(
     responses(
         (status = 201, description = "Calving created", body = serde_json::Value),
         (status = 400, description = "Validation error"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     security(("cookie_auth" = []))
 )]
 async fn create_calving(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Json(req): Json<CreateCalving>,
 ) -> Result<Json<Value>, AppError> {
@@ -126,13 +133,14 @@ async fn create_calving(
     responses(
         (status = 200, description = "Calving updated", body = serde_json::Value),
         (status = 404, description = "Not found"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     params(("id" = i32, Path, description = "Calving ID")),
     security(("cookie_auth" = []))
 )]
 async fn update_calving(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(req): Json<UpdateCalving>,
@@ -160,7 +168,7 @@ async fn delete_calving(
     Path(id): Path<i32>,
 ) -> Result<Json<Value>, AppError> {
     reproduction_service::delete_calving(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "Deleted" })))
+    Ok(Json(json!({ "message": "Удалено" })))
 }
 
 #[utoipa::path(
@@ -180,7 +188,13 @@ async fn list_inseminations(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || reproduction_service::list_inseminations(pool, f), || reproduction_service::count_inseminations(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || reproduction_service::list_inseminations(pool, f),
+        || reproduction_service::count_inseminations(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -201,7 +215,7 @@ async fn get_insemination(
 ) -> Result<Json<Value>, AppError> {
     let item = reproduction_service::get_insemination(&state.pool, id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Insemination {} not found", id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Запись об осеменении {} не найдена", id)))?;
     Ok(Json(json!({ "data": item })))
 }
 
@@ -212,12 +226,13 @@ async fn get_insemination(
     responses(
         (status = 201, description = "Insemination created", body = serde_json::Value),
         (status = 400, description = "Validation error"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     security(("cookie_auth" = []))
 )]
 async fn create_insemination(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Json(req): Json<CreateInsemination>,
 ) -> Result<Json<Value>, AppError> {
@@ -233,13 +248,14 @@ async fn create_insemination(
     responses(
         (status = 200, description = "Insemination updated", body = serde_json::Value),
         (status = 404, description = "Not found"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     params(("id" = i32, Path, description = "Insemination ID")),
     security(("cookie_auth" = []))
 )]
 async fn update_insemination(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(req): Json<UpdateInsemination>,
@@ -267,7 +283,7 @@ async fn delete_insemination(
     Path(id): Path<i32>,
 ) -> Result<Json<Value>, AppError> {
     reproduction_service::delete_insemination(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "Deleted" })))
+    Ok(Json(json!({ "message": "Удалено" })))
 }
 
 #[utoipa::path(
@@ -287,7 +303,13 @@ async fn list_pregnancies(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || reproduction_service::list_pregnancies(pool, f), || reproduction_service::count_pregnancies(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || reproduction_service::list_pregnancies(pool, f),
+        || reproduction_service::count_pregnancies(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -308,7 +330,7 @@ async fn get_pregnancy(
 ) -> Result<Json<Value>, AppError> {
     let item = reproduction_service::get_pregnancy(&state.pool, id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Pregnancy {} not found", id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Запись о стельности {} не найдена", id)))?;
     Ok(Json(json!({ "data": item })))
 }
 
@@ -319,12 +341,13 @@ async fn get_pregnancy(
     responses(
         (status = 201, description = "Pregnancy created", body = serde_json::Value),
         (status = 400, description = "Validation error"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     security(("cookie_auth" = []))
 )]
 async fn create_pregnancy(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Json(req): Json<CreatePregnancy>,
 ) -> Result<Json<Value>, AppError> {
@@ -340,13 +363,14 @@ async fn create_pregnancy(
     responses(
         (status = 200, description = "Pregnancy updated", body = serde_json::Value),
         (status = 404, description = "Not found"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     params(("id" = i32, Path, description = "Pregnancy ID")),
     security(("cookie_auth" = []))
 )]
 async fn update_pregnancy(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(req): Json<UpdatePregnancy>,
@@ -374,7 +398,7 @@ async fn delete_pregnancy(
     Path(id): Path<i32>,
 ) -> Result<Json<Value>, AppError> {
     reproduction_service::delete_pregnancy(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "Deleted" })))
+    Ok(Json(json!({ "message": "Удалено" })))
 }
 
 #[utoipa::path(
@@ -394,7 +418,13 @@ async fn list_heats(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || reproduction_service::list_heats(pool, f), || reproduction_service::count_heats(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || reproduction_service::list_heats(pool, f),
+        || reproduction_service::count_heats(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -415,7 +445,7 @@ async fn get_heat(
 ) -> Result<Json<Value>, AppError> {
     let item = reproduction_service::get_heat(&state.pool, id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Heat {} not found", id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Запись о охоте {} не найдена", id)))?;
     Ok(Json(json!({ "data": item })))
 }
 
@@ -426,12 +456,13 @@ async fn get_heat(
     responses(
         (status = 201, description = "Heat created", body = serde_json::Value),
         (status = 400, description = "Validation error"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     security(("cookie_auth" = []))
 )]
 async fn create_heat(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Json(req): Json<CreateHeat>,
 ) -> Result<Json<Value>, AppError> {
@@ -447,13 +478,14 @@ async fn create_heat(
     responses(
         (status = 200, description = "Heat updated", body = serde_json::Value),
         (status = 404, description = "Not found"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     params(("id" = i32, Path, description = "Heat ID")),
     security(("cookie_auth" = []))
 )]
 async fn update_heat(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(req): Json<UpdateHeat>,
@@ -481,7 +513,7 @@ async fn delete_heat(
     Path(id): Path<i32>,
 ) -> Result<Json<Value>, AppError> {
     reproduction_service::delete_heat(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "Deleted" })))
+    Ok(Json(json!({ "message": "Удалено" })))
 }
 
 #[utoipa::path(
@@ -501,7 +533,13 @@ async fn list_dryoffs(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || reproduction_service::list_dryoffs(pool, f), || reproduction_service::count_dryoffs(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || reproduction_service::list_dryoffs(pool, f),
+        || reproduction_service::count_dryoffs(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -522,7 +560,7 @@ async fn get_dryoff(
 ) -> Result<Json<Value>, AppError> {
     let item = reproduction_service::get_dryoff(&state.pool, id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("DryOff {} not found", id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Запись о запуске {} не найдена", id)))?;
     Ok(Json(json!({ "data": item })))
 }
 
@@ -533,12 +571,13 @@ async fn get_dryoff(
     responses(
         (status = 201, description = "Dry-off created", body = serde_json::Value),
         (status = 400, description = "Validation error"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     security(("cookie_auth" = []))
 )]
 async fn create_dryoff(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Json(req): Json<CreateDryOff>,
 ) -> Result<Json<Value>, AppError> {
@@ -554,13 +593,14 @@ async fn create_dryoff(
     responses(
         (status = 200, description = "Dry-off updated", body = serde_json::Value),
         (status = 404, description = "Not found"),
-        (status = 401, description = "Unauthorized")
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
     ),
     params(("id" = i32, Path, description = "Dry-off ID")),
     security(("cookie_auth" = []))
 )]
 async fn update_dryoff(
-    _claims: Claims,
+    _admin: crate::middleware::auth::AdminGuard,
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(req): Json<UpdateDryOff>,
@@ -588,7 +628,7 @@ async fn delete_dryoff(
     Path(id): Path<i32>,
 ) -> Result<Json<Value>, AppError> {
     reproduction_service::delete_dryoff(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "Deleted" })))
+    Ok(Json(json!({ "message": "Удалено" })))
 }
 
 #[utoipa::path(

@@ -109,8 +109,8 @@ export interface ReproductionFilter {
 	per_page?: number;
 }
 
-export function listCalvings(filter: ReproductionFilter = {}) {
-	return api<{ data: Calving[]; total: number }>(`/reproduction/calvings${buildQuery(filter)}`);
+export function listCalvings(filter: ReproductionFilter = {}, signal?: AbortSignal) {
+	return api<{ data: Calving[]; total: number }>(`/reproduction/calvings${buildQuery(filter)}`, { signal });
 }
 
 export function createCalving(data: CreateCalving) {
@@ -125,9 +125,10 @@ export function deleteCalving(id: number) {
 	return del<{ message: string }>(`/reproduction/calvings/${id}`);
 }
 
-export function listInseminations(filter: ReproductionFilter = {}) {
+export function listInseminations(filter: ReproductionFilter = {}, signal?: AbortSignal) {
 	return api<{ data: Insemination[]; total: number }>(
 		`/reproduction/inseminations${buildQuery(filter)}`,
+		{ signal },
 	);
 }
 
@@ -143,9 +144,10 @@ export function deleteInsemination(id: number) {
 	return del<{ message: string }>(`/reproduction/inseminations/${id}`);
 }
 
-export function listPregnancies(filter: ReproductionFilter = {}) {
+export function listPregnancies(filter: ReproductionFilter = {}, signal?: AbortSignal) {
 	return api<{ data: Pregnancy[]; total: number }>(
 		`/reproduction/pregnancies${buildQuery(filter)}`,
+		{ signal },
 	);
 }
 
@@ -161,8 +163,8 @@ export function deletePregnancy(id: number) {
 	return del<{ message: string }>(`/reproduction/pregnancies/${id}`);
 }
 
-export function listHeats(filter: ReproductionFilter = {}) {
-	return api<{ data: Heat[]; total: number }>(`/reproduction/heats${buildQuery(filter)}`);
+export function listHeats(filter: ReproductionFilter = {}, signal?: AbortSignal) {
+	return api<{ data: Heat[]; total: number }>(`/reproduction/heats${buildQuery(filter)}`, { signal });
 }
 
 export function createHeat(data: CreateHeat) {
@@ -177,8 +179,8 @@ export function deleteHeat(id: number) {
 	return del<{ message: string }>(`/reproduction/heats/${id}`);
 }
 
-export function listDryOffs(filter: ReproductionFilter = {}) {
-	return api<{ data: DryOff[]; total: number }>(`/reproduction/dryoffs${buildQuery(filter)}`);
+export function listDryOffs(filter: ReproductionFilter = {}, signal?: AbortSignal) {
+	return api<{ data: DryOff[]; total: number }>(`/reproduction/dryoffs${buildQuery(filter)}`, { signal });
 }
 
 export function createDryOff(data: CreateDryOff) {

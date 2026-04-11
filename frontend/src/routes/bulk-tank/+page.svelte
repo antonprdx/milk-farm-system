@@ -22,12 +22,21 @@
 	import { rules } from '$lib/utils/validators';
 	import { Pencil, Trash2 } from 'lucide-svelte';
 
+	let { data } = $props();
+
 	let dataTable: DataTable;
 	let tests = $state<BulkTankTest[]>([]);
 
 	const list = usePaginatedList();
 	const crud = useCrudModal();
 	const v = useFormValidation();
+
+	let _skipLoad = !!data.initialData;
+	let _hasInitial = $state(!!data.initialData);
+
+	if (data.initialData) {
+		tests = data.initialData.data;
+	}
 
 	const dateRules = [rules.required()];
 	const fatRules = [rules.required(), rules.percentage()];
@@ -40,13 +49,13 @@
 
 	async function load() {
 		await list.load(
-			() =>
+			(signal) =>
 				listBulkTankTests({
 					from_date: list.fromDate || undefined,
 					till_date: list.tillDate || undefined,
 					page: list.page,
 					per_page: list.perPage,
-				}),
+				}, signal),
 			(data) => {
 				tests = data;
 			},
@@ -112,6 +121,11 @@
 
 	$effect(() => {
 		list.page;
+		if (_skipLoad) {
+			_skipLoad = false;
+			return;
+		}
+		_hasInitial = false;
 		load();
 	});
 </script>
@@ -149,7 +163,8 @@
 		{ key: 'ffa', label: 'FFA', align: 'right' },
 		{ key: 'actions', label: '', align: 'right' },
 	]}
-	loading={list.loading}
+	loading={list.loading && !_hasInitial}
+	initialRows={!!data.initialData && data.initialData.data.length > 0}
 	bind:this={dataTable}
 	emptyText="Нет данных"
 >
@@ -307,4 +322,4 @@
 	oncancel={crud.closeDelete}
 />
 
-<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />
+<Pagination bind:page={list.page} total={_hasInitial && data.initialData ? data.initialData.total : list.total} perPage={list.perPage} />

@@ -3,7 +3,8 @@ export function usePaginatedList(options?: { perPage?: number }) {
 	let error = $state('');
 	let total = $state(0);
 	let page = $state(1);
-	const perPage = options?.perPage ?? 20;
+	const perPage = options?.perPage ?? 50;
+	let abortController: AbortController | null = null;
 
 	let fromDate = $state('');
 	let tillDate = $state('');
@@ -18,21 +19,28 @@ export function usePaginatedList(options?: { perPage?: number }) {
 	}
 
 	async function load<T>(
-		fetchFn: () => Promise<{ data: T[]; total: number }>,
+		fetchFn: (signal?: AbortSignal) => Promise<{ data: T[]; total: number }>,
 		onItems: (items: T[]) => void,
 		dt?: { setHasRows: (v: boolean) => void },
 	) {
+		abortController?.abort();
+		const controller = new AbortController();
+		abortController = controller;
 		try {
 			loading = true;
 			error = '';
-			const res = await fetchFn();
+			const res = await fetchFn(controller.signal);
+			if (controller.signal.aborted) return;
 			onItems(res.data);
 			total = res.total;
 			dt?.setHasRows(res.data.length > 0);
 		} catch (e) {
+			if (controller.signal.aborted) return;
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';
 		} finally {
-			loading = false;
+			if (!controller.signal.aborted) {
+				loading = false;
+			}
 		}
 	}
 

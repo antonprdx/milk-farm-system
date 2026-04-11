@@ -25,7 +25,7 @@ services:
           memory: 512M
 
   backend:
-    build: ./backend
+    image: ${BACKEND_IMAGE:-ghcr.io/anomalyco/milk-farm/backend}:${BACKEND_TAG:-latest}
     env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-milkfarm}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-milk_farm}
@@ -35,6 +35,7 @@ services:
       SECURE_COOKIES: ${SECURE_COOKIES:-true}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://milkfarm.example.com}
       RUST_LOG: ${RUST_LOG:-info,milk_farm_backend=debug}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,7 +51,7 @@ services:
           memory: 256M
 
   frontend:
-    build: ./frontend
+    image: ${FRONTEND_IMAGE:-ghcr.io/anomalyco/milk-farm/frontend}:${FRONTEND_TAG:-latest}
     environment:
       PORT: 3000
       ORIGIN: ${ORIGIN:-https://milkfarm.example.com}

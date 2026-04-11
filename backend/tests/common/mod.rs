@@ -7,7 +7,9 @@ use milk_farm_backend::config::Config;
 use milk_farm_backend::middleware::auth::create_access_token;
 use milk_farm_backend::state::AppStateInner;
 use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
 use sqlx::PgPool;
+use tower::ServiceExt;
 
 pub fn test_config() -> Config {
     Config {
@@ -137,4 +139,21 @@ pub async fn seed_feed_type(pool: &PgPool) -> i32 {
     .await
     .unwrap();
     row.0
+}
+
+#[allow(dead_code)]
+pub async fn create_test_animal(app: &axum::Router) -> i64 {
+    let req = auth_request_with_body(
+        "POST",
+        "/api/v1/animals",
+        &admin_token(),
+        json!({
+            "gender": "female",
+            "birth_date": "2020-01-01"
+        }),
+    );
+    let resp = app.clone().oneshot(req).await.unwrap();
+    read_body_json::<Value>(resp.into_body()).await["data"]["id"]
+        .as_i64()
+        .unwrap()
 }

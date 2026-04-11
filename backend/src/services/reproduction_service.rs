@@ -2,7 +2,6 @@ use sqlx::PgPool;
 
 use crate::errors::AppError;
 use crate::models::reproduction::*;
-use crate::services::animal_service;
 
 pub async fn list_calvings(
     pool: &PgPool,
@@ -48,9 +47,20 @@ pub async fn get_calving(pool: &PgPool, id: i32) -> Result<Option<Calving>, AppE
 }
 
 pub async fn create_calving(pool: &PgPool, req: &CreateCalving) -> Result<Calving, AppError> {
-    animal_service::ensure_exists(pool, req.animal_id).await?;
-
     let mut tx = pool.begin().await.map_err(AppError::Database)?;
+
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(req.animal_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+    if !exists {
+        return Err(AppError::NotFound(format!(
+            "Животное с ID {} не найдено или неактивно",
+            req.animal_id
+        )));
+    }
 
     let calving = sqlx::query_as::<_, Calving>(
         "INSERT INTO calvings (animal_id, calving_date, remarks, lac_number)
@@ -134,9 +144,22 @@ pub async fn create_insemination(
     pool: &PgPool,
     req: &CreateInsemination,
 ) -> Result<Insemination, AppError> {
-    animal_service::ensure_exists(pool, req.animal_id).await?;
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
 
-    sqlx::query_as::<_, Insemination>(
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(req.animal_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+    if !exists {
+        return Err(AppError::NotFound(format!(
+            "Животное с ID {} не найдено или неактивно",
+            req.animal_id
+        )));
+    }
+
+    let row = sqlx::query_as::<_, Insemination>(
         "INSERT INTO inseminations (animal_id, insemination_date, sire_code, insemination_type, charge_number)
          VALUES ($1,$2,$3,$4,$5) RETURNING *",
     )
@@ -145,9 +168,12 @@ pub async fn create_insemination(
     .bind(&req.sire_code)
     .bind(&req.insemination_type)
     .bind(&req.charge_number)
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await
-    .map_err(AppError::Database)
+    .map_err(AppError::Database)?;
+
+    tx.commit().await.map_err(AppError::Database)?;
+    Ok(row)
 }
 
 pub async fn list_pregnancies(
@@ -189,9 +215,22 @@ pub async fn count_pregnancies(
 }
 
 pub async fn create_pregnancy(pool: &PgPool, req: &CreatePregnancy) -> Result<Pregnancy, AppError> {
-    animal_service::ensure_exists(pool, req.animal_id).await?;
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
 
-    sqlx::query_as::<_, Pregnancy>(
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(req.animal_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+    if !exists {
+        return Err(AppError::NotFound(format!(
+            "Животное с ID {} не найдено или неактивно",
+            req.animal_id
+        )));
+    }
+
+    let row = sqlx::query_as::<_, Pregnancy>(
         "INSERT INTO pregnancies (animal_id, pregnancy_date, pregnancy_type, insemination_date)
          VALUES ($1,$2,$3,$4) RETURNING *",
     )
@@ -199,9 +238,12 @@ pub async fn create_pregnancy(pool: &PgPool, req: &CreatePregnancy) -> Result<Pr
     .bind(req.pregnancy_date)
     .bind(&req.pregnancy_type)
     .bind(req.insemination_date)
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await
-    .map_err(AppError::Database)
+    .map_err(AppError::Database)?;
+
+    tx.commit().await.map_err(AppError::Database)?;
+    Ok(row)
 }
 
 pub async fn list_heats(pool: &PgPool, filter: &ReproductionFilter) -> Result<Vec<Heat>, AppError> {
@@ -237,14 +279,32 @@ pub async fn count_heats(pool: &PgPool, filter: &ReproductionFilter) -> Result<i
 }
 
 pub async fn create_heat(pool: &PgPool, req: &CreateHeat) -> Result<Heat, AppError> {
-    animal_service::ensure_exists(pool, req.animal_id).await?;
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
 
-    sqlx::query_as::<_, Heat>("INSERT INTO heats (animal_id, heat_date) VALUES ($1,$2) RETURNING *")
-        .bind(req.animal_id)
-        .bind(req.heat_date)
-        .fetch_one(pool)
-        .await
-        .map_err(AppError::Database)
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(req.animal_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+    if !exists {
+        return Err(AppError::NotFound(format!(
+            "Животное с ID {} не найдено или неактивно",
+            req.animal_id
+        )));
+    }
+
+    let row = sqlx::query_as::<_, Heat>(
+        "INSERT INTO heats (animal_id, heat_date) VALUES ($1,$2) RETURNING *",
+    )
+    .bind(req.animal_id)
+    .bind(req.heat_date)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(AppError::Database)?;
+
+    tx.commit().await.map_err(AppError::Database)?;
+    Ok(row)
 }
 
 pub async fn list_dryoffs(
@@ -283,16 +343,32 @@ pub async fn count_dryoffs(pool: &PgPool, filter: &ReproductionFilter) -> Result
 }
 
 pub async fn create_dryoff(pool: &PgPool, req: &CreateDryOff) -> Result<DryOff, AppError> {
-    animal_service::ensure_exists(pool, req.animal_id).await?;
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
 
-    sqlx::query_as::<_, DryOff>(
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(req.animal_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+    if !exists {
+        return Err(AppError::NotFound(format!(
+            "Животное с ID {} не найдено или неактивно",
+            req.animal_id
+        )));
+    }
+
+    let row = sqlx::query_as::<_, DryOff>(
         "INSERT INTO dry_offs (animal_id, dry_off_date) VALUES ($1,$2) RETURNING *",
     )
     .bind(req.animal_id)
     .bind(req.dry_off_date)
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await
-    .map_err(AppError::Database)
+    .map_err(AppError::Database)?;
+
+    tx.commit().await.map_err(AppError::Database)?;
+    Ok(row)
 }
 
 pub async fn update_calving(
@@ -323,7 +399,10 @@ pub async fn delete_calving(pool: &PgPool, id: i32) -> Result<(), AppError> {
         .await
         .map_err(AppError::Database)?;
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("Calving {} not found", id)));
+        return Err(AppError::NotFound(format!(
+            "Запись об отёле {} не найдена",
+            id
+        )));
     }
     Ok(())
 }
@@ -366,7 +445,10 @@ pub async fn delete_insemination(pool: &PgPool, id: i32) -> Result<(), AppError>
         .await
         .map_err(AppError::Database)?;
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("Insemination {} not found", id)));
+        return Err(AppError::NotFound(format!(
+            "Запись об осеменении {} не найдена",
+            id
+        )));
     }
     Ok(())
 }
@@ -407,7 +489,10 @@ pub async fn delete_pregnancy(pool: &PgPool, id: i32) -> Result<(), AppError> {
         .await
         .map_err(AppError::Database)?;
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("Pregnancy {} not found", id)));
+        return Err(AppError::NotFound(format!(
+            "Запись о стельности {} не найдена",
+            id
+        )));
     }
     Ok(())
 }
@@ -438,7 +523,10 @@ pub async fn delete_heat(pool: &PgPool, id: i32) -> Result<(), AppError> {
         .await
         .map_err(AppError::Database)?;
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("Heat {} not found", id)));
+        return Err(AppError::NotFound(format!(
+            "Запись о охоте {} не найдена",
+            id
+        )));
     }
     Ok(())
 }
@@ -469,7 +557,10 @@ pub async fn delete_dryoff(pool: &PgPool, id: i32) -> Result<(), AppError> {
         .await
         .map_err(AppError::Database)?;
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("DryOff {} not found", id)));
+        return Err(AppError::NotFound(format!(
+            "Запись о запуске {} не найдена",
+            id
+        )));
     }
     Ok(())
 }

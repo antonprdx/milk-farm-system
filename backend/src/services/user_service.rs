@@ -17,7 +17,8 @@ pub async fn find_by_username(pool: &PgPool, username: &str) -> Result<Option<Us
                 .await
                 .map_err(AppError::Database)
         }
-    }).await
+    })
+    .await
 }
 
 pub async fn find_by_id(pool: &PgPool, user_id: i32) -> Result<Option<User>, AppError> {
@@ -83,7 +84,7 @@ pub async fn delete_user(pool: &PgPool, user_id: i32) -> Result<(), AppError> {
         .await
         .map_err(AppError::Database)?;
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound("User not found".into()));
+        return Err(AppError::NotFound("Пользователь не найден".into()));
     }
     Ok(())
 }
@@ -96,7 +97,7 @@ pub async fn update_role(pool: &PgPool, user_id: i32, role: &str) -> Result<(), 
         .await
         .map_err(AppError::Database)?;
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound("User not found".into()));
+        return Err(AppError::NotFound("Пользователь не найден".into()));
     }
     Ok(())
 }

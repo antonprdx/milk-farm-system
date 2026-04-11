@@ -47,8 +47,8 @@ export interface ContactFilter {
 	per_page?: number;
 }
 
-export function listContacts(filter: ContactFilter = {}) {
-	return api<{ data: Contact[]; total: number }>(`/contacts${buildQuery(filter)}`);
+export function listContacts(filter: ContactFilter = {}, signal?: AbortSignal) {
+	return api<{ data: Contact[]; total: number }>(`/contacts${buildQuery(filter)}`, { signal });
 }
 
 export function createContact(data: CreateContact) {

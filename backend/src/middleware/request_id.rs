@@ -58,7 +58,8 @@ where
 
         req.headers_mut().insert(
             header::HeaderName::from_static("x-request-id"),
-            header::HeaderValue::from_str(&request_id).unwrap_or_else(|_| header::HeaderValue::from_static("unknown")),
+            header::HeaderValue::from_str(&request_id)
+                .unwrap_or_else(|_| header::HeaderValue::from_static("unknown")),
         );
 
         let inner = self.inner.clone();
@@ -66,10 +67,9 @@ where
         Box::pin(async move {
             let mut response = inner.call(req).await?;
             if let Ok(val) = header::HeaderValue::from_str(&request_id) {
-                response.headers_mut().insert(
-                    header::HeaderName::from_static("x-request-id"),
-                    val,
-                );
+                response
+                    .headers_mut()
+                    .insert(header::HeaderName::from_static("x-request-id"), val);
             }
             Ok(response)
         })

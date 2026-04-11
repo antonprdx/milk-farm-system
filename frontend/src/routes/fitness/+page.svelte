@@ -33,9 +33,9 @@
 			per_page: list.perPage,
 		};
 		if (tab === 'activities') {
-			await list.load(() => listActivities(params), (d) => { activities = d; }, dtActivities);
+			await list.load((signal) => listActivities(params, signal), (d) => { activities = d; }, dtActivities);
 		} else {
-			await list.load(() => listRuminations(params), (d) => { ruminations = d; }, dtRuminations);
+			await list.load((signal) => listRuminations(params, signal), (d) => { ruminations = d; }, dtRuminations);
 		}
 	}
 

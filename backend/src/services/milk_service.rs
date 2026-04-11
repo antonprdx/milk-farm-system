@@ -2,7 +2,6 @@ use sqlx::PgPool;
 
 use crate::errors::AppError;
 use crate::models::milk::*;
-use crate::services::animal_service;
 
 pub async fn list_productions(
     pool: &PgPool,
@@ -51,9 +50,22 @@ pub async fn create_production(
     pool: &PgPool,
     req: &CreateMilkDayProduction,
 ) -> Result<MilkDayProduction, AppError> {
-    animal_service::ensure_exists(pool, req.animal_id).await?;
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
 
-    sqlx::query_as::<_, MilkDayProduction>(
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(req.animal_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+    if !exists {
+        return Err(AppError::NotFound(format!(
+            "Животное с ID {} не найдено или неактивно",
+            req.animal_id
+        )));
+    }
+
+    let row = sqlx::query_as::<_, MilkDayProduction>(
         "INSERT INTO milk_day_productions (animal_id, date, milk_amount, avg_amount, avg_weight, isk)
          VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
     )
@@ -63,9 +75,12 @@ pub async fn create_production(
     .bind(req.avg_amount)
     .bind(req.avg_weight)
     .bind(req.isk)
-    .fetch_one(pool)
+    .fetch_one(&mut *tx)
     .await
-    .map_err(AppError::Database)
+    .map_err(AppError::Database)?;
+
+    tx.commit().await.map_err(AppError::Database)?;
+    Ok(row)
 }
 
 pub async fn update_production(
@@ -100,7 +115,10 @@ pub async fn delete_production(pool: &PgPool, id: i32) -> Result<(), AppError> {
         .await
         .map_err(AppError::Database)?;
     if result.rows_affected() == 0 {
-        return Err(AppError::NotFound(format!("Production {} not found", id)));
+        return Err(AppError::NotFound(format!(
+            "Запись о надое {} не найдена",
+            id
+        )));
     }
     Ok(())
 }

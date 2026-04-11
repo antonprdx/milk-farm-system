@@ -1,6 +1,6 @@
-use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::Modify;
 use utoipa::OpenApi;
+use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 
 use crate::handlers::{ChangePasswordRequest, ReportFilter, TrendQuery, UpdateRoleRequest};
 use crate::middleware::auth::{Claims, LoginRequest, RegisterRequest};

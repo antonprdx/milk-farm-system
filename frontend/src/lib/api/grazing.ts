@@ -15,8 +15,9 @@ export interface GrazingFilter {
 	per_page?: number;
 }
 
-export function listGrazing(filter: GrazingFilter = {}) {
+export function listGrazing(filter: GrazingFilter = {}, signal?: AbortSignal) {
 	return api<{ data: GrazingData[]; total: number; page: number; per_page: number }>(
 		`/grazing${buildQuery(filter)}`,
+		{ signal },
 	);
 }

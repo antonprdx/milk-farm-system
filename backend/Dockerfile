@@ -1,9 +1,12 @@
 FROM rust:1.85-bookworm AS builder
 WORKDIR /app
+
 COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+
 COPY src ./src
 COPY migrations ./migrations
-RUN cargo build --release
+RUN touch src/main.rs && cargo build --release
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y \

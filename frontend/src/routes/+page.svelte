@@ -37,6 +37,8 @@
 		db: 'ok' | 'error' | 'checking';
 	}
 
+	let { data } = $props();
+
 	let systemStatus = $state<SystemStatus>({ api: 'checking', db: 'checking' });
 
 	let error = $state('');
@@ -48,6 +50,15 @@
 	let feed = $state<FeedForecastResponse | null>(null);
 	let trendCanvas: HTMLCanvasElement | undefined = $state();
 	let trendChart: Chart | null = null;
+
+	if (data.initialData) {
+		kpi = data.initialData.kpi;
+		alerts = data.initialData.alerts;
+		trend = data.initialData.trend;
+		repro = data.initialData.repro;
+		feed = data.initialData.feed;
+		loading = false;
+	}
 
 	async function checkHealth() {
 		systemStatus = { api: 'checking', db: 'checking' };
@@ -71,7 +82,8 @@
 	}
 
 	onMount(() => {
-		loadAll();
+		checkHealth();
+		if (!data.initialData) loadAll();
 		return () => {
 			if (trendChart) {
 				trendChart.destroy();

@@ -2,9 +2,19 @@ use sqlx::PgPool;
 
 use crate::errors::AppError;
 use crate::models::analytics::*;
+use crate::models::system_settings::AlertThresholds;
+use crate::services::system_settings_service;
 
 pub async fn kpi(pool: &PgPool) -> Result<KpiResponse, AppError> {
-    let (avg_calving_interval_days, conception_rate_pct, avg_milk_by_lactation, feed_efficiency, avg_days_to_first_ai, avg_scc, refusal_rate_pct) = tokio::try_join!(
+    let (
+        avg_calving_interval_days,
+        conception_rate_pct,
+        avg_milk_by_lactation,
+        feed_efficiency,
+        avg_days_to_first_ai,
+        avg_scc,
+        refusal_rate_pct,
+    ) = tokio::try_join!(
         avg_calving_interval(pool),
         conception_rate(pool),
         milk_by_lactation(pool),
@@ -241,6 +251,23 @@ async fn culling_risk_calc(pool: &PgPool) -> Result<Vec<CullingRiskEntry>, AppEr
 }
 
 pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
+    let thresholds = system_settings_service::get_alert_thresholds(pool)
+        .await
+        .unwrap_or(AlertThresholds {
+            alert_min_milk: 5.0,
+            alert_max_scc: 400.0,
+            alert_days_before_calving: 14,
+            alert_activity_drop_pct: 30,
+        });
+
+    let milk_drop_factor = 1.0 - (thresholds.alert_min_milk / 100.0).min(0.99);
+    let scc_multiplier = if thresholds.alert_max_scc > 0.0 {
+        thresholds.alert_max_scc / 200.0
+    } else {
+        2.0
+    };
+    let activity_drop_factor = 1.0 - (thresholds.alert_activity_drop_pct as f64 / 100.0).min(0.99);
+
     let mut alerts_list = Vec::new();
 
     let milk_drops: Vec<(i32, Option<String>, f64, f64)> = sqlx::query_as(
@@ -248,20 +275,22 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
          FROM animals a
          JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days') short_avg ON true
          JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days' AND m.date < CURRENT_DATE - INTERVAL '7 days') long_avg ON true
-         WHERE short_avg.milk IS NOT NULL AND long_avg.milk IS NOT NULL AND short_avg.milk < long_avg.milk * 0.85
+         WHERE short_avg.milk IS NOT NULL AND long_avg.milk IS NOT NULL AND short_avg.milk < long_avg.milk * $1
          LIMIT 10",
     )
+    .bind(milk_drop_factor)
     .fetch_all(pool)
     .await
     .map_err(AppError::Database)?;
 
     for (id, name, short_m, long_m) in milk_drops {
+        let pct = ((1.0 - short_m / long_m) * 100.0).round() as i32;
         alerts_list.push(Alert {
             alert_type: "milk_drop".to_string(),
             severity: "warning".to_string(),
             animal_id: Some(id),
             animal_name: name,
-            message: "Надой упал более чем на 15% за последние 7 дней".to_string(),
+            message: format!("Надой упал на {}% за последние 7 дней", pct),
             value: format!("{:.1} л → {:.1} л", long_m, short_m),
         });
     }
@@ -271,9 +300,10 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
          FROM animals a
          JOIN LATERAL (SELECT q.scc FROM milk_quality q WHERE q.animal_id = a.id ORDER BY q.date DESC LIMIT 1) recent ON true
          JOIN LATERAL (SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days') baseline ON true
-         WHERE recent.scc IS NOT NULL AND baseline.avg_scc IS NOT NULL AND recent.scc > baseline.avg_scc * 2.0
+         WHERE recent.scc IS NOT NULL AND baseline.avg_scc IS NOT NULL AND recent.scc > baseline.avg_scc * $1
          LIMIT 10",
     )
+    .bind(scc_multiplier)
     .fetch_all(pool)
     .await
     .map_err(AppError::Database)?;
@@ -305,9 +335,10 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
              SELECT AVG(activity_counter)::float8 as avg_act FROM activities
              WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '7 days' AND activity_datetime < CURRENT_DATE - INTERVAL '1 day'
          ) baseline ON true
-         WHERE recent.act IS NOT NULL AND baseline.avg_act IS NOT NULL AND recent.act < baseline.avg_act * 0.7
+         WHERE recent.act IS NOT NULL AND baseline.avg_act IS NOT NULL AND recent.act < baseline.avg_act * $1
          LIMIT 10",
     )
+    .bind(activity_drop_factor)
     .fetch_all(pool)
     .await
     .map_err(AppError::Database)?;
@@ -318,7 +349,10 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
             severity: "warning".to_string(),
             animal_id: Some(id),
             animal_name: name,
-            message: "Активность ниже нормы на 30%+".to_string(),
+            message: format!(
+                "Активность ниже нормы на {}%+",
+                thresholds.alert_activity_drop_pct
+            ),
             value: format!("{:.0} → {:.0}", base, act),
         });
     }

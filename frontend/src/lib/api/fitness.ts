@@ -24,14 +24,16 @@ export interface FitnessFilter {
 	per_page?: number;
 }
 
-export function listActivities(filter: FitnessFilter = {}) {
+export function listActivities(filter: FitnessFilter = {}, signal?: AbortSignal) {
 	return api<{ data: Activity[]; total: number; page: number; per_page: number }>(
 		`/fitness/activities${buildQuery(filter)}`,
+		{ signal },
 	);
 }
 
-export function listRuminations(filter: FitnessFilter = {}) {
+export function listRuminations(filter: FitnessFilter = {}, signal?: AbortSignal) {
 	return api<{ data: Rumination[]; total: number; page: number; per_page: number }>(
 		`/fitness/ruminations${buildQuery(filter)}`,
+		{ signal },
 	);
 }

@@ -17,7 +17,7 @@ async fn get_value(pool: &PgPool, key: &str) -> Result<String, AppError> {
         .map_err(AppError::Database)?;
 
     row.map(|r| r.0)
-        .ok_or_else(|| AppError::NotFound(format!("Setting {} not found", key)))
+        .ok_or_else(|| AppError::NotFound(format!("Настройка {} не найдена", key)))
 }
 
 async fn set_value(pool: &PgPool, key: &str, value: &str) -> Result<(), AppError> {
@@ -150,9 +150,27 @@ pub async fn generate_backup(_pool: &PgPool) -> Result<Vec<u8>, AppError> {
     let db_url = std::env::var("DATABASE_URL")
         .map_err(|_| AppError::Internal(anyhow::anyhow!("DATABASE_URL not set")))?;
 
+    let parsed = url::Url::parse(&db_url)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("Invalid DATABASE_URL: {e}")))?;
+
+    let host = parsed.host_str().unwrap_or("localhost");
+    let port = parsed.port().unwrap_or(5432);
+    let user = parsed.username();
+    let db_name = parsed.path().trim_start_matches('/');
+
+    let password = parsed.password().unwrap_or("");
+
     let output = std::process::Command::new("pg_dump")
         .args(["--format=plain", "--no-owner", "--no-acl"])
-        .arg(&db_url)
+        .arg("--host")
+        .arg(host)
+        .arg("--port")
+        .arg(port.to_string())
+        .arg("--username")
+        .arg(user)
+        .arg("--dbname")
+        .arg(db_name)
+        .env("PGPASSWORD", password)
         .output()
         .map_err(|e| AppError::Internal(anyhow::anyhow!("pg_dump failed: {e}")))?;
 

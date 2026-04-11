@@ -54,7 +54,7 @@ impl IntoResponse for AppError {
                 tracing::error!("Internal error: {:?}", e);
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    "Internal server error".into(),
+                    "Внутренняя ошибка сервера".into(),
                 )
             }
             AppError::Database(e) => {
@@ -79,9 +79,15 @@ impl IntoResponse for AppError {
                             )
                                 .into_response();
                         }
-                        (StatusCode::INTERNAL_SERVER_ERROR, "Database error".into())
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "Ошибка базы данных".into(),
+                        )
                     }
-                    _ => (StatusCode::INTERNAL_SERVER_ERROR, "Database error".into()),
+                    _ => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Ошибка базы данных".into(),
+                    ),
                 }
             }
         };

@@ -7,6 +7,8 @@
 	import { toasts } from '$lib/stores/toast';
 	import { Pencil, Trash2 } from 'lucide-svelte';
 
+	let { data } = $props();
+
 	let animals = $state<Animal[]>([]);
 	let total = $state(0);
 	let loading = $state(true);
@@ -22,6 +24,14 @@
 	let deleteLoading = $state(false);
 
 	let dataTable: DataTable | undefined = $state();
+
+	let _skipLoad = !!data.initialData;
+
+	if (data.initialData) {
+		animals = data.initialData.data;
+		total = data.initialData.total;
+		loading = false;
+	}
 
 	async function load() {
 		try {
@@ -66,6 +76,10 @@
 
 	$effect(() => {
 		page;
+		if (_skipLoad) {
+			_skipLoad = false;
+			return;
+		}
 		load();
 	});
 </script>

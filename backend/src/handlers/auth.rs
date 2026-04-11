@@ -1,10 +1,6 @@
-use std::collections::HashMap;
-use std::sync::Mutex;
-use std::time::Instant;
-
 use axum::extract::State;
-use axum::http::header::SET_COOKIE;
 use axum::http::HeaderValue;
+use axum::http::header::SET_COOKIE;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -12,81 +8,23 @@ use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::{Claims, LoginRequest, RegisterRequest};
+use crate::middleware::rate_limit::{RateLimiter, extract_client_ip};
 use crate::state::AppState;
 
 use crate::middleware::auth::{create_access_token, create_refresh_token, verify_token};
 use crate::services::{system_settings_service, token_revocation_service, user_service};
 
-struct RateLimitEntry {
-    count: u32,
-    window_start: Instant,
-}
+static LOGIN_LIMITER: std::sync::LazyLock<RateLimiter> =
+    std::sync::LazyLock::new(|| RateLimiter::new(5, 60));
+static REGISTER_LIMITER: std::sync::LazyLock<RateLimiter> =
+    std::sync::LazyLock::new(|| RateLimiter::new(5, 60));
 
-struct RateLimiter {
-    max: u32,
-    window_secs: u64,
-    entries: Mutex<HashMap<String, RateLimitEntry>>,
-}
-
-impl RateLimiter {
-    fn new(max: u32, window_secs: u64) -> Self {
-        Self {
-            max,
-            window_secs,
-            entries: Mutex::new(HashMap::new()),
-        }
-    }
-
-    fn check(&self, key: &str) -> Result<(), AppError> {
-        let mut map = self
-            .entries
-            .lock()
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("{}", e)))?;
-        let now = Instant::now();
-        if let Some(entry) = map.get_mut(key) {
-            if now.duration_since(entry.window_start).as_secs() > self.window_secs {
-                entry.count = 1;
-                entry.window_start = now;
-            } else if entry.count >= self.max {
-                return Err(AppError::RateLimited);
-            } else {
-                entry.count += 1;
-            }
-        } else {
-            map.insert(
-                key.to_string(),
-                RateLimitEntry {
-                    count: 1,
-                    window_start: now,
-                },
-            );
-        }
-        map.retain(|_, v| now.duration_since(v.window_start).as_secs() <= self.window_secs * 2);
-        Ok(())
-    }
-}
-
-lazy_static::lazy_static! {
-    static ref LOGIN_LIMITER: RateLimiter = RateLimiter::new(5, 60);
-    static ref REGISTER_LIMITER: RateLimiter = RateLimiter::new(5, 60);
-}
-
-fn extract_client_ip(headers: &axum::http::HeaderMap, trust_proxy: bool) -> String {
-    if trust_proxy {
-        if let Some(forwarded) = headers.get("X-Forwarded-For")
-            && let Ok(val) = forwarded.to_str()
-            && let Some(ip) = val.split(',').next()
-        {
-            let ip = ip.trim().to_string();
-            if !ip.is_empty() {
-                return ip;
-            }
-        }
-    }
-    "unknown".to_string()
-}
-
-fn build_cookie(name: &str, value: &str, secure: bool, max_age: u64) -> Result<HeaderValue, AppError> {
+fn build_cookie(
+    name: &str,
+    value: &str,
+    secure: bool,
+    max_age: u64,
+) -> Result<HeaderValue, AppError> {
     let secure_flag = if secure { "; Secure" } else { "" };
     format!("{name}={value}; HttpOnly{secure_flag}; SameSite=Strict; Path=/; Max-Age={max_age}")
         .parse()
@@ -102,8 +40,14 @@ fn set_auth_cookies(
     secure: bool,
 ) -> Result<(), AppError> {
     let headers = response.headers_mut();
-    headers.insert(SET_COOKIE, build_cookie("token", access_token, secure, access_ttl)?);
-    headers.append(SET_COOKIE, build_cookie("refresh_token", refresh_token, secure, refresh_ttl)?);
+    headers.insert(
+        SET_COOKIE,
+        build_cookie("token", access_token, secure, access_ttl)?,
+    );
+    headers.append(
+        SET_COOKIE,
+        build_cookie("refresh_token", refresh_token, secure, refresh_ttl)?,
+    );
     Ok(())
 }
 
@@ -161,7 +105,9 @@ async fn liveness() -> Json<Value> {
         (status = 503, description = "Service not ready")
     )
 )]
-async fn readiness(State(state): State<AppState>) -> Result<Json<Value>, (axum::http::StatusCode, Json<Value>)> {
+async fn readiness(
+    State(state): State<AppState>,
+) -> Result<Json<Value>, (axum::http::StatusCode, Json<Value>)> {
     let db_ok = sqlx::query("SELECT 1").execute(&state.pool).await.is_ok();
     if db_ok {
         Ok(Json(json!({ "status": "ready" })))
@@ -194,14 +140,14 @@ async fn login(
 
     let user = user_service::find_by_username(&state.pool, &req.username)
         .await?
-        .ok_or_else(|| AppError::Unauthorized("Invalid credentials".into()))?;
+        .ok_or_else(|| AppError::Unauthorized("Неверные учётные данные".into()))?;
 
     let valid = bcrypt::verify(&req.password, &user.password_hash)
         .map_err(|e| AppError::Internal(e.into()))?;
 
     if !valid {
         tracing::warn!(username = %req.username, ip = %ip, "Login failed: invalid password");
-        return Err(AppError::Unauthorized("Invalid credentials".into()));
+        return Err(AppError::Unauthorized("Неверные учётные данные".into()));
     }
 
     let ttl = system_settings_service::get_jwt_ttl(&state.pool)
@@ -257,26 +203,26 @@ async fn logout(
     headers: axum::http::HeaderMap,
     State(state): State<AppState>,
 ) -> Result<Response, AppError> {
-    if let Some(token_str) = extract_token_str_from_headers(&headers) {
-        if let Ok(claims) = verify_token(&token_str, &state.config.jwt_secret) {
-            let exp = chrono::DateTime::from_timestamp(claims.exp as i64, 0)
-                .unwrap_or(chrono::Utc::now());
-            if let Err(e) = token_revocation_service::revoke(&state.pool, &claims.jti, exp).await {
-                tracing::warn!(error = %e, jti = %claims.jti, "Failed to revoke access token on logout");
-            }
+    if let Some(token_str) = extract_token_str_from_headers(&headers)
+        && let Ok(claims) = verify_token(&token_str, &state.config.jwt_secret)
+    {
+        let exp =
+            chrono::DateTime::from_timestamp(claims.exp as i64, 0).unwrap_or(chrono::Utc::now());
+        if let Err(e) = token_revocation_service::revoke(&state.pool, &claims.jti, exp).await {
+            tracing::warn!(error = %e, jti = %claims.jti, "Failed to revoke access token on logout");
         }
     }
-    if let Some(refresh_str) = extract_refresh_token_from_cookies(&headers) {
-        if let Ok(claims) = verify_token(&refresh_str, &state.config.jwt_secret) {
-            let exp = chrono::DateTime::from_timestamp(claims.exp as i64, 0)
-                .unwrap_or(chrono::Utc::now());
-            if let Err(e) = token_revocation_service::revoke(&state.pool, &claims.jti, exp).await {
-                tracing::warn!(error = %e, jti = %claims.jti, "Failed to revoke refresh token on logout");
-            }
+    if let Some(refresh_str) = extract_refresh_token_from_cookies(&headers)
+        && let Ok(claims) = verify_token(&refresh_str, &state.config.jwt_secret)
+    {
+        let exp =
+            chrono::DateTime::from_timestamp(claims.exp as i64, 0).unwrap_or(chrono::Utc::now());
+        if let Err(e) = token_revocation_service::revoke(&state.pool, &claims.jti, exp).await {
+            tracing::warn!(error = %e, jti = %claims.jti, "Failed to revoke refresh token on logout");
         }
     }
 
-    let mut response = axum::response::Json(json!({ "message": "Logged out" })).into_response();
+    let mut response = axum::response::Json(json!({ "message": "Выполнен выход" })).into_response();
     set_clear_cookies(&mut response, state.config.secure_cookies)?;
 
     if let Err(e) = token_revocation_service::cleanup_expired(&state.pool).await {
@@ -314,7 +260,7 @@ async fn register(
     user_service::create_user(&state.pool, &req.username, &password_hash, "user").await?;
     tracing::info!(username = %req.username, ip = %ip, "New user registered");
 
-    Ok(Json(json!({ "message": "User created" })))
+    Ok(Json(json!({ "message": "Пользователь создан" })))
 }
 
 fn extract_refresh_token_from_cookies(headers: &axum::http::HeaderMap) -> Option<String> {
@@ -358,25 +304,24 @@ async fn refresh(
     State(state): State<AppState>,
 ) -> Result<Response, AppError> {
     let refresh_token_str = extract_refresh_token_from_cookies(&headers)
-        .ok_or_else(|| AppError::Unauthorized("Missing refresh token".into()))?;
+        .ok_or_else(|| AppError::Unauthorized("Отсутствует refresh-токен".into()))?;
 
     let claims = verify_token(&refresh_token_str, &state.config.jwt_secret)?;
 
     if claims.token_type.as_deref() != Some("refresh") {
-        return Err(AppError::Unauthorized("Invalid token type".into()));
+        return Err(AppError::Unauthorized("Неверный тип токена".into()));
     }
 
     if token_revocation_service::is_revoked(&state.pool, &claims.jti).await? {
-        return Err(AppError::Unauthorized("Refresh token revoked".into()));
+        return Err(AppError::Unauthorized("Refresh-токен отозван".into()));
     }
 
-    let exp = chrono::DateTime::from_timestamp(claims.exp as i64, 0)
-        .unwrap_or(chrono::Utc::now());
+    let exp = chrono::DateTime::from_timestamp(claims.exp as i64, 0).unwrap_or(chrono::Utc::now());
     token_revocation_service::revoke(&state.pool, &claims.jti, exp).await?;
 
     let user = user_service::find_by_username(&state.pool, &claims.sub)
         .await?
-        .ok_or_else(|| AppError::Unauthorized("User not found".into()))?;
+        .ok_or_else(|| AppError::Unauthorized("Пользователь не найден".into()))?;
 
     let ttl = system_settings_service::get_jwt_ttl(&state.pool)
         .await

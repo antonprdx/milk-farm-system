@@ -16,13 +16,16 @@ async fn test_admin_cannot_delete_self(pool: sqlx::PgPool) {
     seed_admin_user(&pool).await;
     let app = make_app(pool.clone());
 
-    let admin_id: (i32,) =
-        sqlx::query_as("SELECT id FROM users WHERE username = 'admin'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let admin_id: (i32,) = sqlx::query_as("SELECT id FROM users WHERE username = 'admin'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
-    let req = auth_request("DELETE", &format!("/api/v1/settings/users/{}", admin_id.0), &admin_token());
+    let req = auth_request(
+        "DELETE",
+        &format!("/api/v1/settings/users/{}", admin_id.0),
+        &admin_token(),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 
@@ -36,22 +39,24 @@ async fn test_admin_can_delete_other_user(pool: sqlx::PgPool) {
     seed_test_user(&pool).await;
     let app = make_app(pool.clone());
 
-    let user_id: (i32,) =
-        sqlx::query_as("SELECT id FROM users WHERE username = 'testuser'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let user_id: (i32,) = sqlx::query_as("SELECT id FROM users WHERE username = 'testuser'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
-    let req = auth_request("DELETE", &format!("/api/v1/settings/users/{}", user_id.0), &admin_token());
+    let req = auth_request(
+        "DELETE",
+        &format!("/api/v1/settings/users/{}", user_id.0),
+        &admin_token(),
+    );
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let deleted: Option<(i32,)> =
-        sqlx::query_as("SELECT id FROM users WHERE id = $1")
-            .bind(user_id.0)
-            .fetch_optional(&pool)
-            .await
-            .unwrap();
+    let deleted: Option<(i32,)> = sqlx::query_as("SELECT id FROM users WHERE id = $1")
+        .bind(user_id.0)
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
     assert!(deleted.is_none());
 }
 
@@ -71,18 +76,21 @@ async fn test_token_revoked_on_user_deletion(pool: sqlx::PgPool) {
     seed_test_user(&pool).await;
     let app = make_app(pool.clone());
 
-    let user_id: (i32,) =
-        sqlx::query_as("SELECT id FROM users WHERE username = 'testuser'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let user_id: (i32,) = sqlx::query_as("SELECT id FROM users WHERE username = 'testuser'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
     let token = user_token();
     let req = auth_request("GET", "/api/v1/animals", &token);
     let resp = app.clone().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let del_req = auth_request("DELETE", &format!("/api/v1/settings/users/{}", user_id.0), &admin_token());
+    let del_req = auth_request(
+        "DELETE",
+        &format!("/api/v1/settings/users/{}", user_id.0),
+        &admin_token(),
+    );
     app.clone().oneshot(del_req).await.unwrap();
 
     let req = auth_request("GET", "/api/v1/animals", &token);
@@ -207,11 +215,10 @@ async fn test_update_role(pool: sqlx::PgPool) {
     seed_test_user(&pool).await;
     let app = make_app(pool.clone());
 
-    let user_id: (i32,) =
-        sqlx::query_as("SELECT id FROM users WHERE username = 'testuser'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let user_id: (i32,) = sqlx::query_as("SELECT id FROM users WHERE username = 'testuser'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
     let req = auth_request_with_body(
         "PUT",
@@ -222,12 +229,11 @@ async fn test_update_role(pool: sqlx::PgPool) {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let role: (String,) =
-        sqlx::query_as("SELECT role FROM users WHERE id = $1")
-            .bind(user_id.0)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+    let role: (String,) = sqlx::query_as("SELECT role FROM users WHERE id = $1")
+        .bind(user_id.0)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(role.0, "admin");
 }
 

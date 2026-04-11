@@ -31,5 +31,11 @@ async fn list_grazing(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || grazing_service::list(pool, f), || grazing_service::count(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || grazing_service::list(pool, f),
+        || grazing_service::count(pool, f),
+    )
+    .await
 }

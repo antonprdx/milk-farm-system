@@ -57,13 +57,12 @@ pub async fn get_animal_stats(pool: &PgPool, animal_id: i32) -> Result<AnimalSta
     .await
     .map_err(AppError::Database)?;
 
-    let total_inseminations: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM inseminations WHERE animal_id = $1",
-    )
-    .bind(animal_id)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+    let total_inseminations: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM inseminations WHERE animal_id = $1")
+            .bind(animal_id)
+            .fetch_one(pool)
+            .await
+            .map_err(AppError::Database)?;
 
     let latest_pregnancy: Option<(chrono::NaiveDate,)> = sqlx::query_as(
         "SELECT pregnancy_date FROM pregnancies

@@ -31,6 +31,8 @@
 
 	type Tab = 'productions' | 'visits' | 'quality';
 
+	let { data } = $props();
+
 	let tab = $state<Tab>('productions');
 
 	let productions = $state<MilkDayProduction[]>([]);
@@ -39,6 +41,13 @@
 
 	const list = usePaginatedList();
 	const crud = useCrudModal();
+
+	let _skipLoad = !!data.initialData;
+	let _hasInitial = $state(!!data.initialData);
+
+	if (data.initialData) {
+		productions = data.initialData.data;
+	}
 
 	let today = new Date().toISOString().slice(0, 10);
 
@@ -61,7 +70,7 @@
 		};
 		if (tab === 'productions') {
 			await list.load(
-				() => listProductions(params),
+				(signal) => listProductions(params, signal),
 				(data) => {
 					productions = data;
 				},
@@ -69,7 +78,7 @@
 			);
 		} else if (tab === 'visits') {
 			await list.load(
-				() => listVisits(params),
+				(signal) => listVisits(params, signal),
 				(data) => {
 					visits = data;
 				},
@@ -77,7 +86,7 @@
 			);
 		} else {
 			await list.load(
-				() => listQuality(params),
+				(signal) => listQuality(params, signal),
 				(data) => {
 					quality = data;
 				},
@@ -156,6 +165,11 @@
 	$effect(() => {
 		list.page;
 		tab;
+		if (_skipLoad) {
+			_skipLoad = false;
+			return;
+		}
+		_hasInitial = false;
 		load();
 	});
 </script>
@@ -198,6 +212,8 @@
 	<DataTable
 		bind:this={dtProductions}
 		emptyText="Нет данных"
+		initialRows={!!data.initialData && data.initialData.data.length > 0}
+		loading={list.loading && !_hasInitial}
 		columns={[
 			{ key: 'id', label: 'ID' },
 			{ key: 'animal_id', label: 'Животное' },
@@ -208,7 +224,6 @@
 			{ key: 'isk', label: 'ИСК', align: 'right' },
 			{ key: 'actions', label: '', align: 'right' },
 		]}
-		loading={list.loading}
 	>
 		{#each productions as p (p.id)}
 			<tr
@@ -258,7 +273,7 @@
 			{ key: 'duration_seconds', label: 'Длительность, с', align: 'right' },
 			{ key: 'milk_destination', label: 'Назначение', align: 'right' },
 		]}
-		loading={list.loading}
+		loading={list.loading && !_hasInitial}
 	>
 		{#each visits as v (v.id)}
 			<tr
@@ -301,7 +316,7 @@
 			{ key: 'milkings', label: 'Доек', align: 'right' },
 			{ key: 'refusals', label: 'Отказов', align: 'right' },
 		]}
-		loading={list.loading}
+		loading={list.loading && !_hasInitial}
 	>
 		{#each quality as q (q.id)}
 			<tr
@@ -338,7 +353,7 @@
 	</DataTable>
 {/if}
 
-<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />
+<Pagination bind:page={list.page} total={_hasInitial && data.initialData ? data.initialData.total : list.total} perPage={list.perPage} />
 
 <Modal
 	open={crud.showModal}

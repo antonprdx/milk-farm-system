@@ -50,8 +50,8 @@ export interface AlertThresholds {
 	alert_activity_drop_pct: number;
 }
 
-export async function listUsers() {
-	return api<ListUsersResponse>('/settings/users');
+export async function listUsers(signal?: AbortSignal) {
+	return api<ListUsersResponse>('/settings/users', { signal });
 }
 
 export async function createUser(data: CreateUserRequest) {
@@ -70,28 +70,28 @@ export async function updateUserRole(id: number, role: string) {
 	return put<{ message: string }>(`/settings/users/${id}/role`, { role });
 }
 
-export async function getPreferences() {
-	return api<UserPreferences>('/settings/preferences');
+export async function getPreferences(signal?: AbortSignal) {
+	return api<UserPreferences>('/settings/preferences', { signal });
 }
 
 export async function updatePreferences(data: Partial<UserPreferences>) {
 	return put<UserPreferences>('/settings/preferences', data);
 }
 
-export async function getSystemInfo() {
-	return api<SystemInfo>('/settings/system-info');
+export async function getSystemInfo(signal?: AbortSignal) {
+	return api<SystemInfo>('/settings/system-info', { signal });
 }
 
-export async function getJwtTtl() {
-	return api<JwtTtlSettings>('/settings/jwt-ttl');
+export async function getJwtTtl(signal?: AbortSignal) {
+	return api<JwtTtlSettings>('/settings/jwt-ttl', { signal });
 }
 
 export async function updateJwtTtl(data: Partial<JwtTtlSettings>) {
 	return put<JwtTtlSettings>('/settings/jwt-ttl', data);
 }
 
-export async function getAlertThresholds() {
-	return api<AlertThresholds>('/settings/alert-thresholds');
+export async function getAlertThresholds(signal?: AbortSignal) {
+	return api<AlertThresholds>('/settings/alert-thresholds', { signal });
 }
 
 export async function updateAlertThresholds(data: Partial<AlertThresholds>) {

@@ -37,7 +37,13 @@ async fn list(
 ) -> Result<Json<Value>, AppError> {
     let pool = &state.pool;
     let f = &filter;
-    paginated(filter.page, filter.per_page, || animal_service::list(pool, f), || animal_service::count(pool, f)).await
+    paginated(
+        filter.page,
+        filter.per_page,
+        || animal_service::list(pool, f),
+        || animal_service::count(pool, f),
+    )
+    .await
 }
 
 #[utoipa::path(
@@ -58,7 +64,7 @@ async fn get_by_id(
 ) -> Result<Json<Value>, AppError> {
     let animal = animal_service::get_by_id(&state.pool, id)
         .await?
-        .ok_or_else(|| AppError::NotFound(format!("Animal {} not found", id)))?;
+        .ok_or_else(|| AppError::NotFound(format!("Животное с ID {} не найдено", id)))?;
     Ok(Json(json!({ "data": animal })))
 }
 
@@ -126,7 +132,7 @@ async fn remove(
     Path(id): Path<i32>,
 ) -> Result<Json<Value>, AppError> {
     animal_service::delete(&state.pool, id).await?;
-    Ok(Json(json!({ "message": "Deleted" })))
+    Ok(Json(json!({ "message": "Удалено" })))
 }
 
 #[utoipa::path(
