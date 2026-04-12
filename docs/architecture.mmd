@@ -1,0 +1,231 @@
+---
+title: Milk Farm — C4 Architecture
+---
+
+%% ========== LEVEL 1: System Context ==========
+
+flowchart LR
+    subgraph L1["System Context"]
+        direction LR
+
+        Farmer["\nФермер\n"]
+        AdminUsr["\nАдминистратор\nфермы\n"]
+        LelyCloud[("\nLely Cloud API\nроботизированные\nсистемы доения\n")]
+
+        subgraph System["Milk Farm System"]
+            App["\nВеб-приложение\nуправления\nмолочной фермой\n"]
+        end
+
+        Farmer -->|"просмотр отчётов\nи данных"| App
+        AdminUsr -->|"управление\nпоголовьем, настройка"| App
+        LelyCloud -.->|"синхронизация\nданных каждые 5 мин"| App
+    end
+
+    style Farmer fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style AdminUsr fill:#1565c0,stroke:#0d47a1,color:#fff
+    style LelyCloud fill:#6a1b9a,stroke:#4a148c,color:#fff
+    style System fill:#f5f5f5,stroke:#424242,color:#333
+    style App fill:#fff,stroke:#424242,color:#333
+
+%% ========== LEVEL 2: Container ==========
+
+flowchart TB
+    subgraph L2["Container Diagram"]
+        direction TB
+
+        Browser["\nБраузер\n"]
+
+        subgraph Docker["Docker Compose"]
+            direction TB
+
+            Nginx["\nNginx\nreverse proxy\nSSL termination\n:80 :443\n"]
+
+            Frontend["\nFrontend\nSvelteKit + SSR\nNode.js\n:3000\n"]
+
+            Backend["\nBackend\nRust / Axum 0.8\nREST API\n:3000\n"]
+
+            Postgres[("\nPostgreSQL 16\n25+ таблиц\n:5432\n")]
+        end
+
+        LelyAPI[("\nLely Cloud API\nfarmauth.lely.com\n")]
+
+        Browser -->|"HTTPS"| Nginx
+        Nginx -->|"/*"| Frontend
+        Nginx -->|"/api/*"| Backend
+        Frontend -->|"SSR fetch /api"| Backend
+        Backend -->|"sqlx PgPool"| Postgres
+        Backend -.->|"reqwest HTTPS\nсинхронизация"| LelyAPI
+
+        GHCR[("GHCR\nDocker Registry")]
+        GHCR -.->|"CI/CD\nGitHub Actions"| Backend
+        GHCR -.->|"CI/CD\nGitHub Actions"| Frontend
+    end
+
+    style Browser fill:#757575,stroke:#424242,color:#fff
+    style Nginx fill:#00838f,stroke:#006064,color:#fff
+    style Frontend fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style Backend fill:#c62828,stroke:#b71c1c,color:#fff
+    style Postgres fill:#1565c0,stroke:#0d47a1,color:#fff
+    style LelyAPI fill:#6a1b9a,stroke:#4a148c,color:#fff
+    style GHCR fill:#546e7a,stroke:#37474f,color:#fff
+    style Docker fill:#fafafa,stroke:#bdbdbd,color:#333
+
+%% ========== LEVEL 3: Backend Components ==========
+
+flowchart TB
+    subgraph L3["Backend — Components"]
+        direction TB
+
+        Client["\nHTTP Client\n(Browser / SSR)\n"]
+
+        subgraph MW["Middleware Stack"]
+            direction TB
+            Trace["Tracing"]
+            Compress["Gzip Compression"]
+            CORS["CORS"]
+            RateLimit["Rate Limit\n100/60s"]
+            ReqId["Request ID"]
+            Metrics["Prometheus Metrics"]
+        end
+
+        subgraph API["REST API /api/v1"]
+            direction TB
+            AuthAPI["Auth\nlogin · register\nlogout · refresh"]
+            AnimalAPI["Animals\nCRUD · timeline"]
+            ReproAPI["Reproduction\nосеменение · стельность\nотёл · охота · сухостой"]
+            MilkAPI["Milk\nнадои · визиты\nкачество · танк"]
+            FeedAPI["Feed\nрационы · визиты\nтипы · группы"]
+            ReportAPI["Reports\nсводные · специализированные\nэкспорт CSV/PDF"]
+            AnalyticsAPI["Analytics\nKPI · тренды\nоповещения · прогнозы"]
+            SettingsAPI["Settings\nпользователи · JWT\nалерты · бэкап"]
+            LelyAPI["Lely\nконфиг · статус\nсинхронизация"]
+        end
+
+        subgraph Services["Service Layer"]
+            direction TB
+            AuthSvc["JWT + bcrypt\nHttpOnly cookies"]
+            DBSvc["Business Logic\n14 сервисов"]
+            LelySvc["Lely Integration\nclient · mapper\nsync · crypto"]
+        end
+
+        subgraph Data["Data Layer"]
+            direction LR
+            PgPool["sqlx PgPool\n2–20 connections"]
+        end
+
+        subgraph External["External"]
+            Lely["Lely Cloud"]
+            PG[("PostgreSQL")]
+        end
+
+        Client -->|"HTTP"| MW
+        MW --> API
+        API --> Services
+        Services --> Data
+        Data --> PgPool
+        PgPool --> PG
+        LelySvc -.-> Lely
+    end
+
+    style Client fill:#757575,stroke:#424242,color:#fff
+    style MW fill:#e0f7fa,stroke:#00838f,color:#006064
+    style API fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Services fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Data fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style PgPool fill:#1565c0,stroke:#0d47a1,color:#fff
+    style External fill:#fafafa,stroke:#bdbdbd,color:#333
+    style Lely fill:#6a1b9a,stroke:#4a148c,color:#fff
+    style PG fill:#1565c0,stroke:#0d47a1,color:#fff
+
+%% ========== LEVEL 4: Frontend Structure ==========
+
+flowchart TB
+    subgraph L4["Frontend — Structure"]
+        direction TB
+
+        Browser["Браузер"]
+
+        subgraph SK["SvelteKit SSR (Node.js)"]
+            direction TB
+
+            Hooks["hooks.server.ts\nJWT decode\nauth guard\nredirect"]
+
+            subgraph Pages["Pages / Пользовательский интерфейс"]
+                direction LR
+                Dash["Dashboard"]
+                AnimalsPg["Животные"]
+                MilkPg["Доение"]
+                ReproPg["Воспроизводство"]
+                FeedPg["Кормление"]
+                ReportPg["Отчёты"]
+                SettingsPg["Настройки"]
+            end
+
+            subgraph Lib["Library"]
+                direction LR
+                APIClient["api/\nREST клиент"]
+                Components["components/\nUI компоненты"]
+                Stores["stores/\nSvelte stores"]
+            end
+
+            Static["Static Assets\nCSS: Tailwind 4\nCharts: Chart.js\nIcons: Lucide"]
+        end
+
+        BackendAPI["Backend API\n/api/v1"]
+
+        Browser -->|"HTTPS"| Hooks
+        Hooks --> Pages
+        Pages --> Lib
+        APIClient -->|"fetch"| BackendAPI
+    end
+
+    style Browser fill:#757575,stroke:#424242,color:#fff
+    style SK fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Hooks fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Pages fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    style Lib fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style Static fill:#eceff1,stroke:#546e7a,color:#37474f
+    style BackendAPI fill:#c62828,stroke:#b71c1c,color:#fff
+
+%% ========== DEPLOYMENT ==========
+
+flowchart TB
+    subgraph Deploy["Deployment Diagram (Production)"]
+        direction TB
+
+        Internet(("Internet"))
+
+        subgraph Server["Сервер (Docker Compose)"]
+            direction TB
+
+            NginxD["nginx:alpine\n:80 → :443\nSSL termination\nrate limiting"]
+
+            subgraph AppContainers["Application Containers"]
+                direction LR
+                FrontendD["ghcr.io/.../frontend\nSvelteKit Node.js\n:3000\n256MB limit"]
+                BackendD["ghcr.io/.../backend\nRust binary\n:3000\n256MB limit"]
+            end
+
+            PostgresD["postgres:16\n:5432\n512MB limit\nvolume: pgdata"]
+        end
+
+        LelyExt(("Lely Cloud\nAPI"))
+        GHCRExt(("GHCR\nRegistry"))
+
+        Internet -->|"HTTPS :443"| NginxD
+        NginxD -->|"/*"| FrontendD
+        NginxD -->|"/api/*"| BackendD
+        BackendD -->|"sqlx"| PostgresD
+        BackendD -.->|"sync"| LelyExt
+        GHCRExt -.->|"docker pull"| AppContainers
+    end
+
+    style Internet fill:#757575,stroke:#424242,color:#fff
+    style Server fill:#fafafa,stroke:#bdbdbd,color:#333
+    style NginxD fill:#00838f,stroke:#006064,color:#fff
+    style FrontendD fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style BackendD fill:#c62828,stroke:#b71c1c,color:#fff
+    style PostgresD fill:#1565c0,stroke:#0d47a1,color:#fff
+    style AppContainers fill:#f5f5f5,stroke:#9e9e9e,color:#333
+    style LelyExt fill:#6a1b9a,stroke:#4a148c,color:#fff
+    style GHCRExt fill:#546e7a,stroke:#37474f,color:#fff
