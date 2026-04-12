@@ -13,6 +13,7 @@
 		Activity,
 		TreePine,
 		Container,
+		MapPin,
 		Users,
 		BarChart3,
 		Settings,
@@ -51,6 +52,7 @@
 		{ href: '/grazing', label: 'Пастьба', icon: TreePine },
 		{ href: '/bulk-tank', label: 'Танк-охладитель', icon: Container },
 		{ href: '/contacts', label: 'Контакты', icon: Users },
+		{ href: '/locations', label: 'Локации', icon: MapPin },
 		{ href: '/reports', label: 'Отчёты', icon: BarChart3 },
 		{ href: '/settings', label: 'Настройки', icon: Settings, adminOnly: true },
 	];
