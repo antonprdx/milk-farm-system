@@ -1,0 +1,76 @@
+---
+config:
+  layout: elk
+title: Процессы работы с данными — Milk Farm
+---
+flowchart LR
+ subgraph Auth["Аутентификация"]
+        A1["Вход / Выход / Смена пароля"]
+        A2["Регистрация пользователя"]
+  end
+ subgraph Animals["Животные"]
+        AN1["CRUD животных"]
+        AN2["Таймлайн и статистика"]
+  end
+ subgraph Repro["Воспроизводство"]
+        R1["Регистрация событий осеменение · стельность отёл · охота · сухостой"]
+        R2["Текущий статус воспроизводства"]
+  end
+ subgraph Milk["Доение"]
+        M1["Надои ввод / редактирование"]
+        M2["Визиты · Качество анализы танка"]
+  end
+ subgraph Feed["Кормление"]
+        F1["Дневные рационы и визиты"]
+        F2["Управление типами и группами кормов"]
+  end
+ subgraph Health["Фитнес и выпас"]
+        H1["Активность · Жвачка / Данные выпаса"]
+  end
+ subgraph Reports["Отчёты"]
+        RP1["Сводные и специализированные"]
+        RP2["Экспорт CSV / PDF"]
+  end
+ subgraph Analytics["Аналитика"]
+        AL1["KPI и тренды"]
+        AL2["Оповещения\nи прогнозы"]
+  end
+ subgraph Settings["Настройки"]
+        S1["Управление\nпользователями"]
+        S2["Конфигурация системы JWT · алерты · бэкап"]
+        S3["Пользовательские настройки"]
+  end
+ subgraph Lely["Интеграция Lely"]
+        L1["Конфигурация и тест подключения"]
+        L2["Синхронизация и статус"]
+  end
+ subgraph Refs["Справочники"]
+        N["Контакты"]
+        O["Локации"]
+  end
+    Admin(("Администратор")) --> A1 & A2 & AN1 & AN2 & R1 & R2 & M1 & M2 & F1 & F2 & H1 & RP1 & RP2 & AL1 & AL2 & S1 & S2 & S3 & L1 & L2 & O & N
+    User(("Пользователь")) --> A1 & AN2 & R2 & M2 & F1 & H1 & RP1 & RP2 & AL1 & AL2 & S3 & O & N
+    System(("Lely")) -.-> L2
+    R1 -- цепочка --> R2
+    Milk -. данные .-> Reports
+    Feed -. данные .-> Reports
+    Health -. данные .-> Reports
+    Repro -. данные .-> Reports
+    Reports -. данные .-> Analytics
+    S2 -. пороги .-> AL2
+    L2 -. наполняет .-> Milk & Feed & Health & Repro
+
+    style Admin fill:#1565c0,stroke:#0d47a1,color:#fff
+    style User fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style System fill:#6a1b9a,stroke:#4a148c,color:#fff
+    style Milk fill:#fffde7,stroke:#f9a825,color:#f57f17
+    style Feed fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style Health fill:#e0f7fa,stroke:#00838f,color:#006064
+    style Repro fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Reports fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    style Analytics fill:#ede7f6,stroke:#512da8,color:#311b92
+    style Auth fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style Animals fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Settings fill:#fbe9e7,stroke:#d84315,color:#bf360c
+    style Lely fill:#ffebee,stroke:#c62828,color:#b71c1c
+    style Refs fill:#eceff1,stroke:#546e7a,color:#37474f

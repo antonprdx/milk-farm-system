@@ -1,0 +1,395 @@
+---
+config:
+  layout: elk
+title: Модель данных Milk Farm
+---
+erDiagram
+
+    users {
+        serial id PK
+        text username UK
+        text password_hash
+        text role
+        timestamptz created_at
+    }
+
+    user_preferences {
+        integer user_id PK,FK
+        text theme
+        integer page_size
+        boolean compact_view
+        text language
+        timestamptz updated_at
+    }
+
+    revoked_tokens {
+        uuid jti PK
+        timestamptz expires_at
+    }
+
+    system_settings {
+        text key PK
+        text value
+        timestamptz updated_at
+    }
+
+    animals {
+        serial id PK
+        text life_number
+        text name
+        bigint user_number
+        gender_type gender
+        date birth_date
+        text hair_color_code
+        text father_life_number
+        text mother_life_number
+        text description
+        text ucn_number
+        boolean use_as_sire
+        text location
+        integer group_number
+        boolean keep
+        integer gestation
+        text responder_number
+        boolean active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    sires {
+        serial id PK
+        text sire_code
+        text life_number
+        text name
+        boolean active
+        timestamptz created_at
+    }
+
+    bloodlines {
+        serial id PK
+        integer animal_id FK
+        text blood_type_code
+        double percentage
+    }
+
+    transfers {
+        serial id PK
+        integer animal_id FK
+        timestamptz transfer_date
+        text transfer_type
+        integer reason_id
+        text from_location
+        text to_location
+        timestamptz created_at
+    }
+
+    calvings {
+        serial id PK
+        integer animal_id FK
+        date calving_date
+        text remarks
+        integer lac_number
+        timestamptz created_at
+    }
+
+    calves {
+        serial id PK
+        integer calving_id FK
+        text life_number
+        gender_type gender
+        birth_remark_type birth_remark
+        boolean keep
+        double weight
+        boolean born_dead
+        bigint animal_number
+        text calf_name
+        text hair_color_code
+        integer born_dead_reason_id
+    }
+
+    inseminations {
+        serial id PK
+        integer animal_id FK
+        date insemination_date
+        text sire_code
+        text insemination_type
+        text charge_number
+        timestamptz created_at
+    }
+
+    pregnancies {
+        serial id PK
+        integer animal_id FK
+        date pregnancy_date
+        text pregnancy_type
+        date insemination_date
+        timestamptz created_at
+    }
+
+    heats {
+        serial id PK
+        integer animal_id FK
+        date heat_date
+        timestamptz created_at
+    }
+
+    dry_offs {
+        serial id PK
+        integer animal_id FK
+        date dry_off_date
+        timestamptz created_at
+    }
+
+    milk_day_productions {
+        serial id PK
+        integer animal_id FK
+        date date
+        double milk_amount
+        double avg_amount
+        double avg_weight
+        double isk
+        timestamptz created_at
+    }
+
+    milk_visits {
+        serial id PK
+        integer animal_id FK
+        timestamptz visit_datetime
+        double milk_amount
+        integer duration_seconds
+        integer milk_destination
+        timestamptz created_at
+    }
+
+    milk_quality {
+        serial id PK
+        integer animal_id FK
+        date date
+        double milk_amount
+        double avg_amount
+        double avg_weight
+        double isk
+        double fat_percentage
+        double protein_percentage
+        double lactose_percentage
+        integer scc
+        integer milkings
+        integer refusals
+        integer failures
+        timestamptz created_at
+    }
+
+    milk_visit_quality {
+        serial id PK
+        integer animal_id FK
+        timestamptz visit_datetime
+        timestamptz milking_start_date
+        integer device_address
+        boolean success_milking
+        double milk_yield
+        integer bottle_number
+        double milk_temperature
+        integer weight
+        integer milk_destination
+        text lf_colour_code
+        text lr_colour_code
+        text rf_colour_code
+        text rr_colour_code
+        integer lf_conductivity
+        integer lr_conductivity
+        integer rf_conductivity
+        integer rr_conductivity
+        timestamptz created_at
+    }
+
+    robot_milk_data {
+        serial id PK
+        integer animal_id FK
+        timestamptz milking_date
+        integer device_address
+        double milk_speed
+        double milk_speed_max
+        integer lf_milk_time
+        integer lr_milk_time
+        integer rf_milk_time
+        integer rr_milk_time
+        integer lf_dead_milk_time
+        integer lr_dead_milk_time
+        integer rf_dead_milk_time
+        integer rr_dead_milk_time
+        integer lf_x_position
+        integer lf_y_position
+        integer lf_z_position
+        integer lr_x_position
+        integer lr_y_position
+        integer lr_z_position
+        integer rf_x_position
+        integer rf_y_position
+        integer rf_z_position
+        integer rr_x_position
+        integer rr_y_position
+        integer rr_z_position
+        timestamptz created_at
+    }
+
+    bulk_tank_tests {
+        serial id PK
+        date date
+        double fat
+        double protein
+        double lactose
+        integer scc
+        double ffa
+    }
+
+    feed_types {
+        serial id PK
+        integer number_of_feed_type
+        text feed_type
+        text name
+        text description
+        double dry_matter_percentage
+        integer stock_attention_level
+        double price
+    }
+
+    feed_groups {
+        serial id PK
+        text name
+        double min_milk_yield
+        double max_milk_yield
+        double avg_milk_yield
+        double avg_milk_fat
+        double avg_milk_protein
+        double avg_weight
+        integer max_robot_feed_types
+        double max_feed_intake_robot
+        double min_feed_intake_robot
+        integer number_of_cows
+    }
+
+    feed_day_amounts {
+        serial id PK
+        integer animal_id FK
+        date feed_date
+        integer feed_number
+        double total
+        integer rest_feed
+    }
+
+    feed_visits {
+        serial id PK
+        integer animal_id FK
+        timestamptz visit_datetime
+        integer feed_number
+        double amount
+        integer duration_seconds
+    }
+
+    activities {
+        serial id PK
+        integer animal_id FK
+        timestamptz activity_datetime
+        integer activity_counter
+        boolean heat_attention
+    }
+
+    ruminations {
+        serial id PK
+        integer animal_id FK
+        date date
+        integer eating_seconds
+        integer rumination_minutes
+    }
+
+    grazing_data {
+        serial id PK
+        date date
+        integer animal_count
+        integer pasture_time
+        text lactation_period
+        integer total_milking_cows
+        integer cows_14dil
+        double percentage_in_pasture
+        boolean grazing_day_yes_no
+        integer sd_time_pasture
+        integer cum_pasture_days
+        integer cum_total_pasturetime
+        bigint tank_number
+    }
+
+    locations {
+        serial id PK
+        text name
+        text location_type
+        timestamptz created_at
+    }
+
+    contacts {
+        serial id PK
+        text name
+        integer contact_type_id
+        text contact_type_name
+        text farm_number
+        text phone_cell
+        text phone_home
+        text phone_work
+        text phone_fax
+        text email
+        text company_name
+        text description
+        text street_name
+        text street_name_ext
+        text postal_code
+        integer country_id
+        boolean active
+        timestamptz created_at
+    }
+
+    lely_config {
+        integer id PK
+        boolean enabled
+        text base_url
+        text username
+        text password_encrypted
+        text farm_key_encrypted
+        bigint sync_interval_secs
+        timestamptz updated_at
+    }
+
+    lely_sync_state {
+        serial id PK
+        text entity_type UK
+        timestamptz last_synced_at
+        text status
+        bigint records_synced
+        text error_message
+        timestamptz updated_at
+    }
+
+    users ||--o{ user_preferences : has
+    users ||--o{ sires : has
+    users ||--o{ animals : owns
+    animals ||--o{ bloodlines : belongs
+    animals ||--o{ transfers : undergoes
+    animals ||--o{ calvings : undergoes
+    calvings ||--o{ calves : produces
+    sires ||--o{ inseminations : contributes
+    animals ||--o{ pregnancies : undergoes
+    animals ||--o{ heats : may
+    animals ||--o{ dry_offs : may
+    animals ||--o{ milk_day_productions : produces
+    animals ||--o{ milk_visits : has
+    animals ||--o{ milk_quality : has
+    animals ||--o{ milk_visit_quality : has
+    animals ||--o{ robot_milk_data : has
+    animals ||--o{ feed_day_amounts : receives
+    animals ||--o{ feed_visits : makes
+    animals ||--o{ activities : engages_in
+    animals ||--o{ ruminations : has
+    animals ||--o{ grazing_data : records
+    animals ||--o{ locations : at
+    users ||--o{ contacts : has
+    users ||--o{ system_settings : defines
+    users ||--o{ locations : manages
+    locations ||--o{ contacts : contains
