@@ -156,6 +156,7 @@ pub async fn feed_summary(
     })
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn herd_overview(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
@@ -268,6 +269,7 @@ pub async fn herd_overview(
     })
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn rest_feed_report(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
@@ -350,6 +352,7 @@ pub async fn rest_feed_report(
     })
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn cow_daily_production(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
@@ -434,6 +437,7 @@ pub async fn cow_daily_production(
         .collect())
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn robot_performance(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
@@ -495,6 +499,7 @@ pub async fn robot_performance(
         .collect())
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn failed_milkings(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
@@ -563,6 +568,7 @@ pub async fn failed_milkings(
         .collect())
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn udder_health_worklist(pool: &PgPool) -> Result<UdderHealthResponse, AppError> {
     let rows: Vec<(i32, Option<String>, Option<String>, String, Option<i32>, Option<i32>, Option<i32>, Option<i32>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i32>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number, v.visit_datetime::text,
@@ -622,21 +628,21 @@ pub async fn udder_health_worklist(pool: &PgPool) -> Result<UdderHealthResponse,
                 ];
                 for (name, cond, col) in &quarters {
                     let mut reasons = Vec::new();
-                    if let Some(c) = cond {
-                        if *c > 83 {
-                            reasons.push(format!("cond={}", c));
-                        }
+                    if let Some(c) = cond
+                        && *c > 83
+                    {
+                        reasons.push(format!("cond={}", c));
                     }
-                    if let Some(cl) = col {
-                        if !cl.is_empty() {
-                            reasons.push(format!("color={}", cl));
-                        }
+                    if let Some(cl) = col
+                        && !cl.is_empty()
+                    {
+                        reasons.push(format!("color={}", cl));
                     }
                     if !reasons.is_empty() {
                         attention_quarters.push(format!("{}: {}", name, reasons.join(", ")));
                     }
                 }
-                let separation = if milk_yield.is_some() { None } else { None };
+                let separation: Option<String> = None;
                 UdderHealthRow {
                     animal_id,
                     animal_name,
@@ -663,6 +669,7 @@ pub async fn udder_health_worklist(pool: &PgPool) -> Result<UdderHealthResponse,
     Ok(UdderHealthResponse { rows: result })
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn udder_health_analyze(pool: &PgPool) -> Result<UdderHealthResponse, AppError> {
     let rows: Vec<(i32, Option<String>, Option<String>, String, Option<i32>, Option<i32>, Option<i32>, Option<i32>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i32>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number, v.visit_datetime::text,
@@ -721,15 +728,15 @@ pub async fn udder_health_analyze(pool: &PgPool) -> Result<UdderHealthResponse, 
                 ];
                 for (name, cond, col) in &quarters {
                     let mut reasons = Vec::new();
-                    if let Some(c) = cond {
-                        if *c > 80 {
-                            reasons.push(format!("cond={}", c));
-                        }
+                    if let Some(c) = cond
+                        && *c > 80
+                    {
+                        reasons.push(format!("cond={}", c));
                     }
-                    if let Some(cl) = col {
-                        if !cl.is_empty() {
-                            reasons.push(format!("color={}", cl));
-                        }
+                    if let Some(cl) = col
+                        && !cl.is_empty()
+                    {
+                        reasons.push(format!("color={}", cl));
                     }
                     if !reasons.is_empty() {
                         attention_quarters.push(format!("{}: {}", name, reasons.join(", ")));
@@ -761,6 +768,7 @@ pub async fn udder_health_analyze(pool: &PgPool) -> Result<UdderHealthResponse, 
     Ok(UdderHealthResponse { rows: result })
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn milk_day_production_time(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
@@ -824,6 +832,7 @@ pub async fn milk_day_production_time(
         .collect())
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn visit_behavior(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
@@ -898,6 +907,7 @@ pub async fn visit_behavior(
         .collect())
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
     let today = chrono::Utc::now().date_naive();
 
@@ -977,7 +987,7 @@ pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
                 lac_number: c.lac_number,
             })
         })
-        .filter(|d| d.days_until_dry_off.map_or(false, |dl| dl <= 30))
+        .filter(|d| d.days_until_dry_off.is_some_and(|dl| dl <= 30))
         .collect();
 
     let heats_data: Vec<(i32, Option<String>, Option<String>, Option<String>, Option<String>, Option<i64>, Option<i64>, bool, bool)> = sqlx::query_as(
@@ -1092,6 +1102,7 @@ pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
     })
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn health_activity_rumination(pool: &PgPool) -> Result<Vec<HealthActivityRow>, AppError> {
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<i32>, Option<i32>, Option<i32>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
@@ -1184,6 +1195,7 @@ pub async fn health_activity_rumination(pool: &PgPool) -> Result<Vec<HealthActiv
         .collect())
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn cow_robot_efficiency(pool: &PgPool) -> Result<Vec<CowRobotEfficiencyRow>, AppError> {
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, i64, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
@@ -1252,6 +1264,7 @@ pub async fn cow_robot_efficiency(pool: &PgPool) -> Result<Vec<CowRobotEfficienc
         .collect())
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn lactation_analysis(
     pool: &PgPool,
     lac_number: Option<i32>,
@@ -1305,6 +1318,7 @@ pub async fn lactation_analysis(
         .collect())
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn feed_per_type_day(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
@@ -1387,6 +1401,7 @@ pub async fn feed_per_type_day(
     })
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn feed_per_cow_day(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
@@ -1633,15 +1648,15 @@ pub async fn health_task(pool: &PgPool) -> Result<HealthTaskResponse, AppError> 
                     score += 8.0;
                 }
             }
-            if let Some(fpr_v) = fpr {
-                if fpr_v < 1.0 {
-                    score += 10.0;
-                }
+            if let Some(fpr_v) = fpr
+                && fpr_v < 1.0
+            {
+                score += 10.0;
             }
-            if let Some(rest) = rest_pct {
-                if rest > 50.0 {
-                    score += 8.0;
-                }
+            if let Some(rest) = rest_pct
+                && rest > 50.0
+            {
+                score += 8.0;
             }
             if !colour_str.is_empty() {
                 score += 10.0;
@@ -1653,10 +1668,10 @@ pub async fn health_task(pool: &PgPool) -> Result<HealthTaskResponse, AppError> 
                     score += 8.0;
                 }
             }
-            if let Some(dl) = days_in_lactation {
-                if dl <= 60 {
-                    score *= 1.3;
-                }
+            if let Some(dl) = days_in_lactation
+                && dl <= 60
+            {
+                score *= 1.3;
             }
 
             if score < 10.0 {
@@ -1672,10 +1687,10 @@ pub async fn health_task(pool: &PgPool) -> Result<HealthTaskResponse, AppError> 
             };
 
             let mut cond_chronic = Vec::new();
-            if let Some(cond) = cond_highest {
-                if cond > 80 {
-                    cond_chronic.push(format!("highest={}", cond));
-                }
+            if let Some(cond) = cond_highest
+                && cond > 80
+            {
+                cond_chronic.push(format!("highest={}", cond));
             }
 
             Some(HealthTaskRow {
@@ -1783,6 +1798,7 @@ pub async fn pregnancy_rate_report(pool: &PgPool) -> Result<PregnancyRateRespons
     Ok(PregnancyRateResponse { periods })
 }
 
+#[allow(clippy::type_complexity)]
 pub async fn transition_report(pool: &PgPool) -> Result<TransitionResponse, AppError> {
     let rows: Vec<(i32, Option<String>, Option<String>, i64, Option<f64>, Option<f64>, Option<i32>, Option<i32>, Option<f64>, Option<i32>, Option<i32>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
