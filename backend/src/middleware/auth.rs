@@ -187,6 +187,9 @@ impl FromRequestParts<AppState> for Claims {
         async move {
             let token = token_result?;
             let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
+            if claims.token_type.as_deref() != Some("access") {
+                return Err(AppError::Unauthorized("Неверный тип токена".into()));
+            }
             if claims.must_change_password {
                 return Err(AppError::BadRequest(
                     "Необходимо сменить пароль перед использованием системы".into(),
@@ -210,6 +213,9 @@ impl FromRequestParts<AppState> for AdminGuard {
         async move {
             let token = token_result?;
             let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
+            if claims.token_type.as_deref() != Some("access") {
+                return Err(AppError::Unauthorized("Неверный тип токена".into()));
+            }
             if claims.role != "admin" {
                 return Err(AppError::Forbidden("Требуются права администратора".into()));
             }
