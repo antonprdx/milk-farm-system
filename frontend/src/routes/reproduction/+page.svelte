@@ -61,7 +61,12 @@
 
 	let today = new Date().toISOString().slice(0, 10);
 
-	let calvingForm = $state({ animal_id: undefined as number | undefined, calving_date: today, remarks: '', lac_number: '' });
+	let calvingForm = $state({
+		animal_id: undefined as number | undefined,
+		calving_date: today,
+		remarks: '',
+		lac_number: '',
+	});
 	let inseminationForm = $state({
 		animal_id: undefined as number | undefined,
 		insemination_date: today,
@@ -133,19 +138,49 @@
 		const params = { ...getFilter(), page: list.page, per_page: list.perPage };
 		switch (tab) {
 			case 'calvings':
-				await list.load((signal) => listCalvings(params, signal), (d) => { calvings = d; }, dtCalvings);
+				await list.load(
+					(signal) => listCalvings(params, signal),
+					(d) => {
+						calvings = d;
+					},
+					dtCalvings,
+				);
 				break;
 			case 'inseminations':
-				await list.load((signal) => listInseminations(params, signal), (d) => { inseminations = d; }, dtInseminations);
+				await list.load(
+					(signal) => listInseminations(params, signal),
+					(d) => {
+						inseminations = d;
+					},
+					dtInseminations,
+				);
 				break;
 			case 'pregnancies':
-				await list.load((signal) => listPregnancies(params, signal), (d) => { pregnancies = d; }, dtPregnancies);
+				await list.load(
+					(signal) => listPregnancies(params, signal),
+					(d) => {
+						pregnancies = d;
+					},
+					dtPregnancies,
+				);
 				break;
 			case 'heats':
-				await list.load((signal) => listHeats(params, signal), (d) => { heats = d; }, dtHeats);
+				await list.load(
+					(signal) => listHeats(params, signal),
+					(d) => {
+						heats = d;
+					},
+					dtHeats,
+				);
 				break;
 			case 'dryoffs':
-				await list.load((signal) => listDryOffs(params, signal), (d) => { dryoffs = d; }, dtDryoffs);
+				await list.load(
+					(signal) => listDryOffs(params, signal),
+					(d) => {
+						dryoffs = d;
+					},
+					dtDryoffs,
+				);
 				break;
 		}
 	}
@@ -287,7 +322,9 @@
 				await updateHeat(crud.editingId, { heat_date: editHeatForm.heat_date || undefined });
 				break;
 			case 'dryoffs':
-				await updateDryOff(crud.editingId, { dry_off_date: editDryoffForm.dry_off_date || undefined });
+				await updateDryOff(crud.editingId, {
+					dry_off_date: editDryoffForm.dry_off_date || undefined,
+				});
 				break;
 		}
 	}
@@ -367,11 +404,16 @@
 	async function handleDelete() {
 		const deleteFn = () => {
 			switch (tab) {
-				case 'calvings': return deleteCalving(crud.deleteId);
-				case 'inseminations': return deleteInsemination(crud.deleteId);
-				case 'pregnancies': return deletePregnancy(crud.deleteId);
-				case 'heats': return deleteHeat(crud.deleteId);
-				case 'dryoffs': return deleteDryOff(crud.deleteId);
+				case 'calvings':
+					return deleteCalving(crud.deleteId);
+				case 'inseminations':
+					return deleteInsemination(crud.deleteId);
+				case 'pregnancies':
+					return deletePregnancy(crud.deleteId);
+				case 'heats':
+					return deleteHeat(crud.deleteId);
+				case 'dryoffs':
+					return deleteDryOff(crud.deleteId);
 			}
 		};
 		await crud.remove(deleteFn, load, (msg) => {
@@ -401,7 +443,12 @@
 </div>
 
 <TabBar tabs={tabConfig} bind:active={tab} onchange={(t: string) => switchTab(t as Tab)} />
-<FilterBar bind:fromDate={list.fromDate} bind:tillDate={list.tillDate} bind:animalId={list.animalId} onsearch={load} />
+<FilterBar
+	bind:fromDate={list.fromDate}
+	bind:tillDate={list.tillDate}
+	bind:animalId={list.animalId}
+	onsearch={load}
+/>
 <ErrorAlert message={list.error} />
 
 {#if tab === 'calvings'}
@@ -478,9 +525,7 @@
 					></td
 				>
 				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{i.insemination_date}</td>
-				<td class="px-4 py-3 font-mono text-slate-600 dark:text-slate-400"
-					>{i.sire_code || '—'}</td
-				>
+				<td class="px-4 py-3 font-mono text-slate-600 dark:text-slate-400">{i.sire_code || '—'}</td>
 				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{i.insemination_type || '—'}</td>
 				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{i.charge_number || '—'}</td>
 				<td class="px-4 py-3 text-right">
@@ -814,7 +859,11 @@
 				disabled={crud.modalLoading}
 				class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 cursor-pointer"
 			>
-				{crud.modalLoading ? 'Сохранение...' : crud.modalMode === 'create' ? 'Создать' : 'Сохранить'}
+				{crud.modalLoading
+					? 'Сохранение...'
+					: crud.modalMode === 'create'
+						? 'Создать'
+						: 'Сохранить'}
 			</button>
 		</div>
 	</form>

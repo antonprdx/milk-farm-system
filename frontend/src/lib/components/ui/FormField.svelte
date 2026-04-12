@@ -62,7 +62,14 @@
 		<label for={id} class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
 			>{label}{required ? ' *' : ''}</label
 		>
-		<textarea {id} bind:value {rows} {placeholder} {disabled} {onblur} class="{inputClass} resize-none"
+		<textarea
+			{id}
+			bind:value
+			{rows}
+			{placeholder}
+			{disabled}
+			{onblur}
+			class="{inputClass} resize-none"
 		></textarea>
 		{#if error}
 			<p class="mt-1 text-xs text-red-500 dark:text-red-400">{error}</p>
@@ -73,7 +80,17 @@
 		<label for={id} class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
 			>{label}{required ? ' *' : ''}</label
 		>
-		<input {id} {type} bind:value {placeholder} {required} {step} {disabled} {onblur} class={inputClass} />
+		<input
+			{id}
+			{type}
+			bind:value
+			{placeholder}
+			{required}
+			{step}
+			{disabled}
+			{onblur}
+			class={inputClass}
+		/>
 		{#if error}
 			<p class="mt-1 text-xs text-red-500 dark:text-red-400">{error}</p>
 		{/if}

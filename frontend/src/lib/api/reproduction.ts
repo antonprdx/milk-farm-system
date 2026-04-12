@@ -110,7 +110,9 @@ export interface ReproductionFilter {
 }
 
 export function listCalvings(filter: ReproductionFilter = {}, signal?: AbortSignal) {
-	return api<{ data: Calving[]; total: number }>(`/reproduction/calvings${buildQuery(filter)}`, { signal });
+	return api<{ data: Calving[]; total: number }>(`/reproduction/calvings${buildQuery(filter)}`, {
+		signal,
+	});
 }
 
 export function createCalving(data: CreateCalving) {
@@ -164,7 +166,9 @@ export function deletePregnancy(id: number) {
 }
 
 export function listHeats(filter: ReproductionFilter = {}, signal?: AbortSignal) {
-	return api<{ data: Heat[]; total: number }>(`/reproduction/heats${buildQuery(filter)}`, { signal });
+	return api<{ data: Heat[]; total: number }>(`/reproduction/heats${buildQuery(filter)}`, {
+		signal,
+	});
 }
 
 export function createHeat(data: CreateHeat) {
@@ -180,7 +184,9 @@ export function deleteHeat(id: number) {
 }
 
 export function listDryOffs(filter: ReproductionFilter = {}, signal?: AbortSignal) {
-	return api<{ data: DryOff[]; total: number }>(`/reproduction/dryoffs${buildQuery(filter)}`, { signal });
+	return api<{ data: DryOff[]; total: number }>(`/reproduction/dryoffs${buildQuery(filter)}`, {
+		signal,
+	});
 }
 
 export function createDryOff(data: CreateDryOff) {

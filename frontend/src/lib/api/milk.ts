@@ -88,5 +88,7 @@ export function listVisits(filter: MilkFilter = {}, signal?: AbortSignal) {
 }
 
 export function listQuality(filter: MilkFilter = {}, signal?: AbortSignal) {
-	return api<{ data: MilkQuality[]; total: number }>(`/milk/quality${buildQuery(filter)}`, { signal });
+	return api<{ data: MilkQuality[]; total: number }>(`/milk/quality${buildQuery(filter)}`, {
+		signal,
+	});
 }

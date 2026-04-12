@@ -105,7 +105,9 @@ export interface TimelineResponse {
 }
 
 export function getAnimalTimeline(id: number, page = 1, perPage = 50, signal?: AbortSignal) {
-	return api<TimelineResponse>(`/animals/${id}/timeline?page=${page}&per_page=${perPage}`, { signal });
+	return api<TimelineResponse>(`/animals/${id}/timeline?page=${page}&per_page=${perPage}`, {
+		signal,
+	});
 }
 
 export interface MilkDataPoint {

@@ -103,7 +103,9 @@
 >
 	<div class="flex flex-wrap gap-3 items-end">
 		<div class="flex-1 min-w-[200px]">
-			<label for="animal-search" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Поиск</label>
+			<label for="animal-search" class="block text-xs text-slate-500 dark:text-slate-400 mb-1"
+				>Поиск</label
+			>
 			<input
 				id="animal-search"
 				type="text"
@@ -114,7 +116,9 @@
 			/>
 		</div>
 		<div>
-			<label for="animal-gender" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Пол</label>
+			<label for="animal-gender" class="block text-xs text-slate-500 dark:text-slate-400 mb-1"
+				>Пол</label
+			>
 			<select
 				id="animal-gender"
 				bind:value={genderFilter}
@@ -127,7 +131,9 @@
 			</select>
 		</div>
 		<div>
-			<label for="animal-status" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Статус</label>
+			<label for="animal-status" class="block text-xs text-slate-500 dark:text-slate-400 mb-1"
+				>Статус</label
+			>
 			<select
 				id="animal-status"
 				bind:value={activeFilter}

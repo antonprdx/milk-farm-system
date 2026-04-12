@@ -9,13 +9,22 @@
 		getAnimalStats,
 		type Animal,
 		type TimelineEvent,
-		type AnimalStats
+		type AnimalStats,
 	} from '$lib/api/animals';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { theme } from '$lib/stores/theme';
-	import { Chart, LineController, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip } from 'chart.js';
+	import {
+		Chart,
+		LineController,
+		CategoryScale,
+		LinearScale,
+		PointElement,
+		LineElement,
+		Filler,
+		Tooltip,
+	} from 'chart.js';
 	import { defaultTooltip, defaultScales, dsColors } from '$lib/utils/chartHelpers';
 	import {
 		Baby,
@@ -28,10 +37,18 @@
 		Activity,
 		Calendar,
 		ShieldCheck,
-		CircleDot
+		CircleDot,
 	} from 'lucide-svelte';
 
-	Chart.register(LineController, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip);
+	Chart.register(
+		LineController,
+		CategoryScale,
+		LinearScale,
+		PointElement,
+		LineElement,
+		Filler,
+		Tooltip,
+	);
 
 	let animal = $state<Animal | null>(null);
 	let loading = $state(true);
@@ -167,9 +184,9 @@
 						pointRadius: 3,
 						pointHoverRadius: 6,
 						pointBackgroundColor: dsColors(isDark, 'blue').point,
-						borderWidth: 2
-					}
-				]
+						borderWidth: 2,
+					},
+				],
 			},
 			options: {
 				responsive: true,
@@ -178,11 +195,11 @@
 					legend: { display: false },
 					tooltip: defaultTooltip(isDark, {
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						label: (ctx: any) => `${ctx.parsed.y?.toFixed(1) ?? '0'} л`
-					})
+						label: (ctx: any) => `${ctx.parsed.y?.toFixed(1) ?? '0'} л`,
+					}),
 				},
-				scales: defaultScales(isDark, (v) => `${v} л`)
-			}
+				scales: defaultScales(isDark, (v) => `${v} л`),
+			},
 		});
 	}
 
@@ -215,9 +232,9 @@
 						pointRadius: 3,
 						pointHoverRadius: 6,
 						pointBackgroundColor: dsColors(isDark, 'red').point,
-						borderWidth: 2
-					}
-				]
+						borderWidth: 2,
+					},
+				],
 			},
 			options: {
 				responsive: true,
@@ -226,11 +243,11 @@
 					legend: { display: false },
 					tooltip: defaultTooltip(isDark, {
 						// eslint-disable-next-line @typescript-eslint/no-explicit-any
-						label: (ctx: any) => `${ctx.parsed.y?.toFixed(0) ?? '0'} тыс.`
-					})
+						label: (ctx: any) => `${ctx.parsed.y?.toFixed(0) ?? '0'} тыс.`,
+					}),
 				},
-				scales: defaultScales(isDark, (v) => `${v} тыс.`)
-			}
+				scales: defaultScales(isDark, (v) => `${v} тыс.`),
+			},
 		});
 	}
 
@@ -332,7 +349,11 @@
 					<span class="text-xs text-slate-500 dark:text-slate-400">Лактация</span>
 				</div>
 				<p class="text-lg font-semibold text-slate-800 dark:text-slate-100">
-					{stats.reproduction.is_dry ? 'Сухостой' : stats.reproduction.lactation_number != null ? `#${stats.reproduction.lactation_number}` : '—'}
+					{stats.reproduction.is_dry
+						? 'Сухостой'
+						: stats.reproduction.lactation_number != null
+							? `#${stats.reproduction.lactation_number}`
+							: '—'}
 				</p>
 			</div>
 
@@ -340,7 +361,10 @@
 				class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
 			>
 				<div class="flex items-center gap-2 mb-1">
-					<ShieldCheck size={14} class={stats.reproduction.is_pregnant ? 'text-green-500' : 'text-slate-400'} />
+					<ShieldCheck
+						size={14}
+						class={stats.reproduction.is_pregnant ? 'text-green-500' : 'text-slate-400'}
+					/>
 					<span class="text-xs text-slate-500 dark:text-slate-400">Стельность</span>
 				</div>
 				<p class="text-lg font-semibold text-slate-800 dark:text-slate-100">
@@ -380,7 +404,9 @@
 					<span class="text-xs text-slate-500 dark:text-slate-400">Посл. СОМО</span>
 				</div>
 				<p class="text-lg font-semibold text-slate-800 dark:text-slate-100">
-					{stats.latest_metrics.last_scc != null ? `${(stats.latest_metrics.last_scc / 1000).toFixed(0)} тыс.` : '—'}
+					{stats.latest_metrics.last_scc != null
+						? `${(stats.latest_metrics.last_scc / 1000).toFixed(0)} тыс.`
+						: '—'}
 				</p>
 			</div>
 
@@ -402,7 +428,9 @@
 			<div
 				class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-5 mb-6"
 			>
-				<h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+				<h2
+					class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2"
+				>
 					<Baby size={16} class="text-green-500" />
 					Репродукция
 				</h2>
@@ -629,16 +657,14 @@
 					{@const Icon = eventIcon(event.event_type)}
 					<div class="flex gap-3 relative {i < timeline.length - 1 ? 'pb-6' : ''}">
 						{#if i < timeline.length - 1}
-							<div
-								class="absolute left-4 top-9 bottom-0 w-px bg-slate-200 dark:bg-slate-700"
-							></div>
+							<div class="absolute left-4 top-9 bottom-0 w-px bg-slate-200 dark:bg-slate-700"></div>
 						{/if}
 						<div
 							class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center {eventColor(
 								event.event_type,
 							)}"
 						>
-						<Icon size={14} />
+							<Icon size={14} />
 						</div>
 						<div class="flex-1 min-w-0 pt-0.5">
 							<div class="flex items-center gap-2 mb-0.5">

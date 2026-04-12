@@ -94,7 +94,9 @@
 		>
 			{#if title}
 				<div class="flex items-center justify-between mb-4">
-					<h3 id={titleId} class="text-lg font-semibold text-slate-800 dark:text-slate-100">{title}</h3>
+					<h3 id={titleId} class="text-lg font-semibold text-slate-800 dark:text-slate-100">
+						{title}
+					</h3>
 					{#if onclose}
 						<button
 							onclick={onclose}

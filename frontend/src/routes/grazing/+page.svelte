@@ -14,12 +14,15 @@
 	async function load() {
 		await list.load(
 			(signal) =>
-				listGrazing({
-					from_date: list.fromDate || undefined,
-					till_date: list.tillDate || undefined,
-					page: list.page,
-					per_page: list.perPage,
-				}, signal),
+				listGrazing(
+					{
+						from_date: list.fromDate || undefined,
+						till_date: list.tillDate || undefined,
+						page: list.page,
+						per_page: list.perPage,
+					},
+					signal,
+				),
 			(d) => {
 				data = d;
 			},
@@ -39,7 +42,12 @@
 
 <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-6">Пастьба</h1>
 
-<FilterBar bind:fromDate={list.fromDate} bind:tillDate={list.tillDate} showAnimal={false} onsearch={load} />
+<FilterBar
+	bind:fromDate={list.fromDate}
+	bind:tillDate={list.tillDate}
+	showAnimal={false}
+	onsearch={load}
+/>
 <ErrorAlert message={list.error} />
 
 <DataTable

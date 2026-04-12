@@ -44,7 +44,11 @@
 	<title>Молочная ферма</title>
 </svelte:head>
 
-<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:text-sm">Перейти к основному содержимому</a>
+<a
+	href="#main-content"
+	class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[200] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:text-sm"
+	>Перейти к основному содержимому</a
+>
 
 {#if browser}
 	<!-- eslint-disable svelte/no-at-html-tags -->
@@ -92,8 +96,10 @@
 				<span class="text-lg font-bold text-slate-800 dark:text-white">Молочная ферма</span>
 			</header>
 
-		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-			<main id="main-content" tabindex={-1}
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+			<main
+				id="main-content"
+				tabindex={-1}
 				class="flex-1 overflow-auto p-4 md:p-6 md:transition-all md:duration-300 main-with-sidebar"
 				style="--sidebar-w: {sidebarCollapsed ? '4rem' : '14rem'}"
 			>

@@ -466,8 +466,9 @@
 			</h2>
 			<div class="space-y-5">
 				<div>
-					<label for="prefs-theme" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
-						>Тема</label
+					<label
+						for="prefs-theme"
+						class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Тема</label
 					>
 					<div class="grid grid-cols-3 gap-2">
 						<button
@@ -501,7 +502,9 @@
 				</div>
 
 				<div>
-					<label for="prefs-page-size" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
+					<label
+						for="prefs-page-size"
+						class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
 						>Размер страницы таблицы</label
 					>
 					<select
@@ -538,8 +541,9 @@
 				</div>
 
 				<div>
-					<label for="prefs-language" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2"
-						>Язык</label
+					<label
+						for="prefs-language"
+						class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Язык</label
 					>
 					<select
 						id="prefs-language"
@@ -618,14 +622,14 @@
 					>
 					<td class="px-4 py-3 text-right">
 						{#if u.username !== $auth.username}
-						<button
-							onclick={() => {
-								deleteUserId = u.id;
-								deleteUsername = u.username;
-								showDelete = true;
-							}}
-							class="text-red-500 hover:text-red-700 text-xs cursor-pointer">Удалить</button
-						>
+							<button
+								onclick={() => {
+									deleteUserId = u.id;
+									deleteUsername = u.username;
+									showDelete = true;
+								}}
+								class="text-red-500 hover:text-red-700 text-xs cursor-pointer">Удалить</button
+							>
 						{/if}
 					</td>
 				</tr>
@@ -838,7 +842,9 @@
 								>Интеграция включена</span
 							>
 							<p class="text-xs text-slate-400">
-								{lelyEnabled ? 'Данные синхронизируются автоматически' : 'Синхронизация остановлена'}
+								{lelyEnabled
+									? 'Данные синхронизируются автоматически'
+									: 'Синхронизация остановлена'}
 							</p>
 						</div>
 						<button
@@ -1072,8 +1078,7 @@
 									<td class="py-2 px-2 font-mono text-xs">{s.entity_type}</td>
 									<td class="py-2 px-2">
 										<span
-											class="px-1.5 py-0.5 rounded text-xs font-medium {s.status ===
-											'success'
+											class="px-1.5 py-0.5 rounded text-xs font-medium {s.status === 'success'
 												? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
 												: s.status === 'error'
 													? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'

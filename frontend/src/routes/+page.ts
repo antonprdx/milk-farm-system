@@ -12,10 +12,14 @@ export const load: PageLoad = async ({ fetch }) => {
 		]);
 
 		const kpi = kpiRes.status === 'fulfilled' && kpiRes.value.ok ? await kpiRes.value.json() : null;
-		const alertsRaw = alertsRes.status === 'fulfilled' && alertsRes.value.ok ? await alertsRes.value.json() : null;
-		const trend = trendRes.status === 'fulfilled' && trendRes.value.ok ? await trendRes.value.json() : null;
-		const repro = reproRes.status === 'fulfilled' && reproRes.value.ok ? await reproRes.value.json() : null;
-		const feed = feedRes.status === 'fulfilled' && feedRes.value.ok ? await feedRes.value.json() : null;
+		const alertsRaw =
+			alertsRes.status === 'fulfilled' && alertsRes.value.ok ? await alertsRes.value.json() : null;
+		const trend =
+			trendRes.status === 'fulfilled' && trendRes.value.ok ? await trendRes.value.json() : null;
+		const repro =
+			reproRes.status === 'fulfilled' && reproRes.value.ok ? await reproRes.value.json() : null;
+		const feed =
+			feedRes.status === 'fulfilled' && feedRes.value.ok ? await feedRes.value.json() : null;
 
 		return {
 			initialData: {
