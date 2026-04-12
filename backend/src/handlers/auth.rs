@@ -7,12 +7,13 @@ use axum::{Json, Router};
 use serde_json::{Value, json};
 
 use crate::errors::AppError;
-use crate::middleware::auth::{Claims, LoginRequest, RegisterRequest};
+use crate::middleware::auth::{
+    Claims, LoginRequest, RegisterRequest, create_access_token, create_refresh_token,
+    extract_refresh_token_from_headers, extract_token_from_headers, verify_token,
+};
 use crate::middleware::rate_limit::{RateLimiter, extract_client_ip};
-use crate::state::AppState;
-
-use crate::middleware::auth::{create_access_token, create_refresh_token, verify_token};
 use crate::services::{system_settings_service, token_revocation_service, user_service};
+use crate::state::AppState;
 
 static LOGIN_LIMITER: std::sync::LazyLock<RateLimiter> =
     std::sync::LazyLock::new(|| RateLimiter::new(5, 60));
@@ -79,10 +80,34 @@ pub fn routes() -> Router<AppState> {
 )]
 async fn health(State(state): State<AppState>) -> Result<Json<Value>, AppError> {
     let db_ok = sqlx::query("SELECT 1").execute(&state.pool).await.is_ok();
-    if db_ok {
-        Ok(Json(json!({ "status": "ok", "db": "ok" })))
+
+    let lely_cfg = state.lely.get_config();
+    let lely_status = if lely_cfg.enabled && !lely_cfg.base_url.is_empty() {
+        let last_sync: Option<(String, String)> = sqlx::query_as(
+            "SELECT status, TO_CHAR(last_synced_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
+             FROM lely_sync_state WHERE entity_type = 'animals'",
+        )
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten();
+        json!({
+            "enabled": true,
+            "connected": last_sync.as_ref().map(|(s, _)| s == "success").unwrap_or(false),
+            "last_sync": last_sync.map(|(_, dt)| dt),
+        })
     } else {
-        Ok(Json(json!({ "status": "degraded", "db": "error" })))
+        json!({ "enabled": false })
+    };
+
+    if db_ok {
+        Ok(Json(
+            json!({ "status": "ok", "db": "ok", "lely": lely_status }),
+        ))
+    } else {
+        Ok(Json(
+            json!({ "status": "degraded", "db": "error", "lely": lely_status }),
+        ))
     }
 }
 
@@ -203,7 +228,7 @@ async fn logout(
     headers: axum::http::HeaderMap,
     State(state): State<AppState>,
 ) -> Result<Response, AppError> {
-    if let Some(token_str) = extract_token_str_from_headers(&headers)
+    if let Some(token_str) = extract_token_from_headers(&headers)
         && let Ok(claims) = verify_token(&token_str, &state.config.jwt_secret)
     {
         let exp =
@@ -212,7 +237,7 @@ async fn logout(
             tracing::warn!(error = %e, jti = %claims.jti, "Failed to revoke access token on logout");
         }
     }
-    if let Some(refresh_str) = extract_refresh_token_from_cookies(&headers)
+    if let Some(refresh_str) = extract_refresh_token_from_headers(&headers)
         && let Ok(claims) = verify_token(&refresh_str, &state.config.jwt_secret)
     {
         let exp =
@@ -263,34 +288,6 @@ async fn register(
     Ok(Json(json!({ "message": "Пользователь создан" })))
 }
 
-fn extract_refresh_token_from_cookies(headers: &axum::http::HeaderMap) -> Option<String> {
-    let cookie_str = headers.get("Cookie")?.to_str().ok()?;
-    for part in cookie_str.split(';') {
-        let trimmed = part.trim();
-        if let Some(val) = trimmed.strip_prefix("refresh_token=") {
-            return Some(val.to_string());
-        }
-    }
-    None
-}
-
-fn extract_token_str_from_headers(headers: &axum::http::HeaderMap) -> Option<String> {
-    headers
-        .get("Authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer ").map(|s| s.to_string()))
-        .or_else(|| {
-            let cookie_str = headers.get("Cookie")?.to_str().ok()?;
-            for part in cookie_str.split(';') {
-                let trimmed = part.trim();
-                if let Some(val) = trimmed.strip_prefix("token=") {
-                    return Some(val.to_string());
-                }
-            }
-            None
-        })
-}
-
 #[utoipa::path(
     post,
     path = "/api/v1/auth/refresh",
@@ -303,7 +300,7 @@ async fn refresh(
     headers: axum::http::HeaderMap,
     State(state): State<AppState>,
 ) -> Result<Response, AppError> {
-    let refresh_token_str = extract_refresh_token_from_cookies(&headers)
+    let refresh_token_str = extract_refresh_token_from_headers(&headers)
         .ok_or_else(|| AppError::Unauthorized("Отсутствует refresh-токен".into()))?;
 
     let claims = verify_token(&refresh_token_str, &state.config.jwt_secret)?;

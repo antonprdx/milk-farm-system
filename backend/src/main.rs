@@ -48,16 +48,28 @@ async fn main() -> anyhow::Result<()> {
     system_settings_service::start_time();
     milk_farm_backend::middleware::metrics::init();
 
+    let lely_runtime = milk_farm_backend::state::LelyRuntime::new(
+        milk_farm_backend::lely::service::load_config(&pool, &cfg.lely_encryption_key)
+            .await
+            .unwrap_or_else(|e| {
+                tracing::warn!(error = %e, "Не удалось загрузить Lely config из БД, используем env vars");
+                cfg.lely_env.clone()
+            }),
+    );
+
     let state = Arc::new(AppStateInner {
         pool,
         config: cfg.clone(),
-        lely_cancel: tokio_util::sync::CancellationToken::new(),
+        lely: Arc::new(lely_runtime),
     });
 
-    if state.config.lely.enabled {
-        milk_farm_backend::lely::sync::start_sync_scheduler(state.clone());
-    } else {
-        tracing::info!("Интеграция Lely отключена (LELY_ENABLED=false)");
+    {
+        let lc = state.lely.get_config();
+        if lc.enabled {
+            milk_farm_backend::lely::sync::start_sync_scheduler(state.clone());
+        } else {
+            tracing::info!("Интеграция Lely отключена");
+        }
     }
 
     let app = create_app(state);

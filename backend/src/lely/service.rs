@@ -1,8 +1,93 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
 
+use crate::config::LelyConfig;
+use crate::lely::crypto;
 use crate::lely::mapper::AnimalCache;
 use crate::lely::models::*;
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct LelyConfigRow {
+    pub enabled: bool,
+    pub base_url: String,
+    pub username: String,
+    pub password_encrypted: String,
+    pub farm_key_encrypted: String,
+    pub sync_interval_secs: i64,
+}
+
+pub async fn load_config(pool: &PgPool, encryption_key: &str) -> Result<LelyConfig, anyhow::Error> {
+    let row = sqlx::query_as::<_, LelyConfigRow>(
+        "SELECT enabled, base_url, username, password_encrypted, farm_key_encrypted, sync_interval_secs \
+         FROM lely_config WHERE id = 1",
+    )
+    .fetch_one(pool)
+    .await?;
+
+    let password = if row.password_encrypted.is_empty() {
+        String::new()
+    } else {
+        crypto::decrypt(&row.password_encrypted, encryption_key).unwrap_or_default()
+    };
+
+    let farm_key = if row.farm_key_encrypted.is_empty() {
+        String::new()
+    } else {
+        crypto::decrypt(&row.farm_key_encrypted, encryption_key).unwrap_or_default()
+    };
+
+    Ok(LelyConfig {
+        enabled: row.enabled,
+        base_url: row.base_url,
+        username: row.username,
+        password,
+        farm_key,
+        sync_interval_secs: row.sync_interval_secs as u64,
+    })
+}
+
+pub async fn save_config(
+    pool: &PgPool,
+    cfg: &LelyConfig,
+    encryption_key: &str,
+) -> Result<(), anyhow::Error> {
+    let password_encrypted = if cfg.password.is_empty() {
+        String::new()
+    } else {
+        crypto::encrypt(&cfg.password, encryption_key)?
+    };
+    let farm_key_encrypted = if cfg.farm_key.is_empty() {
+        String::new()
+    } else {
+        crypto::encrypt(&cfg.farm_key, encryption_key)?
+    };
+
+    sqlx::query(
+        "UPDATE lely_config SET enabled = $1, base_url = $2, username = $3, \
+         password_encrypted = $4, farm_key_encrypted = $5, sync_interval_secs = $6, updated_at = NOW() \
+         WHERE id = 1",
+    )
+    .bind(cfg.enabled)
+    .bind(&cfg.base_url)
+    .bind(&cfg.username)
+    .bind(&password_encrypted)
+    .bind(&farm_key_encrypted)
+    .bind(cfg.sync_interval_secs as i64)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+pub async fn get_config_masked(pool: &PgPool) -> Result<LelyConfigRow, sqlx::Error> {
+    sqlx::query_as::<_, LelyConfigRow>(
+        "SELECT enabled, base_url, username, \
+         password_encrypted, farm_key_encrypted, sync_interval_secs \
+         FROM lely_config WHERE id = 1",
+    )
+    .fetch_one(pool)
+    .await
+}
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct SyncState {
@@ -515,7 +600,7 @@ pub async fn upsert_grazing_data(pool: &PgPool, records: &[Grazing]) -> Result<u
         )
         .bind(date)
         .bind(r.grazing_time)
-        .bind(None::<String>)
+        .bind(None::<i32>)
         .bind(r.total_milking_cows)
         .bind(r.cows14_dil)
         .bind(r.percentage_in_pasture)

@@ -28,6 +28,7 @@ pub fn routes() -> Router<AppState> {
             get(reproduction_forecast),
         )
         .route("/analytics/feed-forecast", get(feed_forecast))
+        .route("/analytics/latest-milk", get(latest_milk))
 }
 
 #[utoipa::path(
@@ -116,5 +117,22 @@ async fn feed_forecast(
     State(state): State<AppState>,
 ) -> Result<Json<crate::models::analytics::FeedForecastResponse>, AppError> {
     let data = analytics_service::feed_forecast(&state.pool).await?;
+    Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/latest-milk",
+    responses(
+        (status = 200, description = "Latest milk productions", body = Vec<crate::models::analytics::LatestMilkEntry>),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn latest_milk(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<Vec<crate::models::analytics::LatestMilkEntry>>, AppError> {
+    let data = analytics_service::latest_milk(&state.pool).await?;
     Ok(Json(data))
 }

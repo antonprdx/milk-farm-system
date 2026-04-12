@@ -14,6 +14,8 @@ pub async fn truncate_all(pool: &PgPool, keep_admin: bool) {
         "activities",
         "feed_visits",
         "feed_day_amounts",
+        "milk_visit_quality",
+        "robot_milk_data",
         "milk_quality",
         "milk_visits",
         "milk_day_productions",
@@ -76,6 +78,8 @@ pub async fn seed_all(pool: &PgPool, config: &SeedConfig) {
     generators::seed_milk(pool, &lactations, config).await;
     generators::seed_feed(pool, &lactations, config).await;
     generators::seed_fitness(pool, &lactations, config).await;
+    generators::seed_milk_visit_quality(pool, &lactations, config).await;
+    generators::seed_robot_milk_data(pool, &lactations, config).await;
 
     generators::seed_bulk_tank(pool, config).await;
     generators::seed_grazing(pool, config).await;

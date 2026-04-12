@@ -59,6 +59,58 @@ pub struct CreateFeedDayAmount {
     pub rest_feed: Option<i32>,
 }
 
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct CreateFeedType {
+    pub number_of_feed_type: i32,
+    pub feed_type: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub dry_matter_percentage: f64,
+    pub stock_attention_level: Option<i32>,
+    pub price: f64,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct UpdateFeedType {
+    pub number_of_feed_type: Option<i32>,
+    pub feed_type: Option<String>,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub dry_matter_percentage: Option<f64>,
+    pub stock_attention_level: Option<i32>,
+    pub price: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct CreateFeedGroup {
+    pub name: String,
+    pub min_milk_yield: Option<f64>,
+    pub max_milk_yield: Option<f64>,
+    pub avg_milk_yield: Option<f64>,
+    pub avg_milk_fat: Option<f64>,
+    pub avg_milk_protein: Option<f64>,
+    pub avg_weight: Option<f64>,
+    pub max_robot_feed_types: Option<i32>,
+    pub max_feed_intake_robot: Option<f64>,
+    pub min_feed_intake_robot: Option<f64>,
+    pub number_of_cows: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct UpdateFeedGroup {
+    pub name: Option<String>,
+    pub min_milk_yield: Option<f64>,
+    pub max_milk_yield: Option<f64>,
+    pub avg_milk_yield: Option<f64>,
+    pub avg_milk_fat: Option<f64>,
+    pub avg_milk_protein: Option<f64>,
+    pub avg_weight: Option<f64>,
+    pub max_robot_feed_types: Option<i32>,
+    pub max_feed_intake_robot: Option<f64>,
+    pub min_feed_intake_robot: Option<f64>,
+    pub number_of_cows: Option<i32>,
+}
+
 #[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct FeedFilter {
     pub animal_id: Option<String>,

@@ -3,9 +3,9 @@ use std::sync::Arc;
 use axum::body::Body;
 use axum::http::Request;
 use http_body_util::BodyExt;
-use milk_farm_backend::config::Config;
+use milk_farm_backend::config::{Config, LelyConfig};
 use milk_farm_backend::middleware::auth::create_access_token;
-use milk_farm_backend::state::AppStateInner;
+use milk_farm_backend::state::{AppStateInner, LelyRuntime};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -22,6 +22,15 @@ pub fn test_config() -> Config {
         jwt_access_ttl_secs: 900,
         jwt_refresh_ttl_secs: 604800,
         trust_proxy: false,
+        lely_encryption_key: "test-lely-key-32-characters-long!!".to_string(),
+        lely_env: LelyConfig {
+            enabled: false,
+            base_url: String::new(),
+            username: String::new(),
+            password: String::new(),
+            farm_key: String::new(),
+            sync_interval_secs: 300,
+        },
     }
 }
 
@@ -29,6 +38,7 @@ pub fn app_state(pool: PgPool) -> Arc<AppStateInner> {
     Arc::new(AppStateInner {
         pool,
         config: test_config(),
+        lely: Arc::new(LelyRuntime::new(test_config().lely_env)),
     })
 }
 
