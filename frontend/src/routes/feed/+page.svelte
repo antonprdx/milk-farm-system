@@ -42,10 +42,22 @@
 		};
 		switch (tab) {
 			case 'amounts':
-				await list.load((signal) => listDayAmounts(params, signal), (d) => { amounts = d; }, dtAmounts);
+				await list.load(
+					(signal) => listDayAmounts(params, signal),
+					(d) => {
+						amounts = d;
+					},
+					dtAmounts,
+				);
 				break;
 			case 'visits':
-				await list.load((signal) => listVisits(params, signal), (d) => { visits = d; }, dtVisits);
+				await list.load(
+					(signal) => listVisits(params, signal),
+					(d) => {
+						visits = d;
+					},
+					dtVisits,
+				);
 				break;
 			case 'types': {
 				try {
@@ -102,7 +114,12 @@
 />
 
 {#if tab === 'amounts' || tab === 'visits'}
-	<FilterBar bind:fromDate={list.fromDate} bind:tillDate={list.tillDate} bind:animalId={list.animalId} onsearch={load} />
+	<FilterBar
+		bind:fromDate={list.fromDate}
+		bind:tillDate={list.tillDate}
+		bind:animalId={list.animalId}
+		onsearch={load}
+	/>
 {/if}
 
 <ErrorAlert message={list.error} />
@@ -134,8 +151,7 @@
 				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{a.feed_date}</td>
 				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{a.feed_number}</td>
 				<td class="px-4 py-3 text-right font-medium">{a.total.toFixed(1)}</td>
-				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-					>{a.rest_feed ?? '—'}</td
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{a.rest_feed ?? '—'}</td
 				>
 			</tr>
 		{/each}
@@ -205,8 +221,7 @@
 				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
 					>{t.dry_matter_percentage.toFixed(0)}</td
 				>
-				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-					>{t.price.toFixed(2)}</td
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{t.price.toFixed(2)}</td
 				>
 				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
 					>{t.stock_attention_level ?? '—'}</td

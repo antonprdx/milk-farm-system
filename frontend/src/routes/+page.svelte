@@ -1,6 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Chart, LineController, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
+	import {
+		Chart,
+		LineController,
+		CategoryScale,
+		LinearScale,
+		PointElement,
+		LineElement,
+		Filler,
+		Tooltip,
+		Legend,
+	} from 'chart.js';
 	import { theme } from '$lib/stores/theme';
 	import { defaultTooltip, defaultScales, themeColors } from '$lib/utils/chartHelpers';
 	import { debounce } from '$lib/utils/debounce';
@@ -33,7 +43,16 @@
 		type LatestMilkEntry,
 	} from '$lib/api/analytics';
 
-	Chart.register(LineController, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
+	Chart.register(
+		LineController,
+		CategoryScale,
+		LinearScale,
+		PointElement,
+		LineElement,
+		Filler,
+		Tooltip,
+		Legend,
+	);
 
 	interface SystemStatus {
 		api: 'ok' | 'error' | 'checking';
@@ -268,12 +287,12 @@
 						labels: { color: textColor, usePointStyle: true, font: { size: 11 } },
 					},
 					tooltip: defaultTooltip(isDark, {
-							// eslint-disable-next-line @typescript-eslint/no-explicit-any
-							label: (ctx: any) =>
-								ctx.dataset.label?.includes('граница')
-									? ''
-									: `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1) ?? '—'} л`,
-						}),
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						label: (ctx: any) =>
+							ctx.dataset.label?.includes('граница')
+								? ''
+								: `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1) ?? '—'} л`,
+					}),
 				},
 				scales: defaultScales(isDark, (v) => `${v} л`),
 			},
@@ -374,7 +393,10 @@
 				{:else if lelyStatus.enabled}
 					<div class="h-2.5 w-2.5 rounded-full bg-yellow-500" title="Lely: ошибка"></div>
 				{:else}
-					<div class="h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-600" title="Lely отключён"></div>
+					<div
+						class="h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-600"
+						title="Lely отключён"
+					></div>
 				{/if}
 				<Plug size={14} class="text-slate-400" />
 				<span
@@ -563,15 +585,15 @@
 			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700 mb-6"
 		>
 			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-base font-semibold text-slate-700 dark:text-slate-300">
-					Последние надои
-				</h2>
+				<h2 class="text-base font-semibold text-slate-700 dark:text-slate-300">Последние надои</h2>
 				<span class="text-xs text-slate-400">{latestMilk[0]?.date}</span>
 			</div>
 			<div class="overflow-x-auto">
 				<table class="w-full text-sm">
 					<thead>
-						<tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+						<tr
+							class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700"
+						>
 							<th class="pb-2 font-medium">Животное</th>
 							<th class="pb-2 font-medium text-right">Надой, л</th>
 							<th class="pb-2 font-medium text-right">Среднее, л</th>
@@ -580,7 +602,9 @@
 					</thead>
 					<tbody>
 						{#each latestMilk as m, i (i)}
-							<tr class="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+							<tr
+								class="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/50"
+							>
 								<td class="py-1.5">
 									<a
 										href="/animals/{m.animal_id}"

@@ -33,9 +33,21 @@
 			per_page: list.perPage,
 		};
 		if (tab === 'activities') {
-			await list.load((signal) => listActivities(params, signal), (d) => { activities = d; }, dtActivities);
+			await list.load(
+				(signal) => listActivities(params, signal),
+				(d) => {
+					activities = d;
+				},
+				dtActivities,
+			);
 		} else {
-			await list.load((signal) => listRuminations(params, signal), (d) => { ruminations = d; }, dtRuminations);
+			await list.load(
+				(signal) => listRuminations(params, signal),
+				(d) => {
+					ruminations = d;
+				},
+				dtRuminations,
+			);
 		}
 	}
 
@@ -66,7 +78,12 @@
 	onchange={(t: string) => switchTab(t as Tab)}
 />
 
-<FilterBar bind:fromDate={list.fromDate} bind:tillDate={list.tillDate} bind:animalId={list.animalId} onsearch={load} />
+<FilterBar
+	bind:fromDate={list.fromDate}
+	bind:tillDate={list.tillDate}
+	bind:animalId={list.animalId}
+	onsearch={load}
+/>
 <ErrorAlert message={list.error} />
 
 {#if tab === 'activities'}

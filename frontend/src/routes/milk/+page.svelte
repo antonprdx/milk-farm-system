@@ -157,9 +157,13 @@
 	}
 
 	async function handleDelete() {
-		await crud.remove(() => deleteProduction(crud.deleteId), load, (msg) => {
-			list.error = msg;
-		});
+		await crud.remove(
+			() => deleteProduction(crud.deleteId),
+			load,
+			(msg) => {
+				list.error = msg;
+			},
+		);
 	}
 
 	$effect(() => {
@@ -200,7 +204,12 @@
 	onchange={(t: string) => switchTab(t as Tab)}
 />
 
-<FilterBar bind:fromDate={list.fromDate} bind:tillDate={list.tillDate} bind:animalId={list.animalId} onsearch={load} />
+<FilterBar
+	bind:fromDate={list.fromDate}
+	bind:tillDate={list.tillDate}
+	bind:animalId={list.animalId}
+	onsearch={load}
+/>
 
 {#if tab === 'productions' && productions.length > 0}
 	<MilkChart {productions} />
@@ -342,18 +351,18 @@
 					>{fmtNum(q.lactose_percentage)}</td
 				>
 				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{q.scc ?? '—'}</td>
-				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-					>{q.milkings ?? '—'}</td
-				>
-				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400"
-					>{q.refusals ?? '—'}</td
-				>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{q.milkings ?? '—'}</td>
+				<td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{q.refusals ?? '—'}</td>
 			</tr>
 		{/each}
 	</DataTable>
 {/if}
 
-<Pagination bind:page={list.page} total={_hasInitial && data.initialData ? data.initialData.total : list.total} perPage={list.perPage} />
+<Pagination
+	bind:page={list.page}
+	total={_hasInitial && data.initialData ? data.initialData.total : list.total}
+	perPage={list.perPage}
+/>
 
 <Modal
 	open={crud.showModal}
@@ -444,7 +453,11 @@
 				disabled={crud.modalLoading}
 				class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 cursor-pointer"
 			>
-				{crud.modalLoading ? 'Сохранение...' : crud.modalMode === 'create' ? 'Создать' : 'Сохранить'}
+				{crud.modalLoading
+					? 'Сохранение...'
+					: crud.modalMode === 'create'
+						? 'Создать'
+						: 'Сохранить'}
 			</button>
 		</div>
 	</form>

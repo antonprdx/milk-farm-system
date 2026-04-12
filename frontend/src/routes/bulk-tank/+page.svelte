@@ -50,12 +50,15 @@
 	async function load() {
 		await list.load(
 			(signal) =>
-				listBulkTankTests({
-					from_date: list.fromDate || undefined,
-					till_date: list.tillDate || undefined,
-					page: list.page,
-					per_page: list.perPage,
-				}, signal),
+				listBulkTankTests(
+					{
+						from_date: list.fromDate || undefined,
+						till_date: list.tillDate || undefined,
+						page: list.page,
+						per_page: list.perPage,
+					},
+					signal,
+				),
 			(data) => {
 				tests = data;
 			},
@@ -322,4 +325,8 @@
 	oncancel={crud.closeDelete}
 />
 
-<Pagination bind:page={list.page} total={_hasInitial && data.initialData ? data.initialData.total : list.total} perPage={list.perPage} />
+<Pagination
+	bind:page={list.page}
+	total={_hasInitial && data.initialData ? data.initialData.total : list.total}
+	perPage={list.perPage}
+/>

@@ -37,6 +37,6 @@ export function useFormDirty() {
 			return dirty;
 		},
 		markDirty,
-		reset
+		reset,
 	};
 }

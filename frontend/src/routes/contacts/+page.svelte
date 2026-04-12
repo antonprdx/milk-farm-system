@@ -273,4 +273,8 @@
 	oncancel={crud.closeDelete}
 />
 
-<Pagination bind:page={list.page} total={_hasInitial && data.initialData ? data.initialData.total : list.total} perPage={list.perPage} />
+<Pagination
+	bind:page={list.page}
+	total={_hasInitial && data.initialData ? data.initialData.total : list.total}
+	perPage={list.perPage}
+/>

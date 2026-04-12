@@ -6,7 +6,10 @@ export function themeColors(isDark: boolean) {
 	};
 }
 
-export function defaultTooltip(isDark: boolean, callbacks?: Record<string, (ctx: unknown) => string>) {
+export function defaultTooltip(
+	isDark: boolean,
+	callbacks?: Record<string, (ctx: unknown) => string>,
+) {
 	return {
 		backgroundColor: isDark ? '#1e293b' : '#fff',
 		titleColor: isDark ? '#e2e8f0' : '#1e293b',
@@ -19,7 +22,10 @@ export function defaultTooltip(isDark: boolean, callbacks?: Record<string, (ctx:
 	};
 }
 
-export function defaultScales(isDark: boolean, yCallback?: (v: string | number) => string | number | undefined) {
+export function defaultScales(
+	isDark: boolean,
+	yCallback?: (v: string | number) => string | number | undefined,
+) {
 	const { gridColor, textColor } = themeColors(isDark);
 	return {
 		x: {
