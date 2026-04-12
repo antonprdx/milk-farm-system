@@ -7,8 +7,10 @@ export default defineConfig({
 	build: {
 		rollupOptions: {
 			output: {
-				manualChunks: {
-					'chart.js': ['chart.js'],
+				manualChunks(id) {
+					if (id.includes('node_modules/chart.js') || id.includes('node_modules/chartjs')) {
+						return 'chart.js';
+					}
 				},
 			},
 		},
