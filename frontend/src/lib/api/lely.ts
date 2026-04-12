@@ -1,4 +1,4 @@
-import { api, post } from './client';
+import { api, post, put } from './client';
 
 export interface LelySyncStatus {
 	entity_type: string;
@@ -12,8 +12,18 @@ export interface LelyConfigResponse {
 	enabled: boolean;
 	base_url: string;
 	username: string;
+	password_set: boolean;
 	farm_key_set: boolean;
 	sync_interval_secs: number;
+}
+
+export interface UpdateLelyConfigRequest {
+	enabled?: boolean;
+	base_url?: string;
+	username?: string;
+	password?: string;
+	farm_key?: string;
+	sync_interval_secs?: number;
 }
 
 export async function getLelyStatus(signal?: AbortSignal) {
@@ -27,4 +37,12 @@ export async function triggerLelySync() {
 
 export async function getLelyConfig(signal?: AbortSignal) {
 	return api<LelyConfigResponse>('/lely/config', { signal });
+}
+
+export async function updateLelyConfig(data: UpdateLelyConfigRequest) {
+	return put<{ message: string }>('/lely/config', data);
+}
+
+export async function testLelyConnection(data: UpdateLelyConfigRequest) {
+	return post<{ success: boolean; message: string }>('/lely/test-connection', data);
 }

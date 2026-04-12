@@ -713,6 +713,7 @@ pub async fn seed_milk(pool: &PgPool, lactations: &[LactationInfo], config: &See
     let mut day_batch = Vec::new();
     let mut visit_batch = Vec::new();
     let mut quality_batch = Vec::new();
+    let mut visit_keys = std::collections::HashSet::new();
     let mut total_days = 0u64;
     let mut total_visits = 0u64;
     let mut total_quality = 0u64;
@@ -753,6 +754,11 @@ pub async fn seed_milk(pool: &PgPool, lactations: &[LactationInfo], config: &See
                 for v in 0..num_visits {
                     let hour = (5 + v * 8 + rng.random_range(0..3)).min(23);
                     let minute = rng.random_range(0..60);
+                    let visit_key =
+                        format!("{}:{}:{:02}:{:02}", lact.animal_id, date, hour, minute);
+                    if !visit_keys.insert(visit_key) {
+                        continue;
+                    }
                     let visit_milk =
                         (milk / num_visits as f64) * normal_range(&mut rng, 1.0, 0.15, 0.5, 1.5);
                     let duration =
@@ -817,7 +823,7 @@ pub async fn seed_milk(pool: &PgPool, lactations: &[LactationInfo], config: &See
             }
             if visit_batch.len() >= 5000 {
                 let sql = format!(
-                    "INSERT INTO milk_visits (animal_id, visit_datetime, milk_amount, duration_seconds, milk_destination) VALUES {}",
+                    "INSERT INTO milk_visits (animal_id, visit_datetime, milk_amount, duration_seconds, milk_destination) VALUES {} ON CONFLICT (animal_id, visit_datetime) DO NOTHING",
                     visit_batch.join(", ")
                 );
                 sqlx::query(&sql).execute(pool).await.unwrap();
@@ -825,7 +831,7 @@ pub async fn seed_milk(pool: &PgPool, lactations: &[LactationInfo], config: &See
             }
             if quality_batch.len() >= 5000 {
                 let sql = format!(
-                    "INSERT INTO milk_quality (animal_id, date, milk_amount, avg_amount, avg_weight, isk, fat_percentage, protein_percentage, lactose_percentage, scc, milkings, refusals) VALUES {}",
+                    "INSERT INTO milk_quality (animal_id, date, milk_amount, avg_amount, avg_weight, isk, fat_percentage, protein_percentage, lactose_percentage, scc, milkings, refusals) VALUES {} ON CONFLICT (animal_id, date) DO NOTHING",
                     quality_batch.join(", ")
                 );
                 sqlx::query(&sql).execute(pool).await.unwrap();
@@ -843,14 +849,14 @@ pub async fn seed_milk(pool: &PgPool, lactations: &[LactationInfo], config: &See
     }
     if !visit_batch.is_empty() {
         let sql = format!(
-            "INSERT INTO milk_visits (animal_id, visit_datetime, milk_amount, duration_seconds, milk_destination) VALUES {}",
+            "INSERT INTO milk_visits (animal_id, visit_datetime, milk_amount, duration_seconds, milk_destination) VALUES {} ON CONFLICT (animal_id, visit_datetime) DO NOTHING",
             visit_batch.join(", ")
         );
         sqlx::query(&sql).execute(pool).await.unwrap();
     }
     if !quality_batch.is_empty() {
         let sql = format!(
-            "INSERT INTO milk_quality (animal_id, date, milk_amount, avg_amount, avg_weight, isk, fat_percentage, protein_percentage, lactose_percentage, scc, milkings, refusals) VALUES {}",
+            "INSERT INTO milk_quality (animal_id, date, milk_amount, avg_amount, avg_weight, isk, fat_percentage, protein_percentage, lactose_percentage, scc, milkings, refusals) VALUES {} ON CONFLICT (animal_id, date) DO NOTHING",
             quality_batch.join(", ")
         );
         sqlx::query(&sql).execute(pool).await.unwrap();
@@ -869,6 +875,7 @@ pub async fn seed_feed(pool: &PgPool, lactations: &[LactationInfo], config: &See
 
     let mut day_batch = Vec::new();
     let mut visit_batch = Vec::new();
+    let mut visit_keys = std::collections::HashSet::new();
     let mut total_days = 0u64;
     let mut total_visits = 0u64;
 
@@ -895,12 +902,21 @@ pub async fn seed_feed(pool: &PgPool, lactations: &[LactationInfo], config: &See
 
             if feed_total > 5.0 {
                 let feed_number = rng.random_range(1..4);
+                let total_val = (feed_total).round() / 10.0;
+                let rest = if rng.random_bool(0.15) {
+                    Some(
+                        (feed_total * normal_range(&mut rng, 0.08, 0.06, 0.01, 0.3)).round() as i32,
+                    )
+                } else {
+                    None
+                };
                 day_batch.push(format!(
-                    "({}, '{}', {}, {})",
+                    "({}, '{}', {}, {}, {})",
                     lact.animal_id,
                     date,
                     feed_number,
-                    (feed_total).round() / 10.0,
+                    total_val,
+                    rest.map(|r| r.to_string()).unwrap_or("NULL".to_string()),
                 ));
                 total_days += 1;
 
@@ -909,6 +925,11 @@ pub async fn seed_feed(pool: &PgPool, lactations: &[LactationInfo], config: &See
                 for fv in 0..num_feed_visits {
                     let hour = (6 + fv * 4 + rng.random_range(0..3)).min(23);
                     let minute = rng.random_range(0..60);
+                    let visit_key =
+                        format!("{}:{}:{:02}:{:02}", lact.animal_id, date, hour, minute);
+                    if !visit_keys.insert(visit_key) {
+                        continue;
+                    }
                     let fv_amount = per_visit * normal_range(&mut rng, 1.0, 0.2, 0.3, 2.0);
                     let duration =
                         (fv_amount * 60.0 / normal_range(&mut rng, 2.5, 0.5, 1.0, 5.0)) as i32;
@@ -930,7 +951,7 @@ pub async fn seed_feed(pool: &PgPool, lactations: &[LactationInfo], config: &See
 
             if day_batch.len() >= 5000 {
                 let sql = format!(
-                    "INSERT INTO feed_day_amounts (animal_id, feed_date, feed_number, total) VALUES {}",
+                    "INSERT INTO feed_day_amounts (animal_id, feed_date, feed_number, total, rest_feed) VALUES {} ON CONFLICT (animal_id, feed_date, feed_number) DO NOTHING",
                     day_batch.join(", ")
                 );
                 sqlx::query(&sql).execute(pool).await.unwrap();
@@ -938,7 +959,7 @@ pub async fn seed_feed(pool: &PgPool, lactations: &[LactationInfo], config: &See
             }
             if visit_batch.len() >= 5000 {
                 let sql = format!(
-                    "INSERT INTO feed_visits (animal_id, visit_datetime, feed_number, amount, duration_seconds) VALUES {}",
+                    "INSERT INTO feed_visits (animal_id, visit_datetime, feed_number, amount, duration_seconds) VALUES {} ON CONFLICT (animal_id, visit_datetime) DO NOTHING",
                     visit_batch.join(", ")
                 );
                 sqlx::query(&sql).execute(pool).await.unwrap();
@@ -949,14 +970,14 @@ pub async fn seed_feed(pool: &PgPool, lactations: &[LactationInfo], config: &See
 
     if !day_batch.is_empty() {
         let sql = format!(
-            "INSERT INTO feed_day_amounts (animal_id, feed_date, feed_number, total) VALUES {}",
+            "INSERT INTO feed_day_amounts (animal_id, feed_date, feed_number, total, rest_feed) VALUES {} ON CONFLICT (animal_id, feed_date, feed_number) DO NOTHING",
             day_batch.join(", ")
         );
         sqlx::query(&sql).execute(pool).await.unwrap();
     }
     if !visit_batch.is_empty() {
         let sql = format!(
-            "INSERT INTO feed_visits (animal_id, visit_datetime, feed_number, amount, duration_seconds) VALUES {}",
+            "INSERT INTO feed_visits (animal_id, visit_datetime, feed_number, amount, duration_seconds) VALUES {} ON CONFLICT (animal_id, visit_datetime) DO NOTHING",
             visit_batch.join(", ")
         );
         sqlx::query(&sql).execute(pool).await.unwrap();
@@ -1019,7 +1040,7 @@ pub async fn seed_fitness(pool: &PgPool, lactations: &[LactationInfo], config: &
 
             if act_batch.len() >= 5000 {
                 let sql = format!(
-                    "INSERT INTO activities (animal_id, activity_datetime, activity_counter, heat_attention) VALUES {}",
+                    "INSERT INTO activities (animal_id, activity_datetime, activity_counter, heat_attention) VALUES {} ON CONFLICT (animal_id, activity_datetime) DO NOTHING",
                     act_batch.join(", ")
                 );
                 sqlx::query(&sql).execute(pool).await.unwrap();
@@ -1027,7 +1048,7 @@ pub async fn seed_fitness(pool: &PgPool, lactations: &[LactationInfo], config: &
             }
             if rum_batch.len() >= 5000 {
                 let sql = format!(
-                    "INSERT INTO ruminations (animal_id, date, eating_seconds, rumination_minutes) VALUES {}",
+                    "INSERT INTO ruminations (animal_id, date, eating_seconds, rumination_minutes) VALUES {} ON CONFLICT (animal_id, date) DO NOTHING",
                     rum_batch.join(", ")
                 );
                 sqlx::query(&sql).execute(pool).await.unwrap();
@@ -1038,14 +1059,14 @@ pub async fn seed_fitness(pool: &PgPool, lactations: &[LactationInfo], config: &
 
     if !act_batch.is_empty() {
         let sql = format!(
-            "INSERT INTO activities (animal_id, activity_datetime, activity_counter, heat_attention) VALUES {}",
+            "INSERT INTO activities (animal_id, activity_datetime, activity_counter, heat_attention) VALUES {} ON CONFLICT (animal_id, activity_datetime) DO NOTHING",
             act_batch.join(", ")
         );
         sqlx::query(&sql).execute(pool).await.unwrap();
     }
     if !rum_batch.is_empty() {
         let sql = format!(
-            "INSERT INTO ruminations (animal_id, date, eating_seconds, rumination_minutes) VALUES {}",
+            "INSERT INTO ruminations (animal_id, date, eating_seconds, rumination_minutes) VALUES {} ON CONFLICT (animal_id, date) DO NOTHING",
             rum_batch.join(", ")
         );
         sqlx::query(&sql).execute(pool).await.unwrap();
@@ -1129,7 +1150,7 @@ pub async fn seed_grazing(pool: &PgPool, config: &SeedConfig) {
 
     for chunk in batch.chunks(5000) {
         let sql = format!(
-            "INSERT INTO grazing_data (date, animal_count, pasture_time, lactation_period) VALUES {}",
+            "INSERT INTO grazing_data (date, animal_count, pasture_time, lactation_period) VALUES {} ON CONFLICT (date) DO NOTHING",
             chunk.join(", ")
         );
         sqlx::query(&sql).execute(pool).await.unwrap();
@@ -1227,4 +1248,220 @@ pub async fn seed_sync_log(pool: &PgPool) {
     );
     sqlx::query(&sql).execute(pool).await.unwrap();
     println!("  sync_log: {} rows", entities.len());
+}
+
+#[allow(clippy::await_holding_lock)]
+pub async fn seed_milk_visit_quality(
+    pool: &PgPool,
+    lactations: &[LactationInfo],
+    config: &SeedConfig,
+) {
+    let mut rng = GLOBAL_RNG.lock().unwrap();
+    let today = chrono::Utc::now().date_naive();
+    let start_date = today - Duration::days(config.num_years * 365);
+
+    let mut batch = Vec::new();
+    let mut count = 0u64;
+
+    for lact in lactations {
+        let lac_start = lact.calving_date;
+        let lac_end = match (lact.dry_off_date, lact.next_calving_date) {
+            (Some(dry), _) => dry,
+            (None, Some(next)) => next - Duration::days(60),
+            _ => today.min(lac_start + Duration::days(350)),
+        };
+        let effective_start = lac_start.max(start_date);
+        let effective_end = lac_end.min(today);
+        if effective_start >= effective_end {
+            continue;
+        }
+
+        let mut date = effective_start;
+        while date <= effective_end {
+            let num_visits = rng.random_range(1..4);
+            for v in 0..num_visits {
+                let hour = 5 + v * 8 + rng.random_range(0..3);
+                let minute = rng.random_range(0..60);
+                let visit_dt = format!("{} {:02}:{:02}:00+03", date, hour.min(23), minute);
+
+                let milk_yield: f64 = normal_range(&mut rng, 12.0, 4.0, 3.0, 25.0);
+                let success = rng.random_bool(0.95);
+                let device = rng.random_range(1..=3);
+
+                let base_cond = normal_range(&mut rng, 65.0, 8.0, 50.0, 85.0);
+                let lf_cond = base_cond.round() as i32;
+                let lr_cond =
+                    (base_cond + normal_range(&mut rng, 0.0, 3.0, -5.0, 5.0)).round() as i32;
+                let rf_cond =
+                    (base_cond + normal_range(&mut rng, 0.0, 3.0, -5.0, 5.0)).round() as i32;
+                let rr_cond =
+                    (base_cond + normal_range(&mut rng, 0.0, 3.0, -5.0, 5.0)).round() as i32;
+
+                let lf_colour = if rng.random_bool(0.05) {
+                    Some("W")
+                } else {
+                    None
+                };
+                let lr_colour = if rng.random_bool(0.04) {
+                    Some("W")
+                } else {
+                    None
+                };
+                let rf_colour = if rng.random_bool(0.04) {
+                    Some("Y")
+                } else {
+                    None
+                };
+                let rr_colour = if rng.random_bool(0.03) {
+                    Some("W")
+                } else {
+                    None
+                };
+
+                let weight = (normal_range(&mut rng, 600.0, 80.0, 400.0, 800.0)).round() as i32;
+                let temp = normal_range(&mut rng, 37.5, 0.3, 36.5, 39.0);
+
+                batch.push(format!(
+                    "({}, '{}', '{}', {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
+                    lact.animal_id,
+                    visit_dt,
+                    format!("{} {:02}:{:02}:00+03", date, hour.min(23), minute),
+                    device,
+                    success,
+                    (milk_yield * 100.0).round() / 100.0,
+                    rng.random_range(1..=4),
+                    (temp * 10.0).round() / 10.0,
+                    weight,
+                    lf_colour.map_or("NULL".to_string(), |c| format!("'{}'", c)),
+                    lr_colour.map_or("NULL".to_string(), |c| format!("'{}'", c)),
+                    rf_colour.map_or("NULL".to_string(), |c| format!("'{}'", c)),
+                    rr_colour.map_or("NULL".to_string(), |c| format!("'{}'", c)),
+                    lf_cond,
+                    lr_cond,
+                    rf_cond,
+                    rr_cond,
+                ));
+                count += 1;
+            }
+
+            date += Duration::days(1);
+
+            if batch.len() >= 5000 {
+                let sql = format!(
+                    "INSERT INTO milk_visit_quality (animal_id, visit_datetime, milking_start_date, device_address, success_milking, milk_yield, bottle_number, milk_temperature, weight, lf_colour_code, lr_colour_code, rf_colour_code, rr_colour_code, lf_conductivity, lr_conductivity, rf_conductivity, rr_conductivity) VALUES {} ON CONFLICT (animal_id, visit_datetime) DO NOTHING",
+                    batch.join(", ")
+                );
+                sqlx::query(&sql).execute(pool).await.unwrap();
+                batch.clear();
+            }
+        }
+    }
+
+    if !batch.is_empty() {
+        let sql = format!(
+            "INSERT INTO milk_visit_quality (animal_id, visit_datetime, milking_start_date, device_address, success_milking, milk_yield, bottle_number, milk_temperature, weight, lf_colour_code, lr_colour_code, rf_colour_code, rr_colour_code, lf_conductivity, lr_conductivity, rf_conductivity, rr_conductivity) VALUES {} ON CONFLICT (animal_id, visit_datetime) DO NOTHING",
+            batch.join(", ")
+        );
+        sqlx::query(&sql).execute(pool).await.unwrap();
+    }
+    println!("  milk_visit_quality: {} rows", count);
+}
+
+#[allow(clippy::await_holding_lock)]
+pub async fn seed_robot_milk_data(
+    pool: &PgPool,
+    lactations: &[LactationInfo],
+    config: &SeedConfig,
+) {
+    let mut rng = GLOBAL_RNG.lock().unwrap();
+    let today = chrono::Utc::now().date_naive();
+    let start_date = today - Duration::days(config.num_years * 365);
+
+    let mut batch = Vec::new();
+    let mut count = 0u64;
+
+    for lact in lactations {
+        let lac_start = lact.calving_date;
+        let lac_end = match (lact.dry_off_date, lact.next_calving_date) {
+            (Some(dry), _) => dry,
+            (None, Some(next)) => next - Duration::days(60),
+            _ => today.min(lac_start + Duration::days(350)),
+        };
+        let effective_start = lac_start.max(start_date);
+        let effective_end = lac_end.min(today);
+        if effective_start >= effective_end {
+            continue;
+        }
+
+        let mut date = effective_start;
+        while date <= effective_end {
+            let num_milkings = rng.random_range(1..4);
+            for _ in 0..num_milkings {
+                let device = rng.random_range(1..=3);
+                let milk_speed = normal_range(&mut rng, 2.0, 0.5, 0.8, 4.0);
+                let milk_speed_max = milk_speed * normal_range(&mut rng, 1.2, 0.1, 1.0, 1.5);
+
+                let base_time = (120.0 / milk_speed) as i32;
+                let lf_time =
+                    (base_time as f64 * normal_range(&mut rng, 1.0, 0.1, 0.7, 1.3)).round() as i32;
+                let lr_time =
+                    (base_time as f64 * normal_range(&mut rng, 1.0, 0.1, 0.7, 1.3)).round() as i32;
+                let rf_time =
+                    (base_time as f64 * normal_range(&mut rng, 1.0, 0.1, 0.7, 1.3)).round() as i32;
+                let rr_time =
+                    (base_time as f64 * normal_range(&mut rng, 1.0, 0.1, 0.7, 1.3)).round() as i32;
+
+                let dead_base = normal_range(&mut rng, 15.0, 5.0, 5.0, 30.0).round() as i32;
+
+                batch.push(format!(
+                    "({}, '{} {:02}:{:02}:00+03', {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
+                    lact.animal_id,
+                    date,
+                    rng.random_range(5..22),
+                    rng.random_range(0..60),
+                    device,
+                    (milk_speed * 100.0).round() / 100.0,
+                    (milk_speed_max * 100.0).round() / 100.0,
+                    lf_time, lr_time, rf_time, rr_time,
+                    dead_base + rng.random_range(-3..3),
+                    dead_base + rng.random_range(-3..3),
+                    dead_base + rng.random_range(-3..3),
+                    dead_base + rng.random_range(-3..3),
+                    rng.random_range(80..120),
+                    rng.random_range(-5..5),
+                    rng.random_range(60..90),
+                    rng.random_range(80..120),
+                    rng.random_range(-5..5),
+                    rng.random_range(60..90),
+                    rng.random_range(80..120),
+                    rng.random_range(-5..5),
+                    rng.random_range(60..90),
+                    rng.random_range(80..120),
+                    rng.random_range(-5..5),
+                    rng.random_range(60..90),
+                ));
+                count += 1;
+            }
+
+            date += Duration::days(1);
+
+            if batch.len() >= 5000 {
+                let sql = format!(
+                    "INSERT INTO robot_milk_data (animal_id, milking_date, device_address, milk_speed, milk_speed_max, lf_milk_time, lr_milk_time, rf_milk_time, rr_milk_time, lf_dead_milk_time, lr_dead_milk_time, rf_dead_milk_time, rr_dead_milk_time, lf_x_position, lf_y_position, lf_z_position, lr_x_position, lr_y_position, lr_z_position, rf_x_position, rf_y_position, rf_z_position, rr_x_position, rr_y_position, rr_z_position) VALUES {} ON CONFLICT (animal_id, milking_date) DO NOTHING",
+                    batch.join(", ")
+                );
+                sqlx::query(&sql).execute(pool).await.unwrap();
+                batch.clear();
+            }
+        }
+    }
+
+    if !batch.is_empty() {
+        let sql = format!(
+            "INSERT INTO robot_milk_data (animal_id, milking_date, device_address, milk_speed, milk_speed_max, lf_milk_time, lr_milk_time, rf_milk_time, rr_milk_time, lf_dead_milk_time, lr_dead_milk_time, rf_dead_milk_time, rr_dead_milk_time, lf_x_position, lf_y_position, lf_z_position, lr_x_position, lr_y_position, lr_z_position, rf_x_position, rf_y_position, rf_z_position, rr_x_position, rr_y_position, rr_z_position) VALUES {} ON CONFLICT (animal_id, milking_date) DO NOTHING",
+            batch.join(", ")
+        );
+        sqlx::query(&sql).execute(pool).await.unwrap();
+    }
+    println!("  robot_milk_data: {} rows", count);
 }

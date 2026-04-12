@@ -83,7 +83,15 @@ jobs:
             docker compose -f docker-compose.prod.yml pull backend frontend
             docker tag ${{ env.BACKEND_IMAGE }}:${{ github.sha }} ${{ env.BACKEND_IMAGE }}:rollback 2>/dev/null || true
             docker tag ${{ env.FRONTEND_IMAGE }}:${{ github.sha }} ${{ env.FRONTEND_IMAGE }}:rollback 2>/dev/null || true
-            docker compose -f docker-compose.prod.yml run --rm -e DATABASE_URL=$DATABASE_URL backend ./backend
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            sleep 5
+            for i in 1 2 3 4 5; do
+              if curl -sf http://localhost:3000/api/v1/healthz > /dev/null; then
+                echo "Backend is healthy"
+                break
+              fi
+              echo "Waiting for backend... attempt $i"
+              sleep 5
+            done
             docker image prune -f
             echo "Deployed ${{ github.sha }}. Rollback: set BACKEND_TAG=rollback and re-run."

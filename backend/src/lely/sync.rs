@@ -10,8 +10,9 @@ use crate::lely::service;
 use crate::state::AppStateInner;
 
 pub fn start_sync_scheduler(state: Arc<AppStateInner>) {
-    let interval = Duration::from_secs(state.config.lely.sync_interval_secs);
-    let cancel = state.lely_cancel.clone();
+    let cfg = state.lely.get_config();
+    let interval = Duration::from_secs(cfg.sync_interval_secs);
+    let cancel = state.lely.cancel.read().unwrap().clone();
 
     tokio::spawn(async move {
         tracing::info!(
@@ -41,7 +42,7 @@ pub fn start_sync_scheduler(state: Arc<AppStateInner>) {
 }
 
 pub async fn run_sync(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error> {
-    if !state.config.lely.enabled {
+    if !state.lely.get_config().enabled {
         return Ok(());
     }
 
@@ -60,34 +61,46 @@ pub async fn run_sync(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error> {
     result
 }
 
+macro_rules! try_sync {
+    ($expr:expr) => {
+        if let Err(e) = $expr.await {
+            tracing::error!(error = %e, "Ошибка синхронизации (продолжаем)");
+        }
+    };
+}
+
 async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error> {
-    let client = LelyClient::new(&state.config.lely);
+    let cfg = state.lely.get_config();
+    let client = LelyClient::new(&cfg);
     let pool = &state.pool;
 
-    sync_simple(
+    try_sync!(sync_simple(
         pool,
         "animals",
         Box::pin(async {
             let records = client.get_animals().await?;
             service::upsert_animals(pool, &records).await
         }),
-    )
-    .await?;
+    ));
 
     let cache = AnimalCache::load(pool).await?;
 
-    sync_chunked(pool, "milk_day_productions", 10, |from, till| {
-        let c = client.clone();
-        let p = pool.clone();
-        let cache = cache.clone();
-        Box::pin(async move {
-            let records = c.get_milk_day_productions(&from, &till).await?;
-            service::upsert_milk_day_productions(&p, &records, &cache).await
-        })
-    })
-    .await?;
+    try_sync!(sync_chunked(
+        pool,
+        "milk_day_productions",
+        10,
+        |from, till| {
+            let c = client.clone();
+            let p = pool.clone();
+            let cache = cache.clone();
+            Box::pin(async move {
+                let records = c.get_milk_day_productions(&from, &till).await?;
+                service::upsert_milk_day_productions(&p, &records, &cache).await
+            })
+        }
+    ));
 
-    sync_chunked(pool, "milk_visits", 7, |from, till| {
+    try_sync!(sync_chunked(pool, "milk_visits", 7, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -95,10 +108,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_milk_visits(&from, &till).await?;
             service::upsert_milk_visits(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "milk_visit_quality", 1, |from, till| {
+    try_sync!(sync_chunked(pool, "milk_visit_quality", 1, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -106,21 +118,24 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_milk_visit_quality(&from, &till).await?;
             service::upsert_milk_visit_quality(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "milk_day_productions_quality", 1, |from, till| {
-        let c = client.clone();
-        let p = pool.clone();
-        let cache = cache.clone();
-        Box::pin(async move {
-            let records = c.get_milk_day_quality(&from, &till).await?;
-            service::upsert_milk_day_quality(&p, &records, &cache).await
-        })
-    })
-    .await?;
+    try_sync!(sync_chunked(
+        pool,
+        "milk_day_productions_quality",
+        1,
+        |from, till| {
+            let c = client.clone();
+            let p = pool.clone();
+            let cache = cache.clone();
+            Box::pin(async move {
+                let records = c.get_milk_day_quality(&from, &till).await?;
+                service::upsert_milk_day_quality(&p, &records, &cache).await
+            })
+        }
+    ));
 
-    sync_chunked(pool, "robot_milk_data", 7, |from, till| {
+    try_sync!(sync_chunked(pool, "robot_milk_data", 7, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -128,10 +143,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_robot_data(&from, &till).await?;
             service::upsert_robot_data(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "feed_day_amounts", 7, |from, till| {
+    try_sync!(sync_chunked(pool, "feed_day_amounts", 7, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -139,10 +153,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_feed_day_amounts(&from, &till).await?;
             service::upsert_feed_day_amounts(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "feed_visits", 3, |from, till| {
+    try_sync!(sync_chunked(pool, "feed_visits", 3, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -150,10 +163,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_feed_visits(&from, &till).await?;
             service::upsert_feed_visits(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "activities", 1, |from, till| {
+    try_sync!(sync_chunked(pool, "activities", 1, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -161,10 +173,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_activities(&from, &till).await?;
             service::upsert_activities(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "ruminations", 2, |from, till| {
+    try_sync!(sync_chunked(pool, "ruminations", 2, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -172,12 +183,11 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_ruminations(&from, &till).await?;
             service::upsert_ruminations(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_grazing(&client, pool).await?;
+    try_sync!(sync_grazing(&client, pool));
 
-    sync_chunked(pool, "calvings", 90, |from, till| {
+    try_sync!(sync_chunked(pool, "calvings", 90, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -185,10 +195,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_calvings(&from, &till).await?;
             service::upsert_calvings(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "inseminations", 90, |from, till| {
+    try_sync!(sync_chunked(pool, "inseminations", 90, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -196,10 +205,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_inseminations(&from, &till).await?;
             service::upsert_inseminations(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "pregnancies", 90, |from, till| {
+    try_sync!(sync_chunked(pool, "pregnancies", 90, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -207,10 +215,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_pregnancies(&from, &till).await?;
             service::upsert_pregnancies(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "heats", 90, |from, till| {
+    try_sync!(sync_chunked(pool, "heats", 90, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -218,10 +225,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_heats(&from, &till).await?;
             service::upsert_heats(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_chunked(pool, "dry_offs", 90, |from, till| {
+    try_sync!(sync_chunked(pool, "dry_offs", 90, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -229,20 +235,18 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_dry_offs(&from, &till).await?;
             service::upsert_dry_offs(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_simple(
+    try_sync!(sync_simple(
         pool,
         "sires",
         Box::pin(async {
             let records = client.get_sires().await?;
             service::upsert_sires(pool, &records).await
         }),
-    )
-    .await?;
+    ));
 
-    sync_chunked(pool, "transfers", 90, |from, till| {
+    try_sync!(sync_chunked(pool, "transfers", 90, |from, till| {
         let c = client.clone();
         let p = pool.clone();
         let cache = cache.clone();
@@ -250,10 +254,9 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
             let records = c.get_transfers(&from, &till).await?;
             service::upsert_transfers(&p, &records, &cache).await
         })
-    })
-    .await?;
+    }));
 
-    sync_bloodlines(&client, pool, &cache).await?;
+    try_sync!(sync_bloodlines(&client, pool, &cache));
 
     for entity in &["feed_types", "feed_groups", "contacts", "locations"] {
         tracing::info!(entity, "Синхронизация (stub) начата");

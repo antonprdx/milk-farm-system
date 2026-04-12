@@ -30,7 +30,7 @@ async fn test_admin_cannot_delete_self(pool: sqlx::PgPool) {
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 
     let body: Value = read_body_json(resp.into_body()).await;
-    assert!(body["error"].as_str().unwrap().contains("own account"));
+    assert!(body["error"].as_str().unwrap().contains("аккаунт"));
 }
 
 #[sqlx::test(migrations = "./migrations")]

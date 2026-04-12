@@ -97,6 +97,15 @@ export interface FeedForecastResponse {
 	milk_per_feed: number | null;
 }
 
+export interface LatestMilkEntry {
+	animal_id: number;
+	name: string | null;
+	date: string;
+	milk_amount: number | null;
+	avg_amount: number | null;
+	isk: number | null;
+}
+
 export function getKpi(signal?: AbortSignal) {
 	return api<KpiResponse>('/analytics/kpi', { signal });
 }
@@ -118,4 +127,8 @@ export function getReproductionForecast(signal?: AbortSignal) {
 
 export function getFeedForecast(signal?: AbortSignal) {
 	return api<FeedForecastResponse>('/analytics/feed-forecast', { signal });
+}
+
+export function getLatestMilk(signal?: AbortSignal) {
+	return api<LatestMilkEntry[]>('/analytics/latest-milk', { signal });
 }

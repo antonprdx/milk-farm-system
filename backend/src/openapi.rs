@@ -19,7 +19,8 @@ use crate::models::bulk_tank::{
 };
 use crate::models::contact::{Contact, ContactFilter, CreateContact, UpdateContact};
 use crate::models::feed::{
-    CreateFeedDayAmount, FeedDayAmount, FeedFilter, FeedGroup, FeedType, FeedVisit,
+    CreateFeedDayAmount, CreateFeedGroup, CreateFeedType, FeedDayAmount, FeedFilter, FeedGroup,
+    FeedType, FeedVisit, UpdateFeedGroup, UpdateFeedType,
 };
 use crate::models::fitness::{Activity, FitnessFilter, Rumination};
 use crate::models::grazing::{GrazingData, GrazingFilter};
@@ -30,6 +31,14 @@ use crate::models::milk::{
 };
 use crate::models::pagination::Pagination;
 use crate::models::preferences::{UpdatePreferences, UserPreferences};
+use crate::models::reports::{
+    CalendarCalvingRow, CalendarDryOffRow, CalendarHeatRow, CalendarPregnancyCheckRow,
+    CalendarResponse, CowDailyProductionRow, CowRobotEfficiencyRow, FailedMilkingRow,
+    FeedPerCowDayRow, FeedPerTypeDayRow, FeedPerTypeResponse, HealthActivityRow,
+    HealthTaskResponse, HerdOverviewResponse, LactationAnalysisPoint, LactationAnalysisResponse,
+    MilkDayProductionTimeRow, PregnancyRatePeriod, PregnancyRateResponse, RestFeedResponse,
+    RobotPerformanceRow, TransitionResponse, UdderHealthResponse, VisitBehaviorRow,
+};
 use crate::models::reproduction::{
     Calf, Calving, CreateCalf, CreateCalving, CreateDryOff, CreateHeat, CreateInsemination,
     CreatePregnancy, DryOff, Heat, Insemination, Pregnancy, ReproductionFilter, UpdateCalving,
@@ -137,6 +146,25 @@ impl Modify for SecurityAddon {
         crate::handlers::reports::export_milk_pdf,
         crate::handlers::reports::export_reproduction_pdf,
         crate::handlers::reports::export_feed_pdf,
+        crate::handlers::reports::herd_overview,
+        crate::handlers::reports::rest_feed,
+        crate::handlers::reports::robot_performance,
+        crate::handlers::reports::failed_milkings,
+        crate::handlers::reports::udder_health_worklist,
+        crate::handlers::reports::udder_health_analyze,
+        crate::handlers::reports::milk_day_production_time,
+        crate::handlers::reports::visit_behavior,
+        crate::handlers::reports::calendar,
+        crate::handlers::reports::export_report_csv,
+        crate::handlers::reports::export_report_pdf,
+        crate::handlers::reports::health_activity_rumination,
+        crate::handlers::reports::cow_robot_efficiency,
+        crate::handlers::reports::lactation_analysis,
+        crate::handlers::reports::feed_per_type_day,
+        crate::handlers::reports::feed_per_cow_day,
+        crate::handlers::reports::health_task,
+        crate::handlers::reports::pregnancy_rate,
+        crate::handlers::reports::transition_report,
         crate::handlers::settings::list_users,
         crate::handlers::settings::create_user,
         crate::handlers::settings::change_password,
@@ -201,6 +229,10 @@ impl Modify for SecurityAddon {
         FeedType,
         FeedGroup,
         CreateFeedDayAmount,
+        CreateFeedType,
+        UpdateFeedType,
+        CreateFeedGroup,
+        UpdateFeedGroup,
         FeedFilter,
         Activity,
         Rumination,
@@ -250,7 +282,31 @@ impl Modify for SecurityAddon {
         JwtTtlSettings,
         UpdateJwtTtl,
         LelySyncStatus,
-        LelyConfigResponse
+        LelyConfigResponse,
+        HerdOverviewResponse,
+        RestFeedResponse,
+        CowDailyProductionRow,
+        RobotPerformanceRow,
+        FailedMilkingRow,
+        UdderHealthResponse,
+        MilkDayProductionTimeRow,
+        VisitBehaviorRow,
+        CalendarCalvingRow,
+        CalendarDryOffRow,
+        CalendarHeatRow,
+        CalendarPregnancyCheckRow,
+        CalendarResponse,
+        HealthActivityRow,
+        CowRobotEfficiencyRow,
+        LactationAnalysisPoint,
+        LactationAnalysisResponse,
+        FeedPerTypeDayRow,
+        FeedPerTypeResponse,
+        FeedPerCowDayRow,
+        HealthTaskResponse,
+        PregnancyRatePeriod,
+        PregnancyRateResponse,
+        TransitionResponse
     )),
     modifiers(&SecurityAddon)
 )]

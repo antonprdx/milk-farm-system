@@ -10,6 +10,7 @@ pub mod location;
 pub mod milk;
 pub mod pagination;
 pub mod preferences;
+pub mod reports;
 pub mod reproduction;
 pub mod system_settings;
 pub mod timeline;

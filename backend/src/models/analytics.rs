@@ -109,3 +109,13 @@ pub struct FeedForecastResponse {
     pub avg_per_cow_day_kg: Option<f64>,
     pub milk_per_feed: Option<f64>,
 }
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct LatestMilkEntry {
+    pub animal_id: i32,
+    pub name: Option<String>,
+    pub date: String,
+    pub milk_amount: Option<f64>,
+    pub avg_amount: Option<f64>,
+    pub isk: Option<f64>,
+}

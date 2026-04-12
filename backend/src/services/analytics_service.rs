@@ -296,7 +296,7 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
     }
 
     let scc_spikes: Vec<(i32, Option<String>, f64, f64)> = sqlx::query_as(
-        "SELECT a.id, a.name, recent.scc, baseline.avg_scc
+        "SELECT a.id, a.name, recent.scc::float8, baseline.avg_scc
          FROM animals a
          JOIN LATERAL (SELECT q.scc FROM milk_quality q WHERE q.animal_id = a.id ORDER BY q.date DESC LIMIT 1) recent ON true
          JOIN LATERAL (SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days') baseline ON true
@@ -612,6 +612,44 @@ pub async fn feed_forecast(pool: &PgPool) -> Result<FeedForecastResponse, AppErr
         avg_per_cow_day_kg: avg_per_cow_day,
         milk_per_feed,
     })
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct LatestMilkRow {
+    animal_id: i32,
+    name: Option<String>,
+    date: String,
+    milk_amount: Option<f64>,
+    avg_amount: Option<f64>,
+    isk: Option<f64>,
+}
+
+pub async fn latest_milk(pool: &PgPool) -> Result<Vec<LatestMilkEntry>, AppError> {
+    let rows: Vec<LatestMilkRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name, \
+         TO_CHAR(m.date, 'YYYY-MM-DD') as date, \
+         m.milk_amount, m.avg_amount, m.isk \
+         FROM milk_day_productions m \
+         JOIN animals a ON a.id = m.animal_id \
+         WHERE m.date = (SELECT MAX(date) FROM milk_day_productions) \
+         ORDER BY m.milk_amount DESC NULLS LAST \
+         LIMIT 20",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| LatestMilkEntry {
+            animal_id: r.animal_id,
+            name: r.name,
+            date: r.date,
+            milk_amount: r.milk_amount,
+            avg_amount: r.avg_amount,
+            isk: r.isk,
+        })
+        .collect())
 }
 
 #[cfg(test)]

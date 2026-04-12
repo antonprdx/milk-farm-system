@@ -1,20 +1,27 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct LelyMeta {
     #[allow(dead_code)]
     pub code: i32,
     #[allow(dead_code)]
     pub message: Option<String>,
+    #[allow(dead_code)]
+    pub errors: Option<serde_json::Value>,
+    #[allow(dead_code)]
+    pub detail: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct LelyResponse<T> {
     pub data: Option<T>,
     pub meta: LelyMeta,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct LelyListResponse<T> {
     pub data: Option<Vec<T>>,
     pub meta: LelyMeta,

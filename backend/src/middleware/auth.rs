@@ -131,11 +131,12 @@ pub fn verify_token(token: &str, secret: &str) -> Result<Claims, AppError> {
     decode_token(token, secret)
 }
 
-fn extract_token_from_headers(headers: &HeaderMap) -> Option<String> {
+pub fn extract_token_from_headers(headers: &HeaderMap) -> Option<String> {
     headers
         .get("Authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer ").map(|s| s.to_string()))
+        .or_else(|| extract_token_from_cookies(headers))
 }
 
 fn extract_token_from_cookies(headers: &HeaderMap) -> Option<String> {
@@ -151,16 +152,26 @@ fn extract_token_from_cookies(headers: &HeaderMap) -> Option<String> {
 
 fn extract_token(parts: &Parts) -> Result<String, AppError> {
     extract_token_from_headers(&parts.headers)
-        .or_else(|| extract_token_from_cookies(&parts.headers))
         .ok_or_else(|| AppError::Unauthorized("Отсутствует токен".into()))
 }
 
-fn extract_token_str_from_headers(headers: &HeaderMap) -> Option<String> {
-    extract_token_from_headers(headers).or_else(|| extract_token_from_cookies(headers))
+fn extract_refresh_token_from_cookies(headers: &HeaderMap) -> Option<String> {
+    let cookie_str = headers.get("Cookie")?.to_str().ok()?;
+    for part in cookie_str.split(';') {
+        let trimmed = part.trim();
+        if let Some(val) = trimmed.strip_prefix("refresh_token=") {
+            return Some(val.to_string());
+        }
+    }
+    None
 }
 
 pub fn extract_token_from_parts(parts: &Parts) -> Option<String> {
-    extract_token_str_from_headers(&parts.headers)
+    extract_token_from_headers(&parts.headers)
+}
+
+pub fn extract_refresh_token_from_headers(headers: &HeaderMap) -> Option<String> {
+    extract_refresh_token_from_cookies(headers)
 }
 
 impl FromRequestParts<AppState> for Claims {

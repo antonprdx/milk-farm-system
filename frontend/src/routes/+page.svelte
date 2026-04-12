@@ -16,6 +16,7 @@
 		Database,
 		Server,
 		CircleAlert,
+		Plug,
 	} from 'lucide-svelte';
 	import {
 		getKpi,
@@ -23,11 +24,13 @@
 		getMilkTrend,
 		getReproductionForecast,
 		getFeedForecast,
+		getLatestMilk,
 		type KpiResponse,
 		type Alert,
 		type MilkTrendResponse,
 		type ReproductionForecastResponse,
 		type FeedForecastResponse,
+		type LatestMilkEntry,
 	} from '$lib/api/analytics';
 
 	Chart.register(LineController, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
@@ -37,9 +40,16 @@
 		db: 'ok' | 'error' | 'checking';
 	}
 
+	interface LelyStatus {
+		enabled: boolean;
+		connected?: boolean;
+		last_sync?: string;
+	}
+
 	let { data } = $props();
 
 	let systemStatus = $state<SystemStatus>({ api: 'checking', db: 'checking' });
+	let lelyStatus = $state<LelyStatus | null>(null);
 
 	let error = $state('');
 	let loading = $state(true);
@@ -50,6 +60,7 @@
 	let feed = $state<FeedForecastResponse | null>(null);
 	let trendCanvas: HTMLCanvasElement | undefined = $state();
 	let trendChart: Chart | null = null;
+	let latestMilk = $state<LatestMilkEntry[]>([]);
 
 	if (data.initialData) {
 		kpi = data.initialData.kpi;
@@ -73,6 +84,7 @@
 					api: 'ok',
 					db: data.db === 'ok' ? 'ok' : 'error',
 				};
+				lelyStatus = data.lely || null;
 			} else {
 				systemStatus = { api: 'error', db: 'error' };
 			}
@@ -103,12 +115,14 @@
 				getMilkTrend(30, 14),
 				getReproductionForecast(),
 				getFeedForecast(),
+				getLatestMilk(),
 			]);
 			if (results[0].status === 'fulfilled') kpi = results[0].value;
 			if (results[1].status === 'fulfilled') alerts = results[1].value.alerts;
 			if (results[2].status === 'fulfilled') trend = results[2].value;
 			if (results[3].status === 'fulfilled') repro = results[3].value;
 			if (results[4].status === 'fulfilled') feed = results[4].value;
+			if (results[5].status === 'fulfilled') latestMilk = results[5].value;
 			const failed = results.find((r) => r.status === 'rejected');
 			if (failed && failed.status === 'rejected') {
 				error = failed.reason?.message || 'Ошибка загрузки данных';
@@ -353,6 +367,27 @@
 						: 'БД недоступна'}
 			</span>
 		</div>
+		{#if lelyStatus}
+			<div class="flex items-center gap-1.5">
+				{#if lelyStatus.connected}
+					<div class="h-2.5 w-2.5 rounded-full bg-green-500" title="Lely подключён"></div>
+				{:else if lelyStatus.enabled}
+					<div class="h-2.5 w-2.5 rounded-full bg-yellow-500" title="Lely: ошибка"></div>
+				{:else}
+					<div class="h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-slate-600" title="Lely отключён"></div>
+				{/if}
+				<Plug size={14} class="text-slate-400" />
+				<span
+					class="text-xs {lelyStatus.connected
+						? 'text-green-600 dark:text-green-400'
+						: lelyStatus.enabled
+							? 'text-yellow-600 dark:text-yellow-400'
+							: 'text-slate-400'}"
+				>
+					{lelyStatus.connected ? 'Lely' : lelyStatus.enabled ? 'Lely: ошибка' : 'Lely: выкл'}
+				</span>
+			</div>
+		{/if}
 		{#if systemStatus.api === 'error' || systemStatus.db === 'error'}
 			<div class="flex items-center gap-1 ml-auto">
 				<CircleAlert size={14} class="text-amber-500" />
@@ -521,6 +556,54 @@
 			{/if}
 		</div>
 	</div>
+
+	<!-- Latest Milk Yields -->
+	{#if latestMilk.length > 0}
+		<div
+			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700 mb-6"
+		>
+			<div class="flex items-center justify-between mb-3">
+				<h2 class="text-base font-semibold text-slate-700 dark:text-slate-300">
+					Последние надои
+				</h2>
+				<span class="text-xs text-slate-400">{latestMilk[0]?.date}</span>
+			</div>
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+							<th class="pb-2 font-medium">Животное</th>
+							<th class="pb-2 font-medium text-right">Надой, л</th>
+							<th class="pb-2 font-medium text-right">Среднее, л</th>
+							<th class="pb-2 font-medium text-right">ИМК</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each latestMilk as m, i (i)}
+							<tr class="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+								<td class="py-1.5">
+									<a
+										href="/animals/{m.animal_id}"
+										class="text-blue-600 dark:text-blue-400 hover:underline"
+										>{m.name || 'ID ' + m.animal_id}</a
+									>
+								</td>
+								<td class="py-1.5 text-right font-medium text-slate-700 dark:text-slate-300"
+									>{m.milk_amount != null ? m.milk_amount.toFixed(1) : '—'}</td
+								>
+								<td class="py-1.5 text-right text-slate-600 dark:text-slate-400"
+									>{m.avg_amount != null ? m.avg_amount.toFixed(1) : '—'}</td
+								>
+								<td class="py-1.5 text-right text-slate-600 dark:text-slate-400"
+									>{m.isk != null ? m.isk.toFixed(1) : '—'}</td
+								>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Reproduction Forecasts -->
 	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

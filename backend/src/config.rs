@@ -21,7 +21,8 @@ pub struct Config {
     pub jwt_access_ttl_secs: u64,
     pub jwt_refresh_ttl_secs: u64,
     pub trust_proxy: bool,
-    pub lely: LelyConfig,
+    pub lely_encryption_key: String,
+    pub lely_env: LelyConfig,
 }
 
 impl Config {
@@ -65,7 +66,18 @@ impl Config {
                 .unwrap_or_else(|_| "false".into())
                 .parse()
                 .unwrap_or(false),
-            lely: LelyConfig {
+            lely_encryption_key: {
+                let key = std::env::var("LELY_ENCRYPTION_KEY")
+                    .unwrap_or_else(|_| "default-lely-encryption-key-change-me".to_string());
+                if key.len() < 32 {
+                    anyhow::bail!(
+                        "LELY_ENCRYPTION_KEY must be at least 32 characters, got {}",
+                        key.len()
+                    );
+                }
+                key
+            },
+            lely_env: LelyConfig {
                 enabled: std::env::var("LELY_ENABLED")
                     .unwrap_or_else(|_| "false".into())
                     .parse()

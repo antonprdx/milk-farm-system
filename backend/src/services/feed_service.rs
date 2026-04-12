@@ -100,6 +100,175 @@ pub async fn count_groups(pool: &PgPool) -> Result<i64, AppError> {
     Ok(row.0)
 }
 
+pub async fn create_day_amount(
+    pool: &PgPool,
+    data: &CreateFeedDayAmount,
+) -> Result<FeedDayAmount, AppError> {
+    sqlx::query_as::<_, FeedDayAmount>(
+        "INSERT INTO feed_day_amounts (animal_id, feed_date, feed_number, total, rest_feed)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *",
+    )
+    .bind(data.animal_id)
+    .bind(data.feed_date)
+    .bind(data.feed_number)
+    .bind(data.total)
+    .bind(data.rest_feed)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn create_feed_type(pool: &PgPool, data: &CreateFeedType) -> Result<FeedType, AppError> {
+    sqlx::query_as::<_, FeedType>(
+        "INSERT INTO feed_types (number_of_feed_type, feed_type, name, description, dry_matter_percentage, stock_attention_level, price)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+    )
+    .bind(data.number_of_feed_type)
+    .bind(&data.feed_type)
+    .bind(&data.name)
+    .bind(&data.description)
+    .bind(data.dry_matter_percentage)
+    .bind(data.stock_attention_level)
+    .bind(data.price)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn update_feed_type(
+    pool: &PgPool,
+    id: i32,
+    data: &UpdateFeedType,
+) -> Result<FeedType, AppError> {
+    let existing = sqlx::query_as::<_, FeedType>("SELECT * FROM feed_types WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(AppError::Database)?
+        .ok_or_else(|| AppError::NotFound("Тип корма не найден".into()))?;
+
+    sqlx::query_as::<_, FeedType>(
+        "UPDATE feed_types SET number_of_feed_type = $1, feed_type = $2, name = $3,
+         description = $4, dry_matter_percentage = $5, stock_attention_level = $6, price = $7
+         WHERE id = $8 RETURNING *",
+    )
+    .bind(
+        data.number_of_feed_type
+            .unwrap_or(existing.number_of_feed_type),
+    )
+    .bind(data.feed_type.as_deref().unwrap_or(&existing.feed_type))
+    .bind(data.name.as_deref().unwrap_or(&existing.name))
+    .bind(
+        data.description
+            .as_deref()
+            .or(existing.description.as_deref()),
+    )
+    .bind(
+        data.dry_matter_percentage
+            .unwrap_or(existing.dry_matter_percentage),
+    )
+    .bind(
+        data.stock_attention_level
+            .or(existing.stock_attention_level),
+    )
+    .bind(data.price.unwrap_or(existing.price))
+    .bind(id)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn delete_feed_type(pool: &PgPool, id: i32) -> Result<(), AppError> {
+    let result = sqlx::query("DELETE FROM feed_types WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await
+        .map_err(AppError::Database)?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Тип корма не найден".into()));
+    }
+    Ok(())
+}
+
+pub async fn create_feed_group(
+    pool: &PgPool,
+    data: &CreateFeedGroup,
+) -> Result<FeedGroup, AppError> {
+    sqlx::query_as::<_, FeedGroup>(
+        "INSERT INTO feed_groups (name, min_milk_yield, max_milk_yield, avg_milk_yield,
+         avg_milk_fat, avg_milk_protein, avg_weight, max_robot_feed_types,
+         max_feed_intake_robot, min_feed_intake_robot, number_of_cows)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
+    )
+    .bind(&data.name)
+    .bind(data.min_milk_yield)
+    .bind(data.max_milk_yield)
+    .bind(data.avg_milk_yield)
+    .bind(data.avg_milk_fat)
+    .bind(data.avg_milk_protein)
+    .bind(data.avg_weight)
+    .bind(data.max_robot_feed_types)
+    .bind(data.max_feed_intake_robot)
+    .bind(data.min_feed_intake_robot)
+    .bind(data.number_of_cows)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn update_feed_group(
+    pool: &PgPool,
+    id: i32,
+    data: &UpdateFeedGroup,
+) -> Result<FeedGroup, AppError> {
+    let existing = sqlx::query_as::<_, FeedGroup>("SELECT * FROM feed_groups WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(AppError::Database)?
+        .ok_or_else(|| AppError::NotFound("Группа корма не найдена".into()))?;
+
+    sqlx::query_as::<_, FeedGroup>(
+        "UPDATE feed_groups SET name = $1, min_milk_yield = $2, max_milk_yield = $3,
+         avg_milk_yield = $4, avg_milk_fat = $5, avg_milk_protein = $6, avg_weight = $7,
+         max_robot_feed_types = $8, max_feed_intake_robot = $9, min_feed_intake_robot = $10,
+         number_of_cows = $11 WHERE id = $12 RETURNING *",
+    )
+    .bind(data.name.as_deref().unwrap_or(&existing.name))
+    .bind(data.min_milk_yield.or(existing.min_milk_yield))
+    .bind(data.max_milk_yield.or(existing.max_milk_yield))
+    .bind(data.avg_milk_yield.or(existing.avg_milk_yield))
+    .bind(data.avg_milk_fat.or(existing.avg_milk_fat))
+    .bind(data.avg_milk_protein.or(existing.avg_milk_protein))
+    .bind(data.avg_weight.or(existing.avg_weight))
+    .bind(data.max_robot_feed_types.or(existing.max_robot_feed_types))
+    .bind(
+        data.max_feed_intake_robot
+            .or(existing.max_feed_intake_robot),
+    )
+    .bind(
+        data.min_feed_intake_robot
+            .or(existing.min_feed_intake_robot),
+    )
+    .bind(data.number_of_cows.or(existing.number_of_cows))
+    .bind(id)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn delete_feed_group(pool: &PgPool, id: i32) -> Result<(), AppError> {
+    let result = sqlx::query("DELETE FROM feed_groups WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await
+        .map_err(AppError::Database)?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound("Группа корма не найдена".into()));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

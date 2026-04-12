@@ -21,6 +21,8 @@
 		getLelyStatus,
 		triggerLelySync,
 		getLelyConfig,
+		updateLelyConfig,
+		testLelyConnection,
 		type LelySyncStatus,
 		type LelyConfigResponse,
 	} from '$lib/api/lely';
@@ -49,6 +51,8 @@
 		BarChart3,
 		RefreshCw,
 		Plug,
+		Wifi,
+		WifiOff,
 	} from 'lucide-svelte';
 
 	let dataTable: DataTable | undefined = $state();
@@ -112,6 +116,15 @@
 	let lelyConfig = $state<LelyConfigResponse | null>(null);
 	let lelySyncing = $state(false);
 	let lelyLoading = $state(false);
+	let lelySaving = $state(false);
+	let lelyTesting = $state(false);
+	let lelyTestResult = $state<{ success: boolean; message: string } | null>(null);
+	let lelyEnabled = $state(false);
+	let lelyUrl = $state('');
+	let lelyUsername = $state('');
+	let lelyPassword = $state('');
+	let lelyFarmKey = $state('');
+	let lelyInterval = $state('300');
 
 	let tabs = $derived([
 		{ key: 'profile', label: 'Профиль' },
@@ -157,6 +170,12 @@
 				getLelyConfig()
 					.then((c) => {
 						lelyConfig = c;
+						lelyEnabled = c.enabled;
+						lelyUrl = c.base_url;
+						lelyUsername = c.username;
+						lelyPassword = '';
+						lelyFarmKey = '';
+						lelyInterval = c.sync_interval_secs.toString();
 					})
 					.catch((e) => console.warn('Failed to load Lely config', e));
 				getLelyStatus()
@@ -312,6 +331,51 @@
 		if (d > 0) return `${d}д ${h}ч ${m}м`;
 		if (h > 0) return `${h}ч ${m}м`;
 		return `${m}м`;
+	}
+
+	async function saveLelyConfig() {
+		try {
+			lelySaving = true;
+			lelyTestResult = null;
+			const data: Record<string, unknown> = {
+				enabled: lelyEnabled,
+				base_url: lelyUrl,
+				username: lelyUsername,
+				sync_interval_secs: parseInt(lelyInterval) || 300,
+			};
+			if (lelyPassword) data.password = lelyPassword;
+			if (lelyFarmKey) data.farm_key = lelyFarmKey;
+			await updateLelyConfig(data);
+			lelyPassword = '';
+			lelyFarmKey = '';
+			toasts.success('Настройки Lely сохранены');
+			load();
+		} catch (e) {
+			toasts.error(e instanceof Error ? e.message : 'Ошибка');
+		} finally {
+			lelySaving = false;
+		}
+	}
+
+	async function testLely() {
+		try {
+			lelyTesting = true;
+			lelyTestResult = null;
+			const data: Record<string, unknown> = {
+				base_url: lelyUrl,
+				username: lelyUsername,
+			};
+			if (lelyPassword) data.password = lelyPassword;
+			if (lelyFarmKey) data.farm_key = lelyFarmKey;
+			lelyTestResult = await testLelyConnection(data);
+		} catch (e) {
+			lelyTestResult = {
+				success: false,
+				message: e instanceof Error ? e.message : 'Ошибка подключения',
+			};
+		} finally {
+			lelyTesting = false;
+		}
 	}
 
 	onMount(load);
@@ -765,6 +829,137 @@
 			>
 				<Plug size={18} /> Подключение Lely
 			</h2>
+
+			{#if lelyConfig}
+				<div class="space-y-4">
+					<div class="flex items-center justify-between">
+						<div>
+							<span class="text-sm font-medium text-slate-700 dark:text-slate-300"
+								>Интеграция включена</span
+							>
+							<p class="text-xs text-slate-400">
+								{lelyEnabled ? 'Данные синхронизируются автоматически' : 'Синхронизация остановлена'}
+							</p>
+						</div>
+						<button
+							onclick={() => (lelyEnabled = !lelyEnabled)}
+							aria-label={lelyEnabled ? 'Отключить интеграцию' : 'Включить интеграцию'}
+							class="relative w-10 h-5 rounded-full transition-colors cursor-pointer {lelyEnabled
+								? 'bg-blue-600'
+								: 'bg-slate-300 dark:bg-slate-600'}"
+						>
+							<span
+								class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform {lelyEnabled
+									? 'translate-x-5'
+									: ''}"
+							></span>
+						</button>
+					</div>
+
+					<FormField id="lely-url" label="URL сервера Lely" type="url" bind:value={lelyUrl} />
+					<FormField
+						id="lely-user"
+						label="Имя пользователя"
+						type="text"
+						bind:value={lelyUsername}
+					/>
+					<FormField
+						id="lely-pass"
+						label="Пароль {lelyConfig.password_set ? '(оставить пустым чтобы не менять)' : ''}"
+						type="password"
+						bind:value={lelyPassword}
+					/>
+					<FormField
+						id="lely-farmkey"
+						label="FarmKey {lelyConfig.farm_key_set ? '(оставить пустым чтобы не менять)' : ''}"
+						type="password"
+						bind:value={lelyFarmKey}
+					/>
+					<FormField
+						id="lely-interval"
+						label="Интервал синхронизации (секунд)"
+						type="number"
+						bind:value={lelyInterval}
+					/>
+
+					{#if lelyTestResult}
+						<div
+							class="flex items-start gap-2 p-3 rounded-lg text-sm {lelyTestResult.success
+								? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+								: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'}"
+						>
+							{#if lelyTestResult.success}
+								<Wifi size={16} class="mt-0.5 shrink-0" />
+							{:else}
+								<WifiOff size={16} class="mt-0.5 shrink-0" />
+							{/if}
+							<span>{lelyTestResult.message}</span>
+						</div>
+					{/if}
+
+					<div
+						class="flex items-center gap-3 justify-end pt-4 border-t border-slate-200 dark:border-slate-700"
+					>
+						<button
+							onclick={testLely}
+							disabled={lelyTesting}
+							class="flex items-center gap-1.5 px-4 py-2 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+						>
+							{#if lelyTesting}
+								<RefreshCw size={14} class="animate-spin" />
+								Проверка...
+							{:else}
+								<Wifi size={14} />
+								Проверить подключение
+							{/if}
+						</button>
+						<button
+							onclick={saveLelyConfig}
+							disabled={lelySaving}
+							class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+						>
+							<Save size={14} />
+							{lelySaving ? 'Сохранение...' : 'Сохранить'}
+						</button>
+					</div>
+				</div>
+			{:else}
+				<div class="animate-pulse space-y-2">
+					{#each Array(4) as _, i (i)}
+						<div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
+		<div
+			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-6"
+		>
+			<div class="flex items-center justify-between mb-4">
+				<h2
+					class="text-lg font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2"
+				>
+					<RefreshCw size={18} /> Статус синхронизации
+				</h2>
+				<button
+					onclick={async () => {
+						try {
+							lelySyncing = true;
+							await triggerLelySync();
+							toasts.success('Синхронизация запущена');
+						} catch (e) {
+							toasts.error(e instanceof Error ? e.message : 'Ошибка');
+						} finally {
+							lelySyncing = false;
+						}
+					}}
+					disabled={lelySyncing || !lelyConfig?.enabled}
+					class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+				>
+					<RefreshCw size={14} />
+					{lelySyncing ? 'Запуск...' : 'Синхронизировать'}
+				</button>
+			</div>
 			{#if lelyConfig}
 				<div class="space-y-3 text-sm">
 					<div class="flex justify-between">
