@@ -1,4 +1,4 @@
-import { api, buildQuery } from './client';
+import { api, post, put, del, buildQuery } from './client';
 
 export interface FeedDayAmount {
 	id: number;
@@ -44,6 +44,54 @@ export interface FeedGroup {
 	number_of_cows: number | null;
 }
 
+export interface CreateFeedType {
+	number_of_feed_type: number;
+	feed_type: string;
+	name: string;
+	description?: string;
+	dry_matter_percentage: number;
+	stock_attention_level?: number;
+	price: number;
+}
+
+export interface UpdateFeedType {
+	number_of_feed_type?: number;
+	feed_type?: string;
+	name?: string;
+	description?: string;
+	dry_matter_percentage?: number;
+	stock_attention_level?: number;
+	price?: number;
+}
+
+export interface CreateFeedGroup {
+	name: string;
+	min_milk_yield?: number;
+	max_milk_yield?: number;
+	avg_milk_yield?: number;
+	avg_milk_fat?: number;
+	avg_milk_protein?: number;
+	avg_weight?: number;
+	max_robot_feed_types?: number;
+	max_feed_intake_robot?: number;
+	min_feed_intake_robot?: number;
+	number_of_cows?: number;
+}
+
+export interface UpdateFeedGroup {
+	name?: string;
+	min_milk_yield?: number;
+	max_milk_yield?: number;
+	avg_milk_yield?: number;
+	avg_milk_fat?: number;
+	avg_milk_protein?: number;
+	avg_weight?: number;
+	max_robot_feed_types?: number;
+	max_feed_intake_robot?: number;
+	min_feed_intake_robot?: number;
+	number_of_cows?: number;
+}
+
 export interface FeedFilter {
 	animal_id?: string;
 	from_date?: string;
@@ -72,4 +120,28 @@ export function listTypes(signal?: AbortSignal) {
 
 export function listGroups(signal?: AbortSignal) {
 	return api<{ data: FeedGroup[] }>('/feed/groups', { signal });
+}
+
+export function createFeedType(data: CreateFeedType) {
+	return post<FeedType>('/feed/types', data);
+}
+
+export function updateFeedType(id: number, data: UpdateFeedType) {
+	return put<FeedType>(`/feed/types/${id}`, data);
+}
+
+export function deleteFeedType(id: number) {
+	return del<{ message: string }>(`/feed/types/${id}`);
+}
+
+export function createFeedGroup(data: CreateFeedGroup) {
+	return post<FeedGroup>('/feed/groups', data);
+}
+
+export function updateFeedGroup(id: number, data: UpdateFeedGroup) {
+	return put<FeedGroup>(`/feed/groups/${id}`, data);
+}
+
+export function deleteFeedGroup(id: number) {
+	return del<{ message: string }>(`/feed/groups/${id}`);
 }
