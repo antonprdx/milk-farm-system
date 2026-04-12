@@ -3,7 +3,7 @@ mod common;
 use axum::body::Body;
 use axum::http::StatusCode;
 use milk_farm_backend::create_app;
-use serde_json::{Value, json};
+use serde_json::Value;
 use tower::ServiceExt;
 
 use common::*;
