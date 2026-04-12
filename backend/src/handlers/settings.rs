@@ -335,6 +335,7 @@ async fn update_alert_thresholds(
     State(state): State<AppState>,
     Json(req): Json<UpdateAlertThresholds>,
 ) -> Result<Json<AlertThresholds>, AppError> {
+    req.validate()?;
     let thresholds = system_settings_service::update_alert_thresholds(&state.pool, &req).await?;
     Ok(Json(thresholds))
 }

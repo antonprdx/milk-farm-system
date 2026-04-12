@@ -20,16 +20,10 @@ pub fn routes() -> Router<AppState> {
             get(list_day_amounts).post(create_day_amount),
         )
         .route("/feed/visits", get(list_visits))
-        .route(
-            "/feed/types",
-            get(list_types).post(create_type).delete(delete_type),
-        )
-        .route("/feed/types/{id}", put(update_type))
-        .route(
-            "/feed/groups",
-            get(list_groups).post(create_group).delete(delete_group),
-        )
-        .route("/feed/groups/{id}", put(update_group))
+        .route("/feed/types", get(list_types).post(create_type))
+        .route("/feed/types/{id}", put(update_type).delete(delete_type))
+        .route("/feed/groups", get(list_groups).post(create_group))
+        .route("/feed/groups/{id}", put(update_group).delete(delete_group))
 }
 
 #[utoipa::path(
@@ -74,6 +68,7 @@ async fn create_day_amount(
     State(state): State<AppState>,
     Json(data): Json<CreateFeedDayAmount>,
 ) -> Result<Json<Value>, AppError> {
+    data.validate()?;
     let result = feed_service::create_day_amount(&state.pool, &data).await?;
     Ok(Json(json!({ "data": result })))
 }
@@ -162,6 +157,7 @@ async fn create_type(
     State(state): State<AppState>,
     Json(data): Json<CreateFeedType>,
 ) -> Result<Json<FeedType>, AppError> {
+    data.validate()?;
     let feed_type = feed_service::create_feed_type(&state.pool, &data).await?;
     Ok(Json(feed_type))
 }
@@ -185,6 +181,7 @@ async fn update_type(
     Path(id): Path<i32>,
     Json(data): Json<UpdateFeedType>,
 ) -> Result<Json<FeedType>, AppError> {
+    data.validate()?;
     let feed_type = feed_service::update_feed_type(&state.pool, id, &data).await?;
     Ok(Json(feed_type))
 }
@@ -225,6 +222,7 @@ async fn create_group(
     State(state): State<AppState>,
     Json(data): Json<CreateFeedGroup>,
 ) -> Result<Json<FeedGroup>, AppError> {
+    data.validate()?;
     let group = feed_service::create_feed_group(&state.pool, &data).await?;
     Ok(Json(group))
 }
@@ -248,6 +246,7 @@ async fn update_group(
     Path(id): Path<i32>,
     Json(data): Json<UpdateFeedGroup>,
 ) -> Result<Json<FeedGroup>, AppError> {
+    data.validate()?;
     let group = feed_service::update_feed_group(&state.pool, id, &data).await?;
     Ok(Json(group))
 }
