@@ -141,12 +141,16 @@
 	let transitionData: TransitionResponse | null = $state(null);
 
 	function groupedTabs(): { group: string; items: TabDef[] }[] {
-		const map = new Map<string, TabDef[]>();
+		const groups: { group: string; items: TabDef[] }[] = [];
 		for (const t of tabs) {
-			if (!map.has(t.group)) map.set(t.group, []);
-			map.get(t.group)!.push(t);
+			const existing = groups.find((g) => g.group === t.group);
+			if (existing) {
+				existing.items.push(t);
+			} else {
+				groups.push({ group: t.group, items: [t] });
+			}
 		}
-		return Array.from(map.entries()).map(([group, items]) => ({ group, items }));
+		return groups;
 	}
 
 	async function load() {
@@ -232,7 +236,7 @@
 <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-4">Отчёты</h1>
 
 <div class="mb-4 flex flex-wrap gap-1">
-	{#each groupedTabs() as grp}
+	{#each groupedTabs() as grp (grp.group)}
 		<div class="flex items-center gap-1">
 			<span class="text-xs font-semibold text-slate-400 dark:text-slate-500 mr-1">{grp.group}:</span>
 			{#each grp.items as tab (tab.id)}
@@ -355,7 +359,7 @@
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each herdData.period as row}
+					{#each herdData.period as row (row.date)}
 						<tr><td class={tdCls}>{row.date}</td><td class={tdCls}>{row.cow_count}</td>
 							<td class={tdCls}>{fmtNum(row.total_milk)}</td><td class={tdCls}>{fmtNum(row.avg_day_production)}</td>
 							<td class={tdCls}>{row.total_milkings ?? '—'}</td><td class={tdCls}>{row.total_refusals ?? '—'}</td>
@@ -383,7 +387,7 @@
 						<th class={thCls}>План (кг)</th><th class={thCls}>Остаток</th><th class={thCls}>%</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each restFeedData.rows as row}
+					{#each restFeedData.rows as row (row.animal_id + '-' + row.feed_date + '-' + row.feed_number)}
 						<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdCls}>{row.feed_date}</td>
 							<td class={tdCls}>{row.feed_number}</td><td class={tdCls}>{fmtNum(row.total_planned)}</td>
 							<td class={tdCls}>{row.rest_feed ?? '—'}</td>
@@ -404,7 +408,7 @@
 						<th class={thCls}>LF DMT</th><th class={thCls}>LR DMT</th><th class={thCls}>RF DMT</th><th class={thCls}>RR DMT</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each robotData as row}
+					{#each robotData as row (row.device_address + '-' + row.date)}
 						<tr><td class={tdCls}>{row.device_address ?? '—'}</td><td class={tdCls}>{row.date}</td>
 							<td class={tdCls}>{fmtNum(row.avg_milk_speed)}</td><td class={tdCls}>{fmtNum(row.max_milk_speed)}</td>
 							<td class={tdCls}>{row.milkings}</td>
@@ -429,7 +433,7 @@
 						<th class={thCls}>RF конд.</th><th class={thCls}>RR конд.</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each failedData as row}
+					{#each failedData as row (row.animal_id + '-' + row.visit_datetime)}
 						<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdCls}>{new Date(row.visit_datetime).toLocaleString('ru-RU')}</td>
 							<td class={tdCls}>{row.device_address ?? '—'}</td><td class={tdCls}>{fmtNum(row.milk_yield)}</td>
 							<td class={tdCls}><span class={row.lf_conductivity && row.lf_conductivity > 83 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{row.lf_conductivity ?? '—'}</span></td>
@@ -453,7 +457,7 @@
 						<th class={thCls}>Attention</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each udderRows as row}
+					{#each udderRows as row (row.animal_id + '-' + row.visit_datetime)}
 						<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
 							<td class={tdCls}>{new Date(row.visit_datetime).toLocaleString('ru-RU')}</td>
 							<td class={tdCls}><span class={row.lf_conductivity && row.lf_conductivity > 80 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{row.lf_conductivity ?? '—'}</span></td>
@@ -479,7 +483,7 @@
 						<th class={thCls}>Неудач</th><th class={thCls}>Вес</th><th class={thCls}>Корм (кг)</th><th class={thCls}>Ост. корм</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each milkTime as row}
+					{#each milkTime as row (row.date)}
 						<tr><td class={tdCls}>{row.date}</td><td class={tdCls}>{row.cow_count}</td>
 							<td class={tdCls}>{fmtNum(row.total_milk)}</td><td class={tdCls}>{fmtNum(row.avg_milk_per_cow)}</td>
 							<td class={tdCls}>{row.milkings ?? '—'}</td><td class={tdCls}>{row.refusals ?? '—'}</td>
@@ -499,7 +503,7 @@
 						<th class={thCls}>Средн./доение (л)</th><th class={thCls}>Средн. время (с)</th><th class={thCls}>Посл. визит</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each visitData as row}
+					{#each visitData as row (row.animal_id)}
 						<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdCls}>{row.total_milkings}</td>
 							<td class={tdCls}>{row.total_refusals}</td>
 							<td class={tdCls}><span class={row.avg_milk_per_milking && row.avg_milk_per_milking < 8 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{fmtNum(row.avg_milk_per_milking)}</span></td>
@@ -522,7 +526,7 @@
 								<th class={thCls}>Ожид. отёл</th><th class={thCls}>Дней до отёла</th><th class={thCls}>Бык</th><th class={thCls}>Дней стельности</th></tr>
 						</thead>
 						<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-							{#each calendarData.expected_calvings as row}
+							{#each calendarData.expected_calvings as row (row.animal_id)}
 								<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdCls}>{row.lac_number ?? '—'}</td>
 									<td class={tdCls}>{row.last_insemination_date ?? '—'}</td><td class={tdCls}>{row.expected_calving_date ?? '—'}</td>
 									<td class={tdCls}><span class={row.days_until_calving && row.days_until_calving < 14 ? badgeRed : row.days_until_calving && row.days_until_calving < 30 ? badgeYellow : ''}>{row.days_until_calving ?? '—'}</span></td>
@@ -541,7 +545,7 @@
 								<th class={thCls}>Дней до запуска</th></tr>
 						</thead>
 						<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-							{#each calendarData.expected_dry_offs as row}
+							{#each calendarData.expected_dry_offs as row (row.animal_id)}
 								<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdCls}>{row.expected_calving_date ?? '—'}</td>
 									<td class={tdCls}>{row.recommended_dry_off_date ?? '—'}</td>
 									<td class={tdCls}><span class={row.days_until_dry_off && row.days_until_dry_off < 7 ? badgeRed : row.days_until_dry_off && row.days_until_dry_off < 14 ? badgeYellow : ''}>{row.days_until_dry_off ?? '—'}</span></td></tr>
@@ -559,7 +563,7 @@
 								<th class={thCls}>Дней до</th><th class={thCls}>Дней в лакт.</th><th class={thCls}>Осеменена</th></tr>
 						</thead>
 						<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-							{#each calendarData.expected_heats as row}
+							{#each calendarData.expected_heats as row (row.animal_id)}
 								<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdCls}>{row.last_heat_date ?? '—'}</td>
 									<td class={tdCls}>{row.expected_heat_date ?? '—'}</td>
 									<td class={tdCls}><span class={row.overdue ? badgeRed : row.days_until_heat && row.days_until_heat < 3 ? badgeYellow : ''}>{row.days_until_heat ?? '—'}</span></td>
@@ -579,7 +583,7 @@
 								<th class={thCls}>Дней после инсем.</th></tr>
 						</thead>
 						<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-							{#each calendarData.pregnancy_checks as row}
+							{#each calendarData.pregnancy_checks as row (row.animal_id)}
 								<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdCls}>{row.insemination_date ?? '—'}</td>
 									<td class={tdCls}>{row.sire_code ?? '—'}</td>
 									<td class={tdCls}><span class={badgeYellow}>{row.days_since_insemination ?? '—'}</span></td></tr>
@@ -600,7 +604,7 @@
 						<th class={thCls}>Надой</th><th class={thCls}>Ср. 7д</th><th class={thCls}>Откл. %</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each healthAct as row}
+					{#each healthAct as row (row.animal_id)}
 						<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
 							<td class={tdCls}><span class={row.health_index && row.health_index < 75 ? badgeRed : row.health_index && row.health_index < 80 ? badgeYellow : ''}>{fmtNum(row.health_index, 0)}</span></td>
 							<td class={tdCls}>{fmtNum(row.activity_deviation, 0)}</td>
@@ -624,7 +628,7 @@
 						<th class={thCls}>Надой/7д</th><th class={thCls}>Средн./доение</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each efficiencyData as row}
+					{#each efficiencyData as row (row.animal_id)}
 						<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
 							<td class={tdCls}><span class={row.milk_per_box_time_week && row.milk_per_box_time_week < 0.5 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{fmtNum(row.milk_per_box_time_week, 3)}</span></td>
 							<td class={tdCls}>{fmtNum(row.avg_milk_speed)}</td>
@@ -640,7 +644,7 @@
 
 	<!-- LACTATION ANALYSIS -->
 	{:else if activeTab === 'lactation'}
-		{#each lactationData as lac}
+		{#each lactationData as lac (lac.lac_number)}
 			<div class="mb-6">
 				<h2 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">Лактация {lac.lac_number}</h2>
 				<div class="overflow-x-auto bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700">
@@ -651,7 +655,7 @@
 								<th class={thCls}>Белок%</th><th class={thCls}>Коров</th></tr>
 						</thead>
 						<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-							{#each lac.points as pt}
+							{#each lac.points as pt (pt.dim)}
 								<tr><td class={tdCls}>{pt.dim}</td><td class={tdCls}>{fmtNum(pt.avg_milk)}</td>
 									<td class={tdCls}>{fmtNum(pt.avg_visits, 1)}</td><td class={tdCls}>{fmtNum(pt.avg_feed)}</td>
 									<td class={tdCls}>{fmtNum(pt.avg_weight)}</td><td class={tdCls}>{fmtNum(pt.avg_fat)}</td>
@@ -679,7 +683,7 @@
 						<th class={thCls}>Стоимость</th><th class={thCls}>На 100л молока</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each feedTypeData.rows as row}
+					{#each feedTypeData.rows as row (row.date + '-' + row.feed_type)}
 						<tr><td class={tdCls}>{row.date}</td><td class={tdCls}>{row.feed_type}</td>
 							<td class={tdCls}>{row.feed_type_name}</td><td class={tdCls}>{fmtNum(row.total_amount_product)}</td>
 							<td class={tdCls}>{fmtNum(row.total_amount_dm)}</td><td class={tdCls}>{fmtNum(row.total_cost)}</td>
@@ -700,7 +704,7 @@
 						<th class={thCls}>Эфф. корма</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each feedCowData as row}
+					{#each feedCowData as row (row.date)}
 						<tr><td class={tdCls}>{row.date}</td><td class={tdCls}>{row.animal_count}</td>
 							<td class={tdCls}>{fmtNum(row.avg_total_per_cow)}</td><td class={tdCls}>{fmtNum(row.avg_concentrate_per_cow)}</td>
 							<td class={tdCls}>{fmtNum(row.avg_roughage_per_cow)}</td><td class={tdCls}>{fmtNum(row.avg_cost_per_cow)}</td>
@@ -723,7 +727,7 @@
 						<th class={thCls}>Дни лакт.</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each healthTaskData.rows as row}
+					{#each healthTaskData.rows as row (row.animal_id)}
 						<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
 							<td class={tdCls}><span class={statusBadge(row.sick_chance_status)}>{fmtNum(row.sick_chance, 0)}</span></td>
 							<td class={tdCls}><span class={statusBadge(row.sick_chance_status)}>{row.sick_chance_status}</span></td>
@@ -752,7 +756,7 @@
 						<th class={thCls}>Коэфф. стельности</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each pregnancyData.periods as row}
+					{#each pregnancyData.periods as row (row.end_date)}
 						<tr><td class={tdCls}>{row.end_date}</td><td class={tdCls}>{row.eligible}</td>
 							<td class={tdCls}>{row.inseminated}</td><td class={tdCls}>{row.pregnant}</td>
 							<td class={tdCls}>{fmtNum(row.insemination_rate)}%</td>
@@ -773,7 +777,7 @@
 						<th class={thCls}>Корм (кг)</th><th class={thCls}>Ост. корм</th><th class={thCls}>SCC</th></tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
-					{#each transitionData.rows as row}
+					{#each transitionData.rows as row (row.animal_id)}
 						<tr><td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
 							<td class={tdCls}><span class={row.days_relative === 0 ? badgeYellow : row.days_relative < 0 ? 'text-blue-600 dark:text-blue-400' : ''}>{row.days_relative > 0 ? '+' : ''}{row.days_relative}</span></td>
 							<td class={tdCls}>{fmtNum(row.milk_24h)}</td>
