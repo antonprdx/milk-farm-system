@@ -110,6 +110,15 @@ fn validate_date_range(filter: &ReportFilter) -> Result<(), AppError> {
     Ok(())
 }
 
+fn require_date_range(filter: &ReportFilter) -> Result<(), AppError> {
+    if filter.from_date.is_none() || filter.till_date.is_none() {
+        return Err(AppError::BadRequest(
+            "Необходимо указать from_date и till_date".into(),
+        ));
+    }
+    validate_date_range(filter)
+}
+
 fn format_date_range(filter: &ReportFilter) -> String {
     format!(
         "Период: {} - {}",
@@ -387,6 +396,7 @@ async fn herd_overview(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<crate::models::reports::HerdOverviewResponse>, AppError> {
+    require_date_range(&filter)?;
     let data =
         reports_service::herd_overview(&state.pool, filter.from_date, filter.till_date).await?;
     Ok(Json(data))
@@ -407,6 +417,7 @@ async fn rest_feed(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<crate::models::reports::RestFeedResponse>, AppError> {
+    require_date_range(&filter)?;
     let data =
         reports_service::rest_feed_report(&state.pool, filter.from_date, filter.till_date).await?;
     Ok(Json(data))
@@ -427,6 +438,7 @@ async fn robot_performance(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<Vec<crate::models::reports::RobotPerformanceRow>>, AppError> {
+    require_date_range(&filter)?;
     let data =
         reports_service::robot_performance(&state.pool, filter.from_date, filter.till_date).await?;
     Ok(Json(data))
@@ -447,6 +459,7 @@ async fn failed_milkings(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<Vec<crate::models::reports::FailedMilkingRow>>, AppError> {
+    require_date_range(&filter)?;
     let data =
         reports_service::failed_milkings(&state.pool, filter.from_date, filter.till_date).await?;
     Ok(Json(data))
@@ -501,6 +514,7 @@ async fn milk_day_production_time(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<Vec<crate::models::reports::MilkDayProductionTimeRow>>, AppError> {
+    require_date_range(&filter)?;
     let data =
         reports_service::milk_day_production_time(&state.pool, filter.from_date, filter.till_date)
             .await?;
@@ -522,6 +536,7 @@ async fn visit_behavior(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<Vec<crate::models::reports::VisitBehaviorRow>>, AppError> {
+    require_date_range(&filter)?;
     let data =
         reports_service::visit_behavior(&state.pool, filter.from_date, filter.till_date).await?;
     Ok(Json(data))
@@ -612,6 +627,7 @@ async fn feed_per_type_day(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<crate::models::reports::FeedPerTypeResponse>, AppError> {
+    require_date_range(&filter)?;
     let data =
         reports_service::feed_per_type_day(&state.pool, filter.from_date, filter.till_date).await?;
     Ok(Json(data))
@@ -632,6 +648,7 @@ async fn feed_per_cow_day(
     State(state): State<AppState>,
     Query(filter): Query<ReportFilter>,
 ) -> Result<Json<Vec<crate::models::reports::FeedPerCowDayRow>>, AppError> {
+    require_date_range(&filter)?;
     let data =
         reports_service::feed_per_cow_day(&state.pool, filter.from_date, filter.till_date).await?;
     Ok(Json(data))

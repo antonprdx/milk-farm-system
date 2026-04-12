@@ -107,33 +107,23 @@ pub async fn update_alert_thresholds(
 }
 
 pub async fn get_system_info(pool: &PgPool) -> Result<SystemInfo, AppError> {
-    let db_size: (f64,) =
-        sqlx::query_as("SELECT (pg_database_size(current_database())::double precision / 1024.0 / 1024.0)::double precision")
-            .fetch_one(pool)
-            .await
-            .map_err(AppError::Database)?;
-
-    let animals: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM animals")
-        .fetch_one(pool)
-        .await
-        .map_err(AppError::Database)?;
-
-    let milk: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM milk_day_productions")
-        .fetch_one(pool)
-        .await
-        .map_err(AppError::Database)?;
-
-    let repro: (i64,) = sqlx::query_as(
-        "SELECT COALESCE(SUM(c)::bigint, 0) FROM (SELECT COUNT(*) as c FROM calvings UNION ALL SELECT COUNT(*) FROM inseminations UNION ALL SELECT COUNT(*) FROM pregnancies UNION ALL SELECT COUNT(*) FROM heats UNION ALL SELECT COUNT(*) FROM dry_offs) sub"
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
-
-    let users: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
-        .fetch_one(pool)
-        .await
-        .map_err(AppError::Database)?;
+    let (db_size, animals, milk, repro, users) = tokio::join!(
+        sqlx::query_as::<_, (f64,)>("SELECT (pg_database_size(current_database())::double precision / 1024.0 / 1024.0)::double precision")
+            .fetch_one(pool),
+        sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM animals")
+            .fetch_one(pool),
+        sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM milk_day_productions")
+            .fetch_one(pool),
+        sqlx::query_as::<_, (i64,)>("SELECT COALESCE(SUM(c)::bigint, 0) FROM (SELECT COUNT(*) as c FROM calvings UNION ALL SELECT COUNT(*) FROM inseminations UNION ALL SELECT COUNT(*) FROM pregnancies UNION ALL SELECT COUNT(*) FROM heats UNION ALL SELECT COUNT(*) FROM dry_offs) sub")
+            .fetch_one(pool),
+        sqlx::query_as::<_, (i64,)>("SELECT COUNT(*) FROM users")
+            .fetch_one(pool),
+    );
+    let db_size = db_size.map_err(AppError::Database)?;
+    let animals = animals.map_err(AppError::Database)?;
+    let milk = milk.map_err(AppError::Database)?;
+    let repro = repro.map_err(AppError::Database)?;
+    let users = users.map_err(AppError::Database)?;
 
     Ok(SystemInfo {
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -175,9 +165,18 @@ pub async fn generate_backup(_pool: &PgPool) -> Result<Vec<u8>, AppError> {
         .map_err(|e| AppError::Internal(anyhow::anyhow!("pg_dump failed: {e}")))?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        tracing::error!("pg_dump failed with status {}", output.status);
         return Err(AppError::Internal(anyhow::anyhow!(
-            "pg_dump error: {stderr}"
+            "pg_dump failed with exit code {}",
+            output.status.code().unwrap_or(-1)
+        )));
+    }
+
+    let size = output.stdout.len();
+    if size > 100 * 1024 * 1024 {
+        return Err(AppError::Internal(anyhow::anyhow!(
+            "Backup too large: {} bytes",
+            size
         )));
     }
 

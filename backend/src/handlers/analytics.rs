@@ -80,8 +80,8 @@ async fn milk_trend(
     State(state): State<AppState>,
     Query(params): Query<TrendQuery>,
 ) -> Result<Json<crate::models::analytics::MilkTrendResponse>, AppError> {
-    let days = params.days.unwrap_or(30);
-    let forecast_days = params.forecast_days.unwrap_or(14);
+    let days = params.days.unwrap_or(30).clamp(1, 365);
+    let forecast_days = params.forecast_days.unwrap_or(14).clamp(1, 90);
     let data = analytics_service::milk_trend(&state.pool, days, forecast_days).await?;
     Ok(Json(data))
 }
