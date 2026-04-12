@@ -1321,21 +1321,27 @@ pub async fn seed_milk_visit_quality(
                 let weight = (normal_range(&mut rng, 600.0, 80.0, 400.0, 800.0)).round() as i32;
                 let temp = normal_range(&mut rng, 37.5, 0.3, 36.5, 39.0);
 
+                let milking_start = format!("{} {:02}:{:02}:00+03", date, hour.min(23), minute);
+                let lf_col = lf_colour.map_or("NULL".to_string(), |c| format!("'{}'", c));
+                let lr_col = lr_colour.map_or("NULL".to_string(), |c| format!("'{}'", c));
+                let rf_col = rf_colour.map_or("NULL".to_string(), |c| format!("'{}'", c));
+                let rr_col = rr_colour.map_or("NULL".to_string(), |c| format!("'{}'", c));
+
                 batch.push(format!(
                     "({}, '{}', '{}', {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})",
                     lact.animal_id,
                     visit_dt,
-                    format!("{} {:02}:{:02}:00+03", date, hour.min(23), minute),
+                    milking_start,
                     device,
                     success,
                     (milk_yield * 100.0).round() / 100.0,
                     rng.random_range(1..=4),
                     (temp * 10.0).round() / 10.0,
                     weight,
-                    lf_colour.map_or("NULL".to_string(), |c| format!("'{}'", c)),
-                    lr_colour.map_or("NULL".to_string(), |c| format!("'{}'", c)),
-                    rf_colour.map_or("NULL".to_string(), |c| format!("'{}'", c)),
-                    rr_colour.map_or("NULL".to_string(), |c| format!("'{}'", c)),
+                    lf_col,
+                    lr_col,
+                    rf_col,
+                    rr_col,
                     lf_cond,
                     lr_cond,
                     rf_cond,

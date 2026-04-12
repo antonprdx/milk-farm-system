@@ -825,7 +825,7 @@ fn flatten_to_rows(val: &Value) -> Vec<Vec<String>> {
     let mut result = Vec::new();
     for obj in &items {
         if let Some(map) = obj.as_object() {
-            let row: Vec<String> = map.values().map(|v| fmt_val(v)).collect();
+            let row: Vec<String> = map.values().map(fmt_val).collect();
             if !result.is_empty() || !row.is_empty() {
                 result.push(row);
             }
@@ -882,9 +882,9 @@ fn data_to_table_sections(val: &Value) -> Vec<pdf_service::TableSection> {
                     });
                 }
             } else if inner.is_object()
-                && inner.as_object().map_or(false, |m| {
-                    !m.contains_key("period") && !m.contains_key("rows")
-                })
+                && inner
+                    .as_object()
+                    .is_some_and(|m| !m.contains_key("period") && !m.contains_key("rows"))
             {
                 continue;
             }
