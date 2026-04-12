@@ -39,6 +39,28 @@ pub struct UpdateLelyConfig {
     pub sync_interval_secs: Option<u64>,
 }
 
+impl UpdateLelyConfig {
+    pub fn validate(&self) -> Result<(), AppError> {
+        use crate::validation::*;
+        if let Some(ref v) = self.base_url
+            && !v.is_empty()
+            && !v.starts_with("http://")
+            && !v.starts_with("https://")
+        {
+            return Err(AppError::BadRequest(
+                "URL должен начинаться с http:// или https://".into(),
+            ));
+        }
+        if let Some(ref v) = self.username {
+            required_non_empty(v, "Имя пользователя Lely")?;
+        }
+        if let Some(v) = self.sync_interval_secs {
+            range_u64(v, 60, 86400, "Интервал синхронизации (сек)")?;
+        }
+        Ok(())
+    }
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/lely/status", get(status))
@@ -116,6 +138,7 @@ async fn update_config(
     State(state): State<AppState>,
     Json(body): Json<UpdateLelyConfig>,
 ) -> Result<Json<Value>, AppError> {
+    body.validate()?;
     let mut current = state.lely.get_config();
 
     if let Some(v) = body.enabled {

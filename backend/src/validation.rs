@@ -143,3 +143,25 @@ pub fn opt_date_not_future(date: &Option<chrono::NaiveDate>, field: &str) -> Res
     }
     Ok(())
 }
+
+pub fn range_u64(value: u64, min: u64, max: u64, field: &str) -> Result<(), AppError> {
+    if !(min..=max).contains(&value) {
+        return Err(AppError::BadRequest(format!(
+            "Поле '{}' должно быть от {} до {}",
+            field, min, max
+        )));
+    }
+    Ok(())
+}
+
+pub fn opt_non_negative_i32(value: &Option<i32>, field: &str) -> Result<(), AppError> {
+    if let Some(v) = value
+        && *v < 0
+    {
+        return Err(AppError::BadRequest(format!(
+            "Поле '{}' не может быть отрицательным",
+            field
+        )));
+    }
+    Ok(())
+}

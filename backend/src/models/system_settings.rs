@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+use crate::errors::AppError;
+
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SystemSetting {
     pub key: String,
@@ -37,6 +39,42 @@ pub struct UpdateAlertThresholds {
     pub alert_max_scc: Option<f64>,
     pub alert_days_before_calving: Option<i32>,
     pub alert_activity_drop_pct: Option<i32>,
+}
+
+impl UpdateAlertThresholds {
+    pub fn validate(&self) -> Result<(), AppError> {
+        use crate::validation::*;
+        if let Some(v) = self.alert_min_milk
+            && !(0.0..=100.0).contains(&v)
+        {
+            return Err(AppError::BadRequest(
+                "Минимальный удой должен быть от 0 до 100".into(),
+            ));
+        }
+        if let Some(v) = self.alert_max_scc
+            && !(0.0..=10000.0).contains(&v)
+        {
+            return Err(AppError::BadRequest(
+                "Макс. соматических клеток должен быть от 0 до 10000".into(),
+            ));
+        }
+        opt_positive_i32(&self.alert_days_before_calving, "Дни до отёла")?;
+        if let Some(v) = self.alert_days_before_calving
+            && v > 90
+        {
+            return Err(AppError::BadRequest(
+                "Дни до отёла не могут быть больше 90".into(),
+            ));
+        }
+        if let Some(v) = self.alert_activity_drop_pct
+            && !(0..=100).contains(&v)
+        {
+            return Err(AppError::BadRequest(
+                "Снижение активности должно быть от 0 до 100".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
