@@ -19,14 +19,25 @@ pub async fn seed_admin(pool: &sqlx::PgPool) -> anyhow::Result<()> {
             .fetch_one(pool)
             .await?;
     if !exists {
-        let hash = bcrypt::hash("admin", bcrypt::DEFAULT_COST)?;
+        let password = generate_random_password();
+        let hash = bcrypt::hash(&password, bcrypt::DEFAULT_COST)?;
         sqlx::query("INSERT INTO users (username, password_hash, role, must_change_password) VALUES ('admin', $1, 'admin', true)")
             .bind(&hash)
             .execute(pool)
             .await?;
-        tracing::info!("Admin user created (change default password after first login)");
+        tracing::info!("Admin user created. Password: {}", password);
+        tracing::info!("Change this password after first login!");
     }
     Ok(())
+}
+
+fn generate_random_password() -> String {
+    use rand::Rng;
+    let mut rng = rand::rng();
+    const CHARSET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    (0..16)
+        .map(|_| CHARSET[rng.random_range(0..CHARSET.len())] as char)
+        .collect()
 }
 
 pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
