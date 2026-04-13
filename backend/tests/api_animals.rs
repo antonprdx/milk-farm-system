@@ -176,6 +176,69 @@ async fn test_list_animals_with_filters(pool: sqlx::PgPool) {
     assert_eq!(body["total"], 1);
 }
 
+#[sqlx::test(migrations = "./migrations")]
+async fn test_batch_deactivate(pool: sqlx::PgPool) {
+    let app = create_app(app_state(pool));
+    let mut ids: Vec<i64> = vec![];
+    for i in 0..3 {
+        let resp = app
+            .clone()
+            .oneshot(auth_request_with_body(
+                "POST",
+                "/api/v1/animals",
+                &admin_token(),
+                json!({ "gender": "female", "birth_date": "2020-01-01", "name": format!("Cow{}", i) }),
+            ))
+            .await
+            .unwrap();
+        let body: Value = resp_json(resp.into_body()).await;
+        ids.push(body["data"]["id"].as_i64().unwrap());
+    }
+
+    let req = auth_request_with_body(
+        "POST",
+        "/api/v1/animals/batch/deactivate",
+        &admin_token(),
+        json!({ "ids": ids }),
+    );
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp_json(resp.into_body()).await;
+    assert_eq!(body["count"], 3);
+
+    let list_req = auth_request("GET", "/api/v1/animals?active=false", &admin_token());
+    let resp = app.oneshot(list_req).await.unwrap();
+    let body: Value = resp_json(resp.into_body()).await;
+    assert_eq!(body["total"], 3);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn test_batch_deactivate_empty(pool: sqlx::PgPool) {
+    let app = create_app(app_state(pool));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/v1/animals/batch/deactivate",
+        &admin_token(),
+        json!({ "ids": [] }),
+    );
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn test_batch_deactivate_requires_admin(pool: sqlx::PgPool) {
+    seed_test_user(&pool).await;
+    let app = create_app(app_state(pool));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/v1/animals/batch/deactivate",
+        &user_token(),
+        json!({ "ids": [1] }),
+    );
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
+
 async fn resp_json(body: Body) -> Value {
     read_body_json(body).await
 }

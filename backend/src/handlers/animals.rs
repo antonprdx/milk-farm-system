@@ -1,6 +1,7 @@
 use axum::extract::{Path, Query, State};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
+use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::errors::AppError;
@@ -12,9 +13,15 @@ use crate::models::timeline::{TimelineFilter, TimelineResponse};
 use crate::services::{animal_service, animal_stats_service, timeline_service};
 use crate::state::AppState;
 
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct BatchDeactivateRequest {
+    pub ids: Vec<i32>,
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/animals", get(list).post(create))
+        .route("/animals/batch/deactivate", post(batch_deactivate))
         .route("/animals/{id}", get(get_by_id).put(update).delete(remove))
         .route("/animals/{id}/timeline", get(timeline))
         .route("/animals/{id}/stats", get(stats))
@@ -133,6 +140,35 @@ async fn remove(
 ) -> Result<Json<Value>, AppError> {
     animal_service::delete(&state.pool, id).await?;
     Ok(Json(json!({ "message": "Удалено" })))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/animals/batch/deactivate",
+    request_body = BatchDeactivateRequest,
+    responses(
+        (status = 200, description = "Animals deactivated", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn batch_deactivate(
+    _admin: AdminGuard,
+    State(state): State<AppState>,
+    Json(req): Json<BatchDeactivateRequest>,
+) -> Result<Json<Value>, AppError> {
+    if req.ids.is_empty() {
+        return Err(AppError::BadRequest("Список ID пуст".into()));
+    }
+    if req.ids.len() > 500 {
+        return Err(AppError::BadRequest(
+            "Максимум 500 записей за один запрос".into(),
+        ));
+    }
+    let count = animal_service::batch_deactivate(&state.pool, &req.ids).await?;
+    Ok(Json(json!({ "message": format!("Деактивировано {} животных", count), "count": count })))
 }
 
 #[utoipa::path(

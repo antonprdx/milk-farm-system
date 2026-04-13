@@ -91,6 +91,10 @@ export function deleteAnimal(id: number) {
 	return del<{ message: string }>(`/animals/${id}`);
 }
 
+export function batchDeactivateAnimals(ids: number[]) {
+	return post<{ message: string; count: number }>('/animals/batch/deactivate', { ids });
+}
+
 export interface TimelineEvent {
 	date: string;
 	event_type: string;
