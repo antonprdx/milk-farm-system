@@ -5,6 +5,7 @@
 		createUser,
 		changePassword,
 		deleteUser,
+		resetUserPassword,
 		updateUserRole,
 		getSystemInfo,
 		getJwtTtl,
@@ -83,6 +84,14 @@
 	let deleteLoading = $state(false);
 	let deleteUserId = $state<number | null>(null);
 	let deleteUsername = $state('');
+
+	// Reset password
+	let showResetPw = $state(false);
+	let resetPwLoading = $state(false);
+	let resetPwUserId = $state<number | null>(null);
+	let resetPwUsername = $state('');
+	let resetPwNewPassword = $state('');
+	let resetPwError = $state('');
 
 	let showRoleConfirm = $state(false);
 	let pendingRoleUserId = $state(0);
@@ -254,6 +263,27 @@
 			toasts.error(e instanceof Error ? e.message : 'Ошибка удаления');
 		} finally {
 			deleteLoading = false;
+		}
+	}
+
+	async function handleResetPassword(e: Event) {
+		e.preventDefault();
+		if (resetPwUserId === null || !resetPwNewPassword) return;
+		if (resetPwNewPassword.length < 8) {
+			resetPwError = 'Пароль должен содержать минимум 8 символов';
+			return;
+		}
+		try {
+			resetPwLoading = true;
+			resetPwError = '';
+			await resetUserPassword(resetPwUserId, resetPwNewPassword);
+			showResetPw = false;
+			resetPwNewPassword = '';
+			toasts.success('Пароль сброшен');
+		} catch (e) {
+			resetPwError = e instanceof Error ? e.message : 'Ошибка сброса пароля';
+		} finally {
+			resetPwLoading = false;
 		}
 	}
 
@@ -622,14 +652,26 @@
 					>
 					<td class="px-4 py-3 text-right">
 						{#if u.username !== $auth.username}
-							<button
-								onclick={() => {
-									deleteUserId = u.id;
-									deleteUsername = u.username;
-									showDelete = true;
-								}}
-								class="text-red-500 hover:text-red-700 text-xs cursor-pointer">Удалить</button
-							>
+							<div class="flex gap-3 justify-end">
+								<button
+									onclick={() => {
+										resetPwUserId = u.id;
+										resetPwUsername = u.username;
+										resetPwNewPassword = '';
+										resetPwError = '';
+										showResetPw = true;
+									}}
+									class="text-blue-500 hover:text-blue-700 text-xs cursor-pointer">Сбросить пароль</button
+								>
+								<button
+									onclick={() => {
+										deleteUserId = u.id;
+										deleteUsername = u.username;
+										showDelete = true;
+									}}
+									class="text-red-500 hover:text-red-700 text-xs cursor-pointer">Удалить</button
+								>
+							</div>
 						{/if}
 					</td>
 				</tr>
@@ -1201,6 +1243,37 @@
 	onconfirm={handleDelete}
 	oncancel={() => (showDelete = false)}
 />
+
+<Modal
+	open={showResetPw}
+	title="Сбросить пароль"
+	onclose={() => (showResetPw = false)}
+>
+	<p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
+		Новый пароль для пользователя «{resetPwUsername}»
+	</p>
+	{#if resetPwError}
+		<div class="mb-3 text-sm text-red-600 dark:text-red-400">{resetPwError}</div>
+	{/if}
+	<form onsubmit={handleResetPassword} class="space-y-4">
+		<FormField id="f-reset-pw" label="Новый пароль" type="password" bind:value={resetPwNewPassword} required />
+		<div class="flex gap-3 justify-end pt-2">
+			<button
+				type="button"
+				onclick={() => (showResetPw = false)}
+				class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:bg-slate-800/50 cursor-pointer"
+				>Отмена</button
+			>
+			<button
+				type="submit"
+				disabled={resetPwLoading}
+				class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 cursor-pointer"
+			>
+				{resetPwLoading ? 'Сохранение...' : 'Сбросить'}
+			</button>
+		</div>
+	</form>
+</Modal>
 
 <ConfirmDialog
 	open={showRoleConfirm}
