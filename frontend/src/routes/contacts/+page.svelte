@@ -205,11 +205,13 @@
 				<div class="flex gap-2 justify-end">
 					<button
 						onclick={() => openEdit(c)}
+						aria-label="Редактировать {c.name}"
 						class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded transition-colors cursor-pointer"
 						><Pencil size={14} /></button
 					>
 					<button
 						onclick={() => crud.confirmDelete(c.id)}
+						aria-label="Удалить {c.name}"
 						class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/50 rounded transition-colors cursor-pointer"
 						><Trash2 size={14} /></button
 					>

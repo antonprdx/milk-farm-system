@@ -404,11 +404,13 @@
 					<div class="flex gap-2 justify-end">
 						<button
 							onclick={() => openEditType(t)}
+							aria-label="Редактировать {t.name}"
 							class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded transition-colors cursor-pointer"
 							><Pencil size={14} /></button
 						>
 						<button
 							onclick={() => crudType.confirmDelete(t.id)}
+							aria-label="Удалить {t.name}"
 							class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/50 rounded transition-colors cursor-pointer"
 							><Trash2 size={14} /></button
 						>
@@ -465,11 +467,13 @@
 					<div class="flex gap-2 justify-end">
 						<button
 							onclick={() => openEditGroup(g)}
+							aria-label="Редактировать {g.name}"
 							class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded transition-colors cursor-pointer"
 							><Pencil size={14} /></button
 						>
 						<button
 							onclick={() => crudGroup.confirmDelete(g.id)}
+							aria-label="Удалить {g.name}"
 							class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/50 rounded transition-colors cursor-pointer"
 							><Trash2 size={14} /></button
 						>
