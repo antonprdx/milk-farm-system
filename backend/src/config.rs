@@ -67,8 +67,9 @@ impl Config {
                 .parse()
                 .unwrap_or(false),
             lely_encryption_key: {
-                let key = std::env::var("LELY_ENCRYPTION_KEY")
-                    .unwrap_or_else(|_| "default-lely-encryption-key-change-me".to_string());
+                let key = std::env::var("LELY_ENCRYPTION_KEY").context(
+                    "LELY_ENCRYPTION_KEY not set — required for encrypting Lely credentials",
+                )?;
                 if key.len() < 32 {
                     anyhow::bail!(
                         "LELY_ENCRYPTION_KEY must be at least 32 characters, got {}",

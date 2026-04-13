@@ -2,7 +2,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use axum::body::Body;
-use axum::http::{HeaderMap, Method, Request, Response, StatusCode};
+use axum::http::{HeaderMap, Request, Response, StatusCode};
 use axum::response::IntoResponse;
 use tower::{Layer, Service};
 
@@ -144,14 +144,6 @@ where
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let is_mutating = matches!(*req.method(), Method::POST | Method::PUT | Method::DELETE);
-
-        if !is_mutating {
-            let inner = self.inner.clone();
-            let mut inner = std::mem::replace(&mut self.inner, inner);
-            return Box::pin(async move { inner.call(req).await });
-        }
-
         let key = extract_client_ip(req.headers(), self.trust_proxy);
 
         if self.limiter.check(&key).is_err() {
