@@ -570,108 +570,33 @@ pub async fn failed_milkings(
 
 #[allow(clippy::type_complexity)]
 pub async fn udder_health_worklist(pool: &PgPool) -> Result<UdderHealthResponse, AppError> {
-    let rows: Vec<(i32, Option<String>, Option<String>, String, Option<i32>, Option<i32>, Option<i32>, Option<i32>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i32>, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number, v.visit_datetime::text,
-                v.lf_conductivity, v.lr_conductivity, v.rf_conductivity, v.rr_conductivity,
-                v.lf_colour_code, v.lr_colour_code, v.rf_colour_code, v.rr_colour_code,
-                latest_scc.scc, v.milk_yield, deviation.dev
-         FROM milk_visit_quality v
-         JOIN animals a ON a.id = v.animal_id
-         LEFT JOIN LATERAL (
-             SELECT scc FROM milk_quality WHERE animal_id = a.id ORDER BY date DESC LIMIT 1
-         ) latest_scc ON true
-         LEFT JOIN LATERAL (
-             SELECT (short.avg - long.avg)::float8 as dev
-             FROM (SELECT AVG(milk_amount)::float8 as avg FROM milk_day_productions WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days') short,
-                  (SELECT AVG(milk_amount)::float8 as avg FROM milk_day_productions WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days' AND date < CURRENT_DATE - INTERVAL '2 days') long
-         ) deviation ON true
-         WHERE v.visit_datetime >= NOW() - INTERVAL '24 hours'
-           AND (
-               COALESCE(v.lf_conductivity, 0) > 83 OR COALESCE(v.lr_conductivity, 0) > 83
-               OR COALESCE(v.rf_conductivity, 0) > 83 OR COALESCE(v.rr_conductivity, 0) > 83
-               OR v.lf_colour_code IS NOT NULL OR v.lr_colour_code IS NOT NULL
-               OR v.rf_colour_code IS NOT NULL OR v.rr_colour_code IS NOT NULL
-               OR deviation.dev < -3.0
-           )
-         ORDER BY v.visit_datetime DESC"
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(AppError::Database)?;
-
-    let result: Vec<UdderHealthRow> = rows
-        .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                visit_datetime,
-                lf_cond,
-                lr_cond,
-                rf_cond,
-                rr_cond,
-                lf_col,
-                lr_col,
-                rf_col,
-                rr_col,
-                latest_scc,
-                milk_yield,
-                deviation,
-            )| {
-                let mut attention_quarters = Vec::new();
-                let quarters = [
-                    ("LF", lf_cond, &lf_col),
-                    ("LR", lr_cond, &lr_col),
-                    ("RF", rf_cond, &rf_col),
-                    ("RR", rr_cond, &rr_col),
-                ];
-                for (name, cond, col) in &quarters {
-                    let mut reasons = Vec::new();
-                    if let Some(c) = cond
-                        && *c > 83
-                    {
-                        reasons.push(format!("cond={}", c));
-                    }
-                    if let Some(cl) = col
-                        && !cl.is_empty()
-                    {
-                        reasons.push(format!("color={}", cl));
-                    }
-                    if !reasons.is_empty() {
-                        attention_quarters.push(format!("{}: {}", name, reasons.join(", ")));
-                    }
-                }
-                let separation: Option<String> = None;
-                UdderHealthRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    visit_datetime,
-                    lf_conductivity: lf_cond,
-                    lr_conductivity: lr_cond,
-                    rf_conductivity: rf_cond,
-                    rr_conductivity: rr_cond,
-                    lf_colour: lf_col,
-                    lr_colour: lr_col,
-                    rf_colour: rf_col,
-                    rr_colour: rr_col,
-                    latest_scc,
-                    milk_yield,
-                    deviation_day_prod: deviation,
-                    attention_quarters,
-                    separation,
-                }
-            },
-        )
-        .collect();
-
-    Ok(UdderHealthResponse { rows: result })
+    udder_health_query(pool, UdderHealthParams {
+        interval: "24 hours",
+        cond_threshold: 83,
+        check_deviation: true,
+    }).await
 }
 
 #[allow(clippy::type_complexity)]
 pub async fn udder_health_analyze(pool: &PgPool) -> Result<UdderHealthResponse, AppError> {
-    let rows: Vec<(i32, Option<String>, Option<String>, String, Option<i32>, Option<i32>, Option<i32>, Option<i32>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i32>, Option<f64>, Option<f64>)> = sqlx::query_as(
+    udder_health_query(pool, UdderHealthParams {
+        interval: "14 days",
+        cond_threshold: 80,
+        check_deviation: false,
+    }).await
+}
+
+struct UdderHealthParams<'a> {
+    interval: &'a str,
+    cond_threshold: i32,
+    check_deviation: bool,
+}
+
+#[allow(clippy::type_complexity)]
+async fn udder_health_query(pool: &PgPool, params: UdderHealthParams<'_>) -> Result<UdderHealthResponse, AppError> {
+    let threshold = params.cond_threshold;
+    let deviation_clause = if params.check_deviation { "OR deviation.dev < -3.0" } else { "" };
+    let sql = format!(
         "SELECT a.id, a.name, a.life_number, v.visit_datetime::text,
                 v.lf_conductivity, v.lr_conductivity, v.rf_conductivity, v.rr_conductivity,
                 v.lf_colour_code, v.lr_colour_code, v.rf_colour_code, v.rr_colour_code,
@@ -686,15 +611,20 @@ pub async fn udder_health_analyze(pool: &PgPool) -> Result<UdderHealthResponse, 
              FROM (SELECT AVG(milk_amount)::float8 as avg FROM milk_day_productions WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days') short,
                   (SELECT AVG(milk_amount)::float8 as avg FROM milk_day_productions WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days' AND date < CURRENT_DATE - INTERVAL '2 days') long
          ) deviation ON true
-         WHERE v.visit_datetime >= NOW() - INTERVAL '14 days'
+         WHERE v.visit_datetime >= NOW() - INTERVAL '{interval}'
            AND (
-               COALESCE(v.lf_conductivity, 0) > 80 OR COALESCE(v.lr_conductivity, 0) > 80
-               OR COALESCE(v.rf_conductivity, 0) > 80 OR COALESCE(v.rr_conductivity, 0) > 80
+               COALESCE(v.lf_conductivity, 0) > {threshold} OR COALESCE(v.lr_conductivity, 0) > {threshold}
+               OR COALESCE(v.rf_conductivity, 0) > {threshold} OR COALESCE(v.rr_conductivity, 0) > {threshold}
                OR v.lf_colour_code IS NOT NULL OR v.lr_colour_code IS NOT NULL
                OR v.rf_colour_code IS NOT NULL OR v.rr_colour_code IS NOT NULL
+               {deviation_clause}
            )
-         ORDER BY v.visit_datetime DESC"
-    )
+         ORDER BY v.visit_datetime DESC",
+        interval = params.interval,
+        threshold = threshold,
+        deviation_clause = deviation_clause,
+    );
+    let rows: Vec<(i32, Option<String>, Option<String>, String, Option<i32>, Option<i32>, Option<i32>, Option<i32>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i32>, Option<f64>, Option<f64>)> = sqlx::query_as(&sql)
     .fetch_all(pool)
     .await
     .map_err(AppError::Database)?;
@@ -729,7 +659,7 @@ pub async fn udder_health_analyze(pool: &PgPool) -> Result<UdderHealthResponse, 
                 for (name, cond, col) in &quarters {
                     let mut reasons = Vec::new();
                     if let Some(c) = cond
-                        && *c > 80
+                        && *c > threshold
                     {
                         reasons.push(format!("cond={}", c));
                     }
