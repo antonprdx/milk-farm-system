@@ -258,11 +258,13 @@
 				<td class="px-4 py-3 text-right">
 					<button
 						onclick={() => openEdit(p)}
+						aria-label="Редактировать"
 						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
 						><Pencil size={14} /></button
 					>
 					<button
 						onclick={() => crud.confirmDelete(p.id)}
+						aria-label="Удалить"
 						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
 						><Trash2 size={14} /></button
 					>

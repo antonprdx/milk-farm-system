@@ -211,11 +211,13 @@
 				<div class="flex gap-2 justify-end">
 					<a
 						href="/animals/{animal.id}/edit"
+						aria-label="Редактировать"
 						class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 rounded transition-colors"
 						><Pencil size={14} /></a
 					>
 					<button
 						onclick={() => (deleteId = animal.id)}
+						aria-label="Удалить"
 						class="px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:bg-red-900/50 rounded transition-colors cursor-pointer"
 						><Trash2 size={14} /></button
 					>

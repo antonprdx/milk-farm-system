@@ -485,11 +485,13 @@
 				<td class="px-4 py-3 text-right">
 					<button
 						onclick={() => openEditCalving(c)}
+						aria-label="Редактировать"
 						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
 						><Pencil size={14} /></button
 					>
 					<button
 						onclick={() => crud.confirmDelete(c.id)}
+						aria-label="Удалить"
 						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
 						><Trash2 size={14} /></button
 					>
@@ -531,11 +533,13 @@
 				<td class="px-4 py-3 text-right">
 					<button
 						onclick={() => openEditInsemination(i)}
+						aria-label="Редактировать"
 						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
 						><Pencil size={14} /></button
 					>
 					<button
 						onclick={() => crud.confirmDelete(i.id)}
+						aria-label="Удалить"
 						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
 						><Trash2 size={14} /></button
 					>
@@ -575,11 +579,13 @@
 				<td class="px-4 py-3 text-right">
 					<button
 						onclick={() => openEditPregnancy(p)}
+						aria-label="Редактировать"
 						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
 						><Pencil size={14} /></button
 					>
 					<button
 						onclick={() => crud.confirmDelete(p.id)}
+						aria-label="Удалить"
 						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
 						><Trash2 size={14} /></button
 					>
@@ -615,11 +621,13 @@
 				<td class="px-4 py-3 text-right">
 					<button
 						onclick={() => openEditHeat(h)}
+						aria-label="Редактировать"
 						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
 						><Pencil size={14} /></button
 					>
 					<button
 						onclick={() => crud.confirmDelete(h.id)}
+						aria-label="Удалить"
 						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
 						><Trash2 size={14} /></button
 					>
@@ -655,11 +663,13 @@
 				<td class="px-4 py-3 text-right">
 					<button
 						onclick={() => openEditDryoff(d)}
+						aria-label="Редактировать"
 						class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-400 text-sm cursor-pointer mr-1"
 						><Pencil size={14} /></button
 					>
 					<button
 						onclick={() => crud.confirmDelete(d.id)}
+						aria-label="Удалить"
 						class="text-red-500 hover:text-red-700 text-sm cursor-pointer"
 						><Trash2 size={14} /></button
 					>
