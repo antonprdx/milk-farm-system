@@ -170,6 +170,7 @@
 	]}
 	{loading}
 	emptyText="Животные не найдены"
+	initialRows={!!data.initialData && data.initialData.data.length > 0}
 >
 	{#each animals as animal (animal.id)}
 		<tr

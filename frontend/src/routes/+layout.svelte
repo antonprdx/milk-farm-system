@@ -12,6 +12,7 @@
 	let { children } = $props();
 
 	let isAuthenticated = $derived(browser ? $auth.authenticated : false);
+	let isInitialized = $derived(browser ? $auth.initialized : false);
 	let pathname = $derived($page.url.pathname);
 	let isAdmin = $derived(browser ? $auth.role === 'admin' : false);
 	let mustChangePassword = $derived(browser ? $auth.mustChangePassword : false);
@@ -28,8 +29,14 @@
 	}
 
 	$effect(() => {
-		if (browser && !isAuthenticated && !pathname.startsWith('/auth')) {
+		if (browser && !isAuthenticated && isInitialized && !pathname.startsWith('/auth')) {
 			goto('/auth/login');
+		}
+	});
+
+	$effect(() => {
+		if (browser && !isInitialized) {
+			auth.init();
 		}
 	});
 
