@@ -176,6 +176,15 @@ pub async fn delete(pool: &PgPool, id: i32) -> Result<(), AppError> {
     Ok(())
 }
 
+pub async fn batch_deactivate(pool: &PgPool, ids: &[i32]) -> Result<u64, AppError> {
+    let result = sqlx::query("UPDATE animals SET active = false, updated_at = NOW() WHERE id = ANY($1)")
+        .bind(ids)
+        .execute(pool)
+        .await
+        .map_err(AppError::Database)?;
+    Ok(result.rows_affected())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

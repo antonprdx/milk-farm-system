@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listAnimals, deleteAnimal, type Animal } from '$lib/api/animals';
+	import { listAnimals, deleteAnimal, batchDeactivateAnimals, type Animal } from '$lib/api/animals';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -22,6 +22,39 @@
 
 	let deleteId = $state<number | null>(null);
 	let deleteLoading = $state(false);
+
+	let selectedIds = $state<Set<number>>(new Set());
+	let showBatchDelete = $state(false);
+	let batchDeleteLoading = $state(false);
+
+	function toggleSelect(id: number) {
+		const s = new Set(selectedIds);
+		if (s.has(id)) s.delete(id); else s.add(id);
+		selectedIds = s;
+	}
+
+	function toggleSelectAll() {
+		if (selectedIds.size === animals.length) {
+			selectedIds = new Set();
+		} else {
+			selectedIds = new Set(animals.map((a) => a.id));
+		}
+	}
+
+	async function handleBatchDeactivate() {
+		try {
+			batchDeleteLoading = true;
+			await batchDeactivateAnimals([...selectedIds]);
+			selectedIds = new Set();
+			showBatchDelete = false;
+			toasts.success('Животные деактивированы');
+			load();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Ошибка';
+		} finally {
+			batchDeleteLoading = false;
+		}
+	}
 
 	let dataTable: DataTable | undefined = $state();
 
@@ -51,6 +84,7 @@
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';
 		} finally {
 			loading = false;
+			selectedIds = new Set();
 		}
 	}
 
@@ -90,12 +124,21 @@
 
 <div class="flex items-center justify-between mb-6">
 	<h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Животные</h1>
-	<a
-		href="/animals/new"
-		class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-	>
-		+ Добавить
-	</a>
+	<div class="flex gap-2 items-center">
+		{#if selectedIds.size > 0}
+			<span class="text-sm text-slate-500">Выбрано: {selectedIds.size}</span>
+			<button
+				onclick={() => (showBatchDelete = true)}
+				class="px-3 py-2 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 text-sm font-medium rounded-lg transition-colors cursor-pointer"
+			>Деактивировать</button>
+		{/if}
+		<a
+			href="/animals/new"
+			class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+		>
+			+ Добавить
+		</a>
+	</div>
 </div>
 
 <div
@@ -159,6 +202,7 @@
 <DataTable
 	bind:this={dataTable}
 	columns={[
+		{ key: 'select', label: '' },
 		{ key: 'life_number', label: '№' },
 		{ key: 'name', label: 'Имя' },
 		{ key: 'gender', label: 'Пол' },
@@ -174,8 +218,16 @@
 >
 	{#each animals as animal (animal.id)}
 		<tr
-			class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors"
+			class="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:bg-slate-800/50 transition-colors {selectedIds.has(animal.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}"
 		>
+			<td class="px-4 py-3">
+				<input
+					type="checkbox"
+					checked={selectedIds.has(animal.id)}
+					onchange={() => toggleSelect(animal.id)}
+					class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 cursor-pointer"
+				/>
+			</td>
 			<td class="px-4 py-3 font-mono text-slate-600 dark:text-slate-400"
 				>{animal.life_number || animal.user_number || '—'}</td
 			>
@@ -237,4 +289,14 @@
 	loading={deleteLoading}
 	onconfirm={handleDelete}
 	oncancel={() => (deleteId = null)}
+/>
+
+<ConfirmDialog
+	open={showBatchDelete}
+	title="Деактивировать выбранных?"
+	message="Выбрано {selectedIds.size} животных. Они будут помечены как неактивные."
+	confirmText="Деактивировать"
+	loading={batchDeleteLoading}
+	onconfirm={handleBatchDeactivate}
+	oncancel={() => (showBatchDelete = false)}
 />
