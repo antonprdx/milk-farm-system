@@ -242,3 +242,56 @@ async fn test_batch_deactivate_requires_admin(pool: sqlx::PgPool) {
 async fn resp_json(body: Body) -> Value {
     read_body_json(body).await
 }
+
+#[sqlx::test(migrations = "./migrations")]
+async fn test_csv_import(pool: sqlx::PgPool) {
+    let app = create_app(app_state(pool));
+    let csv = "female,2020-03-15,Бурёнка,12345\nmale,2021-06-01,Бычок,\n# comment\n\nfemale,2019-01-01,Зорька";
+    let req = auth_request_with_body(
+        "POST",
+        "/api/v1/animals/import/csv",
+        &admin_token(),
+        json!({ "csv": csv }),
+    );
+    let resp = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp_json(resp.into_body()).await;
+    assert_eq!(body["created"], 3);
+    assert_eq!(body["errors"].as_array().unwrap().len(), 0);
+
+    let list_req = auth_request("GET", "/api/v1/animals", &admin_token());
+    let resp = app.oneshot(list_req).await.unwrap();
+    let body: Value = resp_json(resp.into_body()).await;
+    assert_eq!(body["total"], 3);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn test_csv_import_validation(pool: sqlx::PgPool) {
+    let app = create_app(app_state(pool));
+    let csv = "female,bad-date\nunknown,2020-01-01";
+    let req = auth_request_with_body(
+        "POST",
+        "/api/v1/animals/import/csv",
+        &admin_token(),
+        json!({ "csv": csv }),
+    );
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value = resp_json(resp.into_body()).await;
+    assert_eq!(body["created"], 0);
+    assert!(body["errors"].as_array().unwrap().len() >= 2);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn test_csv_import_requires_admin(pool: sqlx::PgPool) {
+    seed_test_user(&pool).await;
+    let app = create_app(app_state(pool));
+    let req = auth_request_with_body(
+        "POST",
+        "/api/v1/animals/import/csv",
+        &user_token(),
+        json!({ "csv": "female,2020-01-01" }),
+    );
+    let resp = app.oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
