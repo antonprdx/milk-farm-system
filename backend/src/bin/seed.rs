@@ -23,6 +23,12 @@ async fn main() {
         .await
         .expect("Failed to connect to DB");
 
+    println!("Running migrations...");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Migration failed");
+
     milk_farm_backend::seed::truncate_all(&pool, args.keep_admin).await;
     milk_farm_backend::seed::seed_all(
         &pool,
