@@ -1,0 +1,14 @@
+\babel@toc {russian}{}\relax 
+\beamer@sectionintoc {1}{Актуальность}{3}{0}{1}
+\beamer@sectionintoc {2}{Цель и задачи}{4}{0}{2}
+\beamer@sectionintoc {3}{Постановка задачи}{5}{0}{3}
+\beamer@sectionintoc {4}{Стек технологий}{6}{0}{4}
+\beamer@sectionintoc {5}{Архитектура системы}{7}{0}{5}
+\beamer@sectionintoc {6}{Backend}{9}{0}{6}
+\beamer@sectionintoc {7}{Frontend}{12}{0}{7}
+\beamer@sectionintoc {8}{База данных}{15}{0}{8}
+\beamer@sectionintoc {9}{Безопасность}{16}{0}{9}
+\beamer@sectionintoc {10}{Тестирование}{17}{0}{10}
+\beamer@sectionintoc {11}{Развёртывание}{18}{0}{11}
+\beamer@sectionintoc {12}{Результаты}{19}{0}{12}
+\beamer@sectionintoc {13}{Заключение}{20}{0}{13}

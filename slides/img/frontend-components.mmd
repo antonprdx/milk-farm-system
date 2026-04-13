@@ -1,0 +1,49 @@
+flowchart TB
+    Browser["Browser"]
+
+    subgraph SK["SvelteKit 5 - SSR (Node.js)"]
+        direction TB
+
+        Hooks["hooks.server.ts\nJWT decode\nauth guard\nredirect"]
+
+        subgraph Pages["Pages - 15 routes"]
+            direction LR
+            Dash["Dashboard"]
+            AnimalsPg["Animals\n+batch / +CSV import"]
+            MilkPg["Milk"]
+            ReproPg["Reproduction"]
+            FeedPg["Feed"]
+            ReportPg["Reports\n17 tabs"]
+            SettingsPg["Settings"]
+            LocPg["Locations\n+CRUD"]
+            ContactPg["Contacts"]
+            BulkTankPg["Bulk Tank"]
+            FitnessPg["Fitness"]
+            GrazingPg["Grazing"]
+        end
+
+        subgraph Lib["Library"]
+            direction LR
+            APIClient["api/\nREST client\n14 modules"]
+            Components["components/ui/\n16 components\nDataTable / Modal\nFormField / Toaster"]
+            Stores["stores/\nauth / preferences\ntoast / theme"]
+            Utils["utils/\nvalidators / format\nuseCrudModal\nusePaginatedList"]
+        end
+
+        Static["Static\nTailwind 4 / Chart.js\nLucide Icons"]
+    end
+
+    BackendAPI["Backend API\n/api/v1"]
+
+    Browser -->|"HTTPS"| Hooks
+    Hooks --> Pages
+    Pages --> Lib
+    APIClient -->|"fetch"| BackendAPI
+
+    style Browser fill:#757575,stroke:#424242,color:#fff
+    style SK fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Hooks fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Pages fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    style Lib fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style Static fill:#eceff1,stroke:#546e7a,color:#37474f
+    style BackendAPI fill:#c62828,stroke:#b71c1c,color:#fff

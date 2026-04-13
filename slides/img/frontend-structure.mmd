@@ -1,0 +1,55 @@
+flowchart TB
+    subgraph Routes["routes/ - 15 pages"]
+        direction TB
+        R1["+layout.svelte\nsidebar / auth guard\ntopbar / theme"]
+        R2["+page.svelte\nDashboard"]
+        R3["animals/\nlist + detail + edit + new\nbatch / CSV import"]
+        R4["milk/\nyield / visits / quality / tank"]
+        R5["feed/\nrations / visits / types / groups"]
+        R6["reproduction/\n5 tabs CRUD"]
+        R7["reports/\n17 tabs (tabs/)\n_shared.ts"]
+        R8["settings/\nusers / JWT\nalerts / backup / password"]
+        R9["locations/ / contacts/\nbulk-tank/\nfitness/ / grazing/"]
+    end
+
+    subgraph API["lib/api/ - 14 modules"]
+        direction LR
+        A1["client.ts\napi / post / put / del"]
+        A2["animals / milk / feed\nreproduction / reports"]
+        A3["auth / settings / locations\ncontacts / analytics / lely"]
+    end
+
+    subgraph UI["lib/components/ui/ - 16 components"]
+        direction LR
+        U1["DataTable\nsorting / pagination\nhideOnMobile"]
+        U2["Modal / ConfirmDialog\nFormField / FilterBar"]
+        U3["Pagination / TabBar\nEmptyState / ErrorAlert"]
+        U4["Toaster\nsuccess / error\nwarning / info\nexpandable details"]
+        U5["AnimalSelect"]
+    end
+
+    subgraph Stores["lib/stores/"]
+        direction LR
+        ST1["auth.ts\nlogin / logout\nrefresh / init"]
+        ST2["preferences.ts\ntheme / page_size"]
+        ST3["toast.ts\n4 types + details"]
+        ST4["theme.ts"]
+    end
+
+    subgraph Utils["lib/utils/"]
+        direction LR
+        UT1["validators.ts\nuseFormValidation"]
+        UT2["useCrudModal\nusePaginatedList"]
+        UT3["format.ts"]
+    end
+
+    Routes --> API
+    Routes --> UI
+    Routes --> Stores
+    Routes --> Utils
+
+    style Routes fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    style API fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style UI fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Stores fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Utils fill:#e0f7fa,stroke:#00838f,color:#006064
