@@ -1,0 +1,498 @@
+\documentclass[aspectratio=169, 12pt]{beamer}
+
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\graphicspath{{img/}}
+
+\usetheme{Madrid}
+\usecolortheme{whale}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{%
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=.333333\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+      \usebeamerfont{author in head/foot}\insertshortauthor
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333333\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+      \usebeamerfont{title in head/foot}\insertshorttitle
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333333\paperwidth,ht=2.25ex,dp=1ex,right]{date in head/foot}%
+      \usebeamerfont{date in head/foot}\insertshortdate{}\hspace*{2em}
+      \insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+    \end{beamercolorbox}}%
+  \vskip0pt%
+}
+
+\title[Молочная ферма --- Lely]{Система управления молочным животноводством\\на базе доильных роботов,\\совместимых с Lely Astronaut}
+\subtitle{Веб-приложение для автоматизации учёта и анализа данных}
+\author[Кабанов А.\,А.]{Кабанов А.\,А.\\[0.5em]{\small Научный руководитель: Ухов П.\,А., к.т.н., доцент}}
+
+\setbeamerfont{title}{size=\Large}
+\setbeamerfont{subtitle}{size=\normalsize}
+\institute{}
+\date{2026}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Содержание}
+  \tableofcontents
+\end{frame}
+
+%% ============================================================
+\section{Актуальность}
+%% ============================================================
+
+\begin{frame}{Актуальность}
+  \begin{itemize}
+    \item Молочное животноводство --- одна из ключевых отраслей сельского хозяйства
+    \item Рост поголовья требует автоматизации учёта:
+      \begin{itemize}
+        \item Данные о животных, надоях, кормлении, воспроизводстве
+        \item Интеграция с роботизированными системами доения (Lely)
+      \end{itemize}
+    \item Существующие решения:
+      \begin{itemize}
+        \item Коммерческие --- дорогие, закрытые, сложно адаптируемые
+        \item Электронные таблицы --- ручной ввод, отсутствие аналитики
+      \end{itemize}
+    \item Необходимо: доступная, расширяемая,-self-hosted система
+  \end{itemize}
+\end{frame}
+
+%% ============================================================
+\section{Цель и задачи}
+%% ============================================================
+
+\begin{frame}{Цель работы}
+  % TODO: уточнить формулировку
+  \begin{block}{Цель}
+    Разработка веб-приложения для комплексного управления молочной фермой с интеграцией роботизированных систем доения.
+  \end{block}
+
+  \vspace{1em}
+  \textbf{Задачи:}
+  \begin{enumerate}
+    \item Спроектировать архитектуру и базу данных
+    \item Реализовать REST API на Rust/Axum
+    \item Разработать SPA-интерфейс на SvelteKit 5
+    \item Обеспечить интеграцию с Lely Cloud API
+    \item Реализовать аналитику и генерацию отчётов
+    \item Настроить контейнеризацию и развёртывание
+  \end{enumerate}
+\end{frame}
+
+%% ============================================================
+\section{Постановка задачи}
+%% ============================================================
+
+\begin{frame}{Постановка задачи}
+  Система должна обеспечивать:
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Учёт данных}
+      \begin{itemize}
+        \item Животные (300+ голов)
+        \item Удои и качество молока
+        \item Кормление и рационы
+        \item Воспроизводство (5 этапов)
+        \item Локации и контакты
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Аналитика и интеграция}
+      \begin{itemize}
+        \item 17 видов отчётов (CSV/PDF)
+        \item KPI, тренды, прогнозы
+        \item Lely --- синхронизация каждые 5 мин
+        \item Роли: user / admin
+        \item Docker Compose deploy
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%% ============================================================
+\section{Стек технологий}
+%% ============================================================
+
+\begin{frame}{Стек технологий}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Backend}
+      \begin{itemize}
+        \item Rust + Axum 0.8
+        \item sqlx + PostgreSQL 16
+        \item JWT + HttpOnly cookies
+        \item utoipa (OpenAPI/Swagger)
+        \item Prometheus metrics
+      \end{itemize}
+
+      \vspace{0.8em}
+      \textbf{Infrastructure}
+      \begin{itemize}
+        \item Docker Compose
+        \item Nginx (reverse proxy, SSL)
+        \item GHCR (CI/CD)
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Frontend}
+      \begin{itemize}
+        \item SvelteKit 5 (runes)
+        \item SSR + Client-side routing
+        \item Tailwind CSS 4
+        \item Chart.js
+        \item Lucide Icons
+      \end{itemize}
+
+      \vspace{0.8em}
+      \textbf{Интеграция}
+      \begin{itemize}
+        \item Lely Cloud API (OAuth2)
+        \item AES-256-GCM шифрование
+        \item reqwest HTTPS client
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%% ============================================================
+\section{Архитектура системы}
+%% ============================================================
+
+\begin{frame}{Архитектура: контекст системы}
+  \begin{center}
+    \includegraphics[width=0.85\textwidth,height=0.6\textheight,keepaspectratio]{system-context.png}
+  \end{center}
+  \begin{itemize}
+    \item \textbf{Фермер} --- просмотр отчётов и данных о животных
+    \item \textbf{Администратор} --- CRUD, настройки, управление пользователями
+    \item \textbf{Lely Cloud} --- синхронизация данных роботизированного доения
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Архитектура: контейнеры (C4)}
+  \begin{center}
+    \includegraphics[width=0.85\textwidth,height=0.65\textheight,keepaspectratio]{container.png}
+  \end{center}
+  \begin{itemize}\small
+    \item Nginx --- reverse proxy, SSL, \texttt{/*} → frontend, \texttt{/api/*} → backend
+    \item Frontend (Node.js) / Backend (Rust) / PostgreSQL 16 (pool 2--20)
+  \end{itemize}
+\end{frame}
+
+%% ============================================================
+\section{Backend}
+%% ============================================================
+
+\begin{frame}{Backend: компоненты}
+  \begin{center}
+    \includegraphics[width=0.85\textwidth,height=0.82\textheight,keepaspectratio]{backend-components.png}
+  \end{center}
+\end{frame}
+
+\begin{frame}{Backend: слои архитектуры}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Middleware Stack}
+      \begin{enumerate}
+        \item Tracing (structured logging)
+        \item Gzip compression
+        \item CORS
+        \item Rate Limiting (100/60s)
+        \item Request ID
+        \item Prometheus Metrics
+        \item JWT Auth (cookie + bearer)
+      \end{enumerate}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Service Layer --- 22 модуля}
+      \begin{itemize}
+        \item Auth: JWT + bcrypt, HttpOnly cookies
+        \item Business: animal, milk, feed, repro, reports, analytics
+        \item Lely: client, mapper, sync, crypto (AES-256-GCM)
+        \item PDF generation
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Backend: API endpoints}
+  \begin{center}
+    \begin{tabular}{lll}
+      \toprule
+      \textbf{Модуль} & \textbf{Endpoints} & \textbf{Описание} \\
+      \midrule
+      Auth         & login, register, logout, refresh & Аутентификация \\
+      Animals      & CRUD, timeline, batch, CSV       & Управление поголовьем \\
+      Milk         & yield, visits, quality, tank      & Учёт надоев \\
+      Feed         & rations, visits, types, groups    & Кормление \\
+      Reproduction & 5 этапов CRUD                     & Воспроизводство \\
+      Reports      & 17 отчётов, CSV/PDF               & Генерация отчётов \\
+      Analytics    & KPI, trends, alerts, forecasts    & Аналитика \\
+      Settings     & users, JWT, backup, alerts        & Настройки \\
+      Lely         & config, status, sync              & Интеграция \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+\end{frame}
+
+%% ============================================================
+\section{Frontend}
+%% ============================================================
+
+\begin{frame}{Frontend: компоненты}
+  \begin{center}
+    \includegraphics[width=0.85\textwidth,height=0.82\textheight,keepaspectratio]{frontend-structure.png}
+  \end{center}
+\end{frame}
+
+\begin{frame}{Frontend: структура}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{15 страниц}
+      \begin{itemize}
+        \item Dashboard
+        \item Animals (list + detail + batch + CSV)
+        \item Milk (yield / visits / quality)
+        \item Feed (rations / visits / types / groups)
+        \item Reproduction (5 tabs)
+        \item Reports (17 tabs)
+        \item Settings (7 tabs)
+        \item Locations, Contacts, Bulk Tank
+        \item Fitness, Grazing
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Библиотека}
+      \begin{itemize}
+        \item \textbf{14 API модулей} --- REST клиент
+        \item \textbf{16 UI компонентов}:
+          \begin{itemize}
+            \item DataTable (sort, pagination, responsive)
+            \item Modal, ConfirmDialog, FormField
+            \item Toaster (4 типа + details)
+            \item TabBar (ARIA accessible)
+          \end{itemize}
+        \item \textbf{Stores}: auth, theme, toast, preferences
+        \item \textbf{Utils}: validators, useCrudModal, usePaginatedList
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Frontend: SvelteKit 5 (runes)}
+  \begin{itemize}
+    \item \textbf{\$state} --- реактивное состояние компонентов
+    \item \textbf{\$derived} --- вычисляемые значения (фильтрация, сортировка)
+    \item \textbf{\$effect} --- побочные эффекты (fetch, subscriptions)
+    \item \textbf{\$props} --- типобезопасные входные параметры
+    \item \textbf{SSR} --- load functions (\texttt{+page.ts}) для 15 маршрутов
+    \item \textbf{hooks.server.ts} --- JWT decode, auth guard, redirect
+  \end{itemize}
+
+  \vspace{1em}
+  \textbf{Ключевые паттерны:}
+  \begin{itemize}
+    \item \texttt{useCrudModal()} --- универсальный CRUD с формой
+    \item \texttt{usePaginatedList()} --- загрузка с пагинацией
+    \item Responsive tables --- скрытие столбцов на мобильных
+  \end{itemize}
+\end{frame}
+
+%% ============================================================
+\section{База данных}
+%% ============================================================
+
+\begin{frame}{База данных}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{25+ таблиц, 11 миграций}
+      \begin{itemize}
+        \item animals --- основная таблица
+        \item milk\_yield, milk\_visits, milk\_quality
+        \item feed\_rations, feed\_visits, feed\_types, feed\_groups
+        \item inseminations, pregnancies, calvings, heats, dry\_periods
+        \item bulk\_tank\_records
+        \item locations, contacts
+        \item users, refresh\_tokens
+        \item system\_settings, user\_preferences
+        \item lely\_config, lely\_sync\_log
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Особенности}
+      \begin{itemize}
+        \item sqlx compile-time проверка запросов
+        \item Up + Down миграции (откат)
+        \item Connection pool (2--20)
+        \item Seed-бинарник:
+          \begin{itemize}
+            \item Авто-применение миграций
+            \item 300 коров, 3 года данных
+          \end{itemize}
+        \item Foreign keys, indexes, constraints
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%% ============================================================
+\section{Безопасность}
+%% ============================================================
+
+\begin{frame}{Безопасность}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Аутентификация}
+      \begin{itemize}
+        \item JWT (access + refresh tokens)
+        \item HttpOnly + Secure cookies
+        \item bcrypt хеширование паролей
+        \item Token revocation (blacklist)
+        \item Роли: user / admin (AdminGuard)
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Защита}
+      \begin{itemize}
+        \item Rate limiting (100 req/60s)
+        \item CORS (настраиваемый)
+        \item AES-256-GCM шифрование (Lely credentials)
+        \item LELY\_ENCRYPTION\_KEY --- обязателен
+        \item Prometheus metrics --- auth-only
+        \item Request ID tracing
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%% ============================================================
+\section{Тестирование}
+%% ============================================================
+
+\begin{frame}{Тестирование}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{234 теста}
+      \begin{itemize}
+        \item Integration tests (API endpoints)
+        \item Unit tests (services, models)
+        \item Покрытие:
+          \begin{itemize}
+            \item Auth (login, register, refresh, logout)
+            \item Animals (CRUD, batch, CSV)
+            \item Milk, Feed, Reproduction
+            \item Reports (17 endpoints)
+            \item Analytics (8 endpoints)
+            \item Lely (11 endpoints)
+            \item Locations (9 endpoints)
+          \end{itemize}
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Инструменты}
+      \begin{itemize}
+        \item cargo test + cargo clippy
+        \item svelte-check (type checking)
+        \item Тестовая БД (авто-создание)
+        \item Seed для воспроизводимости
+      \end{itemize}
+
+      \vspace{1em}
+      \textbf{CI проверки}
+      \begin{itemize}
+        \item cargo test --- все 234 теста
+        \item cargo clippy --- без warnings
+        \item svelte-check --- типы Svelte
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%% ============================================================
+\section{Развёртывание}
+%% ============================================================
+
+\begin{frame}{Развёртывание (Docker Compose)}
+  \begin{center}
+    \includegraphics[width=0.85\textwidth,height=0.65\textheight,keepaspectratio]{deployment.png}
+  \end{center}
+  \begin{itemize}\small
+    \item \textbf{nginx:alpine} --- reverse proxy, SSL / \textbf{Frontend} --- Node.js, 256MB
+    \item \textbf{Backend} --- Rust binary, 256MB / \textbf{PostgreSQL 16} --- 512MB, volume
+  \end{itemize}
+\end{frame}
+
+%% ============================================================
+\section{Результаты}
+%% ============================================================
+
+\begin{frame}{Результаты}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \textbf{Реализовано}
+      \begin{itemize}
+        \item REST API: 15 модулей, 80+ endpoints
+        \item Frontend: 15 страниц, 16 компонентов
+        \item БД: 25+ таблиц, 11 миграций
+        \item Интеграция с Lely Cloud
+        \item 17 видов отчётов (CSV/PDF)
+        \item Аналитика: KPI, тренды, прогнозы
+        \item 234 теста
+        \item Docker Compose деплой
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Технические показатели}
+      \begin{itemize}
+        \item Backend: Rust (zero-cost abstractions, memory safety)
+        \item Frontend: SSR + SPA, responsive design
+        \item Security: JWT, rate limiting, encryption
+        \item Observability: Prometheus, structured logging
+        \item Maintainability:
+          \begin{itemize}
+            \item OpenAPI docs (Swagger)
+            \item Down-migrations
+            \item Seed для демо-данных
+          \end{itemize}
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%% ============================================================
+\section{Заключение}
+%% ============================================================
+
+\begin{frame}{Заключение}
+  % TODO: уточнить
+  \begin{itemize}
+    \item Разработана полнофункциональная система управления молочной фермой
+    \item Реализован полный цикл: от учёта данных до аналитики и отчётов
+    \item Интеграция с роботизированными системами доения (Lely)
+    \item Современный стек: Rust (производительность) + SvelteKit (UX)
+    \item Готовность к production: Docker, SSL, metrics, tests
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{}
+  \begin{center}
+    \Huge Спасибо за внимание!
+  \end{center}
+\end{frame}
+
+\end{document}

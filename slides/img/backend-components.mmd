@@ -1,0 +1,61 @@
+flowchart TB
+    Client["HTTP Client"]
+
+    subgraph MW["Middleware Stack"]
+        direction TB
+        Trace["Tracing"]
+        Compress["Gzip"]
+        CORS["CORS"]
+        RateLimit["Rate Limit\n100/60s"]
+        ReqId["Request ID"]
+        Metrics["Metrics\nPrometheus"]
+        AuthMW["Auth\nJWT + cookies"]
+    end
+
+    subgraph API["REST API /api/v1 - 15 handlers"]
+        direction TB
+        AuthAPI["Auth\nlogin / register\nlogout / refresh"]
+        AnimalAPI["Animals\nCRUD / timeline\nbatch / CSV import"]
+        ReproAPI["Reproduction\ninsem / pregnancy\ncalving / heat / dry"]
+        MilkAPI["Milk\nyield / visits\nquality / tank"]
+        FeedAPI["Feed\nrations / visits\ntypes / groups"]
+        LocAPI["Locations\nCRUD"]
+        ContactAPI["Contacts\nCRUD"]
+        BulkTankAPI["Bulk Tank\nCRUD"]
+        ReportAPI["Reports\n17 reports\nCSV/PDF export"]
+        AnalyticsAPI["Analytics\nKPI / trends\nalerts / forecasts"]
+        SettingsAPI["Settings\nusers / JWT\nalerts / backup\npassword reset"]
+        LelyAPI["Lely\nconfig / status\nsync"]
+        FitAPI["Fitness\nactivity\nwalking / standing"]
+        GrazAPI["Grazing"]
+    end
+
+    subgraph Svc["Service Layer - 22 services"]
+        direction TB
+        AuthSvc["JWT + bcrypt\nHttpOnly cookies"]
+        BusinessSvc["Business Logic\nanimal / milk / feed\nrepro / reports / analytics"]
+        LelySvc["Lely Integration\nclient / mapper\nsync / crypto (AES-256-GCM)"]
+        PdfSvc["PDF Generation"]
+    end
+
+    subgraph Data["Data Layer"]
+        PgPool["sqlx PgPool"]
+    end
+
+    PG[("PostgreSQL\n25+ tables")]
+    Lely["Lely Cloud"]
+
+    Client -->|"HTTP"| MW
+    MW --> API
+    API --> Svc
+    Svc --> Data
+    Data --> PG
+    LelySvc -.-> Lely
+
+    style Client fill:#757575,stroke:#424242,color:#fff
+    style MW fill:#e0f7fa,stroke:#00838f,color:#006064
+    style API fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Svc fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Data fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style PG fill:#1565c0,stroke:#0d47a1,color:#fff
+    style Lely fill:#6a1b9a,stroke:#4a148c,color:#fff

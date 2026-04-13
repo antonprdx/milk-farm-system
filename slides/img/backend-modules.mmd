@@ -1,0 +1,47 @@
+flowchart TB
+    subgraph Handlers["handlers/ - 15 modules"]
+        direction LR
+        H1["auth.rs"] --> H2["animals.rs"] --> H3["milk.rs"] --> H4["feed.rs"]
+        H5["reproduction.rs"] --> H6["reports.rs"] --> H7["analytics.rs"]
+        H8["settings.rs"] --> H9["lely.rs"] --> H10["locations.rs"]
+        H11["contacts.rs"] --> H12["bulk_tank.rs"] --> H13["fitness.rs"]
+        H14["grazing.rs"]
+    end
+
+    subgraph Services["services/ - 22 modules"]
+        direction LR
+        S1["animal_service"] --> S2["milk_service"] --> S3["feed_service"]
+        S4["reproduction_service"] --> S5["reports_service"] --> S6["analytics_service"]
+        S7["auth / user_service"] --> S8["lely sync + crypto"] --> S9["pdf_service"]
+        S10["bulk_tank"] --> S11["contact"] --> S12["location"]
+        S13["fitness"] --> S14["grazing"] --> S15["preferences"]
+        S16["system_settings"] --> S17["timeline"] --> S18["token_revocation"]
+        S19["animal_stats"] --> S20["stats"] --> S21["retry"]
+    end
+
+    subgraph Middleware["middleware/ - 5 modules"]
+        direction LR
+        M1["auth.rs\nJWT / Claims\nAdminGuard"] --> M2["rate_limit.rs\nin-memory\n100/60s"]
+        M3["metrics.rs\nPrometheus"] --> M4["request_id.rs"] --> M5["mod.rs"]
+    end
+
+    subgraph Models["models/"]
+        direction LR
+        Mod1["animal / milk / feed"] --> Mod2["reproduction / report"]
+        Mod3["user / location / contact"] --> Mod4["pagination / analytics"]
+        Mod5["preferences / system_settings"] --> Mod6["timeline / lely"]
+    end
+
+    subgraph DB["Database"]
+        Migrations["migrations/\n11 up + 11 down"]
+        Schema["25+ tables\nanimals / milk / feed\nreproduction / users\nlocations / contacts ..."]
+    end
+
+    Handlers --> Services --> Models --> DB
+    Middleware -.-> Handlers
+
+    style Handlers fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Services fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Middleware fill:#e0f7fa,stroke:#00838f,color:#006064
+    style Models fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style DB fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
