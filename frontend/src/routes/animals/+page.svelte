@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { listAnimals, deleteAnimal, batchDeactivateAnimals, type Animal } from '$lib/api/animals';
+	import { listAnimals, deleteAnimal, batchDeactivateAnimals, importAnimalsCsv, type Animal } from '$lib/api/animals';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Modal from '$lib/components/ui/Modal.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import { toasts } from '$lib/stores/toast';
 	import { Pencil, Trash2 } from 'lucide-svelte';
@@ -53,6 +54,28 @@
 			error = e instanceof Error ? e.message : 'Ошибка';
 		} finally {
 			batchDeleteLoading = false;
+		}
+	}
+
+	let showImport = $state(false);
+	let importCsv = $state('');
+	let importLoading = $state(false);
+	let importResult = $state<{ created: number; errors: string[] } | null>(null);
+
+	async function handleImport() {
+		try {
+			importLoading = true;
+			importResult = null;
+			const res = await importAnimalsCsv(importCsv);
+			importResult = { created: res.created, errors: res.errors };
+			if (res.created > 0) {
+				toasts.success(`Импортировано ${res.created} животных`);
+				load();
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Ошибка импорта';
+		} finally {
+			importLoading = false;
 		}
 	}
 
@@ -132,6 +155,10 @@
 				class="px-3 py-2 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 text-sm font-medium rounded-lg transition-colors cursor-pointer"
 			>Деактивировать</button>
 		{/if}
+		<button
+			onclick={() => { showImport = true; importCsv = ''; importResult = null; }}
+			class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg transition-colors cursor-pointer"
+		>Импорт CSV</button>
 		<a
 			href="/animals/new"
 			class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
@@ -300,3 +327,49 @@
 	onconfirm={handleBatchDeactivate}
 	oncancel={() => (showBatchDelete = false)}
 />
+
+<Modal
+	open={showImport}
+	title="Импорт животных из CSV"
+	onclose={() => (showImport = false)}
+>
+	<p class="text-sm text-slate-600 dark:text-slate-400 mb-2">
+		Формат: <code class="text-xs bg-slate-100 dark:bg-slate-700 px-1 rounded">пол,дата_рождения,имя,номер_жизни</code>
+	</p>
+	<p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+		Пол: male/female (или м/ж). Дата: YYYY-MM-DD. Имя и номер жизни — необязательны.
+	</p>
+	<textarea
+		bind:value={importCsv}
+		rows={8}
+		placeholder="female,2020-03-15,Бурёнка,12345&#10;male,2021-06-01,Бычок,"
+		class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+	></textarea>
+	{#if importResult}
+		<div class="mt-3 p-3 rounded-lg {importResult.errors.length > 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-green-50 dark:bg-green-900/20'}">
+			<p class="text-sm font-medium">Создано: {importResult.created}</p>
+			{#if importResult.errors.length > 0}
+				<p class="text-sm text-red-600 dark:text-red-400 mt-1">Ошибки ({importResult.errors.length}):</p>
+				<ul class="text-xs text-red-600 dark:text-red-400 list-disc ml-4 max-h-32 overflow-y-auto">
+					{#each importResult.errors as err}
+						<li>{err}</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	{/if}
+	<div class="flex gap-3 justify-end pt-4">
+		<button
+			type="button"
+			onclick={() => (showImport = false)}
+			class="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:bg-slate-800/50 cursor-pointer"
+		>Закрыть</button>
+		<button
+			onclick={handleImport}
+			disabled={importLoading || !importCsv.trim()}
+			class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 cursor-pointer"
+		>
+			{importLoading ? 'Импорт...' : 'Импортировать'}
+		</button>
+	</div>
+</Modal>

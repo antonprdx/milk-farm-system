@@ -95,6 +95,16 @@ export function batchDeactivateAnimals(ids: number[]) {
 	return post<{ message: string; count: number }>('/animals/batch/deactivate', { ids });
 }
 
+export interface CsvImportResult {
+	created: number;
+	errors: string[];
+	total: number;
+}
+
+export function importAnimalsCsv(csv: string) {
+	return post<CsvImportResult>('/animals/import/csv', { csv });
+}
+
 export interface TimelineEvent {
 	date: string;
 	event_type: string;

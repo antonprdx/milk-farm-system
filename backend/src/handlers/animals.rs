@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 use crate::errors::AppError;
 use crate::middleware::auth::{AdminGuard, Claims};
 use crate::models::animal::{AnimalFilter, CreateAnimal, UpdateAnimal};
+use crate::models::GenderType;
 use crate::models::animal_stats::AnimalStats;
 use crate::models::pagination::{Pagination, paginated};
 use crate::models::timeline::{TimelineFilter, TimelineResponse};
@@ -18,10 +19,16 @@ pub struct BatchDeactivateRequest {
     pub ids: Vec<i32>,
 }
 
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct CsvImportRequest {
+    pub csv: String,
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/animals", get(list).post(create))
         .route("/animals/batch/deactivate", post(batch_deactivate))
+        .route("/animals/import/csv", post(import_csv))
         .route("/animals/{id}", get(get_by_id).put(update).delete(remove))
         .route("/animals/{id}/timeline", get(timeline))
         .route("/animals/{id}/stats", get(stats))
@@ -169,6 +176,93 @@ async fn batch_deactivate(
     }
     let count = animal_service::batch_deactivate(&state.pool, &req.ids).await?;
     Ok(Json(json!({ "message": format!("Деактивировано {} животных", count), "count": count })))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/animals/import/csv",
+    request_body = CsvImportRequest,
+    responses(
+        (status = 200, description = "Animals imported", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn import_csv(
+    _admin: AdminGuard,
+    State(state): State<AppState>,
+    Json(req): Json<CsvImportRequest>,
+) -> Result<Json<Value>, AppError> {
+    if req.csv.trim().is_empty() {
+        return Err(AppError::BadRequest("CSV пуст".into()));
+    }
+    let mut created = 0u32;
+    let mut errors: Vec<String> = Vec::new();
+    for (i, line) in req.csv.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let cols: Vec<&str> = line.split(',').collect();
+        if cols.len() < 2 {
+            errors.push(format!("Строка {}: недостаточно столбцов", i + 1));
+            continue;
+        }
+        let gender = cols[0].trim().to_lowercase();
+        if gender != "male" && gender != "female" && gender != "м" && gender != "ж" {
+            errors.push(format!("Строка {}: пол должен быть male/female (или м/ж)", i + 1));
+            continue;
+        }
+        let gender = if gender == "м" { "male" } else if gender == "ж" { "female" } else { &gender };
+        let birth_date_str = cols[1].trim();
+        let birth_date = match chrono::NaiveDate::parse_from_str(birth_date_str, "%Y-%m-%d") {
+            Ok(d) => d,
+            Err(_) => {
+                errors.push(format!("Строка {}: неверная дата '{}', формат YYYY-MM-DD", i + 1, birth_date_str));
+                continue;
+            }
+        };
+        let name = cols.get(2).map(|s| s.trim()).filter(|s| !s.is_empty()).map(String::from);
+        let life_number = cols.get(3).map(|s| s.trim()).filter(|s| !s.is_empty()).map(String::from);
+        let gender_val = match gender {
+            "male" => GenderType::Male,
+            "female" => GenderType::Female,
+            _ => unreachable!(),
+        };
+        let animal = animal_service::create(
+            &state.pool,
+            &crate::models::animal::CreateAnimal {
+                gender: gender_val,
+                birth_date,
+                name,
+                life_number,
+                user_number: None,
+                hair_color_code: None,
+                father_life_number: None,
+                mother_life_number: None,
+                description: None,
+                ucn_number: None,
+                use_as_sire: None,
+                location: None,
+                group_number: None,
+                keep: None,
+                gestation: None,
+                responder_number: None,
+            },
+        )
+        .await;
+        match animal {
+            Ok(_) => created += 1,
+            Err(e) => errors.push(format!("Строка {}: {}", i + 1, e)),
+        }
+    }
+    Ok(Json(json!({
+        "created": created,
+        "errors": errors,
+        "total": created + errors.len() as u32,
+    })))
 }
 
 #[utoipa::path(
