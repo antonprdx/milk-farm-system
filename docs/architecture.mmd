@@ -1,65 +1,54 @@
----
-title: Milk Farm — C4 Architecture
----
-
 %% ========== LEVEL 1: System Context ==========
 
 flowchart LR
-    subgraph L1["System Context"]
-        direction LR
+    Farmer["Фермер\nпросмотр отчётов,\nданных о животных"]
+    Admin["Администратор\nуправление поголовьем,\nнастройки, пользователи"]
+    LelyCloud[("Lely Cloud API\nроботизированные\nсистемы доения")]
 
-        Farmer[" Фермер "]
-        AdminUsr[" Администратор фермы "]
-        LelyCloud[(" Lely Cloud API роботизированные системы доения ")]
-
-        subgraph System["Milk Farm System"]
-            App[" Веб-приложение управления молочной фермой "]
-        end
-
-        Farmer -->|"просмотр отчётов и данных"| App
-        AdminUsr -->|"управление поголовьем, настройка"| App
-        LelyCloud -.->|"синхронизация данных каждые 5 мин"| App
+    subgraph System["Milk Farm System"]
+        App["Веб-приложение\nуправления\nмолочной фермой"]
     end
 
+    Farmer -->|"просмотр отчётов\nи данных"| App
+    Admin -->|"CRUD, настройки,\nуправление"| App
+    LelyCloud -.->|"синхронизация\нданных каждые 5 мин"| App
+
     style Farmer fill:#2e7d32,stroke:#1b5e20,color:#fff
-    style AdminUsr fill:#1565c0,stroke:#0d47a1,color:#fff
+    style Admin fill:#1565c0,stroke:#0d47a1,color:#fff
     style LelyCloud fill:#6a1b9a,stroke:#4a148c,color:#fff
     style System fill:#f5f5f5,stroke:#424242,color:#333
     style App fill:#fff,stroke:#424242,color:#333
 
+---
+
 %% ========== LEVEL 2: Container ==========
 
 flowchart TB
-    subgraph L2["Container Diagram"]
+    Browser["Браузер"]
+
+    subgraph Docker["Docker Compose"]
         direction TB
 
-        Browser[" Браузер "]
+        Nginx["Nginx\nreverse proxy\nSSL termination\n:80 → :443"]
 
-        subgraph Docker["Docker Compose"]
-            direction TB
+        Frontend["Frontend\nSvelteKit 5 + SSR\nNode.js 20\n:3000"]
 
-            Nginx[" Nginx reverse proxy SSL termination :80 :443 "]
+        Backend["Backend\nRust / Axum 0.8\nREST API\n:3000"]
 
-            Frontend[" Frontend SvelteKit + SSR Node.js :3000 "]
-
-            Backend[" Backend Rust / Axum 0.8 REST API :3000 "]
-
-            Postgres[(" PostgreSQL 16 25+ таблиц :5432 ")]
-        end
-
-        LelyAPI[(" Lely Cloud API farmauth.lely.com ")]
-
-        Browser -->|"HTTPS"| Nginx
-        Nginx -->|"/*"| Frontend
-        Nginx -->|"/api/*"| Backend
-        Frontend -->|"SSR fetch /api"| Backend
-        Backend -->|"sqlx PgPool"| Postgres
-        Backend -.->|"reqwest HTTPS синхронизация"| LelyAPI
-
-        GHCR[("GHCR Docker Registry")]
-        GHCR -.->|"CI/CD GitHub Actions"| Backend
-        GHCR -.->|"CI/CD GitHub Actions"| Frontend
+        Postgres[("PostgreSQL 16\n25+ таблиц\n:5432")]
     end
+
+    LelyAPI[("Lely Cloud\nfarmauth.lely.com")]
+    GHCR[("GHCR\nDocker Registry")]
+
+    Browser -->|"HTTPS"| Nginx
+    Nginx -->|"/*"| Frontend
+    Nginx -->|"/api/*"| Backend
+    Frontend -->|"SSR fetch /api"| Backend
+    Backend -->|"sqlx PgPool\n2-20 conn"| Postgres
+    Backend -.->|"reqwest HTTPS\nsync"| LelyAPI
+    GHCR -.->|"CI/CD"| Frontend
+    GHCR -.->|"CI/CD"| Backend
 
     style Browser fill:#757575,stroke:#424242,color:#fff
     style Nginx fill:#00838f,stroke:#006064,color:#fff
@@ -70,114 +59,117 @@ flowchart TB
     style GHCR fill:#546e7a,stroke:#37474f,color:#fff
     style Docker fill:#fafafa,stroke:#bdbdbd,color:#333
 
+---
+
 %% ========== LEVEL 3: Backend Components ==========
 
 flowchart TB
-    subgraph L3["Backend — Components"]
+    Client["HTTP Client"]
+
+    subgraph MW["Middleware Stack"]
         direction TB
-
-        Client[" HTTP Client (Browser / SSR) "]
-
-        subgraph MW["Middleware Stack"]
-            direction TB
-            Trace["Tracing"]
-            Compress["Gzip Compression"]
-            CORS["CORS"]
-            RateLimit["Rate Limit 100/60s"]
-            ReqId["Request ID"]
-            Metrics["Prometheus Metrics"]
-        end
-
-        subgraph API["REST API /api/v1"]
-            direction TB
-            AuthAPI["Auth login · register logout · refresh"]
-            AnimalAPI["Animals CRUD · timeline"]
-            ReproAPI["Reproduction осеменение · стельность отёл · охота · сухостой"]
-            MilkAPI["Milk надои · визиты качество · танк"]
-            FeedAPI["Feed рационы · визиты типы · группы"]
-            ReportAPI["Reports сводные · специализированные экспорт CSV/PDF"]
-            AnalyticsAPI["Analytics KPI · тренды оповещения · прогнозы"]
-            SettingsAPI["Settings пользователи · JWT алерты · бэкап"]
-            LelyAPI["Lely конфиг · статус синхронизация"]
-        end
-
-        subgraph Services["Service Layer"]
-            direction TB
-            AuthSvc["JWT + bcrypt HttpOnly cookies"]
-            DBSvc["Business Logic 14 сервисов"]
-            LelySvc["Lely Integration client · mapper sync · crypto"]
-        end
-
-        subgraph Data["Data Layer"]
-            direction LR
-            PgPool["sqlx PgPool 2–20 connections"]
-        end
-
-        subgraph External["External"]
-            Lely["Lely Cloud"]
-            PG[("PostgreSQL")]
-        end
-
-        Client -->|"HTTP"| MW
-        MW --> API
-        API --> Services
-        Services --> Data
-        Data --> PgPool
-        PgPool --> PG
-        LelySvc -.-> Lely
+        Trace["Tracing"]
+        Compress["Gzip"]
+        CORS["CORS"]
+        RateLimit["Rate Limit\n100/60s"]
+        ReqId["Request ID"]
+        Metrics["Metrics\nPrometheus"]
+        AuthMW["Auth\nJWT + cookies"]
     end
+
+    subgraph API["REST API /api/v1 - 15 handlers"]
+        direction TB
+        AuthAPI["Auth\nlogin / register\nlogout / refresh"]
+        AnimalAPI["Animals\nCRUD / timeline\nbatch / CSV import"]
+        ReproAPI["Reproduction\ninsem / pregnancy\ncalving / heat / dry"]
+        MilkAPI["Milk\nyield / visits\nquality / tank"]
+        FeedAPI["Feed\nrations / visits\ntypes / groups"]
+        LocAPI["Locations\nCRUD"]
+        ContactAPI["Contacts\nCRUD"]
+        BulkTankAPI["Bulk Tank\nCRUD"]
+        ReportAPI["Reports\n17 reports\nCSV/PDF export"]
+        AnalyticsAPI["Analytics\nKPI / trends\nalerts / forecasts"]
+        SettingsAPI["Settings\nusers / JWT\nalerts / backup\npassword reset"]
+        LelyAPI["Lely\nconfig / status\nsync"]
+        FitAPI["Fitness\nactivity\nwalking / standing"]
+        GrazAPI["Grazing"]
+    end
+
+    subgraph Svc["Service Layer - 22 services"]
+        direction TB
+        AuthSvc["JWT + bcrypt\nHttpOnly cookies"]
+        BusinessSvc["Business Logic\nanimal / milk / feed\nrepro / reports / analytics"]
+        LelySvc["Lely Integration\nclient / mapper\nsync / crypto (AES-256-GCM)"]
+        PdfSvc["PDF Generation"]
+    end
+
+    subgraph Data["Data Layer"]
+        PgPool["sqlx PgPool"]
+    end
+
+    PG[("PostgreSQL\n25+ tables")]
+    Lely["Lely Cloud"]
+
+    Client -->|"HTTP"| MW
+    MW --> API
+    API --> Svc
+    Svc --> Data
+    Data --> PG
+    LelySvc -.-> Lely
 
     style Client fill:#757575,stroke:#424242,color:#fff
     style MW fill:#e0f7fa,stroke:#00838f,color:#006064
     style API fill:#fff3e0,stroke:#e65100,color:#bf360c
-    style Services fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Svc fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
     style Data fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
-    style PgPool fill:#1565c0,stroke:#0d47a1,color:#fff
-    style External fill:#fafafa,stroke:#bdbdbd,color:#333
-    style Lely fill:#6a1b9a,stroke:#4a148c,color:#fff
     style PG fill:#1565c0,stroke:#0d47a1,color:#fff
+    style Lely fill:#6a1b9a,stroke:#4a148c,color:#fff
 
-%% ========== LEVEL 4: Frontend Structure ==========
+---
+
+%% ========== LEVEL 3: Frontend Components ==========
 
 flowchart TB
-    subgraph L4["Frontend — Structure"]
+    Browser["Browser"]
+
+    subgraph SK["SvelteKit 5 - SSR (Node.js)"]
         direction TB
 
-        Browser["Браузер"]
+        Hooks["hooks.server.ts\nJWT decode\nauth guard\nredirect"]
 
-        subgraph SK["SvelteKit SSR (Node.js)"]
-            direction TB
-
-            Hooks["hooks.server.ts JWT decode auth guard redirect"]
-
-            subgraph Pages["Pages / Пользовательский интерфейс"]
-                direction LR
-                Dash["Dashboard"]
-                AnimalsPg["Животные"]
-                MilkPg["Доение"]
-                ReproPg["Воспроизводство"]
-                FeedPg["Кормление"]
-                ReportPg["Отчёты"]
-                SettingsPg["Настройки"]
-            end
-
-            subgraph Lib["Library"]
-                direction LR
-                APIClient["api/ REST клиент"]
-                Components["components/ UI компоненты"]
-                Stores["stores/ Svelte stores"]
-            end
-
-            Static["Static Assets CSS: Tailwind 4 Charts: Chart.js Icons: Lucide"]
+        subgraph Pages["Pages - 15 routes"]
+            direction LR
+            Dash["Dashboard"]
+            AnimalsPg["Animals\n+batch / +CSV import"]
+            MilkPg["Milk"]
+            ReproPg["Reproduction"]
+            FeedPg["Feed"]
+            ReportPg["Reports\n17 tabs"]
+            SettingsPg["Settings"]
+            LocPg["Locations\n+CRUD"]
+            ContactPg["Contacts"]
+            BulkTankPg["Bulk Tank"]
+            FitnessPg["Fitness"]
+            GrazingPg["Grazing"]
         end
 
-        BackendAPI["Backend API /api/v1"]
+        subgraph Lib["Library"]
+            direction LR
+            APIClient["api/\nREST client\n14 modules"]
+            Components["components/ui/\n16 components\nDataTable / Modal\nFormField / Toaster"]
+            Stores["stores/\nauth / preferences\ntoast / theme"]
+            Utils["utils/\nvalidators / format\nuseCrudModal\nusePaginatedList"]
+        end
 
-        Browser -->|"HTTPS"| Hooks
-        Hooks --> Pages
-        Pages --> Lib
-        APIClient -->|"fetch"| BackendAPI
+        Static["Static\nTailwind 4 / Chart.js\nLucide Icons"]
     end
+
+    BackendAPI["Backend API\n/api/v1"]
+
+    Browser -->|"HTTPS"| Hooks
+    Hooks --> Pages
+    Pages --> Lib
+    APIClient -->|"fetch"| BackendAPI
 
     style Browser fill:#757575,stroke:#424242,color:#fff
     style SK fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
@@ -187,38 +179,148 @@ flowchart TB
     style Static fill:#eceff1,stroke:#546e7a,color:#37474f
     style BackendAPI fill:#c62828,stroke:#b71c1c,color:#fff
 
+---
+
+%% ========== LEVEL 4: Backend Module Map ==========
+
+flowchart TB
+    subgraph Handlers["handlers/ - 15 modules"]
+        direction LR
+        H1["auth.rs"] --> H2["animals.rs"] --> H3["milk.rs"] --> H4["feed.rs"]
+        H5["reproduction.rs"] --> H6["reports.rs"] --> H7["analytics.rs"]
+        H8["settings.rs"] --> H9["lely.rs"] --> H10["locations.rs"]
+        H11["contacts.rs"] --> H12["bulk_tank.rs"] --> H13["fitness.rs"]
+        H14["grazing.rs"]
+    end
+
+    subgraph Services["services/ - 22 modules"]
+        direction LR
+        S1["animal_service"] --> S2["milk_service"] --> S3["feed_service"]
+        S4["reproduction_service"] --> S5["reports_service"] --> S6["analytics_service"]
+        S7["auth / user_service"] --> S8["lely sync + crypto"] --> S9["pdf_service"]
+        S10["bulk_tank"] --> S11["contact"] --> S12["location"]
+        S13["fitness"] --> S14["grazing"] --> S15["preferences"]
+        S16["system_settings"] --> S17["timeline"] --> S18["token_revocation"]
+        S19["animal_stats"] --> S20["stats"] --> S21["retry"]
+    end
+
+    subgraph Middleware["middleware/ - 5 modules"]
+        direction LR
+        M1["auth.rs\nJWT / Claims\nAdminGuard"] --> M2["rate_limit.rs\nin-memory\n100/60s"]
+        M3["metrics.rs\nPrometheus"] --> M4["request_id.rs"] --> M5["mod.rs"]
+    end
+
+    subgraph Models["models/"]
+        direction LR
+        Mod1["animal / milk / feed"] --> Mod2["reproduction / report"]
+        Mod3["user / location / contact"] --> Mod4["pagination / analytics"]
+        Mod5["preferences / system_settings"] --> Mod6["timeline / lely"]
+    end
+
+    subgraph DB["Database"]
+        Migrations["migrations/\n11 up + 11 down"]
+        Schema["25+ tables\nanimals / milk / feed\nreproduction / users\nlocations / contacts ..."]
+    end
+
+    Handlers --> Services --> Models --> DB
+    Middleware -.-> Handlers
+
+    style Handlers fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Services fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Middleware fill:#e0f7fa,stroke:#00838f,color:#006064
+    style Models fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style DB fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+
+---
+
+%% ========== LEVEL 4: Frontend Structure ==========
+
+flowchart TB
+    subgraph Routes["routes/ - 15 pages"]
+        direction TB
+        R1["+layout.svelte\nsidebar / auth guard\ntopbar / theme"]
+        R2["+page.svelte\nDashboard"]
+        R3["animals/\nlist + detail + edit + new\nbatch / CSV import"]
+        R4["milk/\nyield / visits / quality / tank"]
+        R5["feed/\nrations / visits / types / groups"]
+        R6["reproduction/\n5 tabs CRUD"]
+        R7["reports/\n17 tabs (tabs/)\n_shared.ts"]
+        R8["settings/\nusers / JWT\nalerts / backup / password"]
+        R9["locations/ / contacts/\nbulk-tank/\nfitness/ / grazing/"]
+    end
+
+    subgraph API["lib/api/ - 14 modules"]
+        direction LR
+        A1["client.ts\napi / post / put / del"]
+        A2["animals / milk / feed\nreproduction / reports"]
+        A3["auth / settings / locations\ncontacts / analytics / lely"]
+    end
+
+    subgraph UI["lib/components/ui/ - 16 components"]
+        direction LR
+        U1["DataTable\nsorting / pagination\nhideOnMobile"]
+        U2["Modal / ConfirmDialog\nFormField / FilterBar"]
+        U3["Pagination / TabBar\nEmptyState / ErrorAlert"]
+        U4["Toaster\nsuccess / error\nwarning / info\nexpandable details"]
+        U5["AnimalSelect"]
+    end
+
+    subgraph Stores["lib/stores/"]
+        direction LR
+        ST1["auth.ts\nlogin / logout\nrefresh / init"]
+        ST2["preferences.ts\ntheme / page_size"]
+        ST3["toast.ts\n4 types + details"]
+        ST4["theme.ts"]
+    end
+
+    subgraph Utils["lib/utils/"]
+        direction LR
+        UT1["validators.ts\nuseFormValidation"]
+        UT2["useCrudModal\nusePaginatedList"]
+        UT3["format.ts"]
+    end
+
+    Routes --> API
+    Routes --> UI
+    Routes --> Stores
+    Routes --> Utils
+
+    style Routes fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    style API fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style UI fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Stores fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Utils fill:#e0f7fa,stroke:#00838f,color:#006064
+
+---
+
 %% ========== DEPLOYMENT ==========
 
 flowchart TB
-    subgraph Deploy["Deployment Diagram (Production)"]
+    Internet(("Internet"))
+
+    subgraph Server["Server - Docker Compose"]
         direction TB
 
-        Internet(("Internet"))
+        NginxD["nginx:alpine\n:80 → :443\nSSL termination\nrate limiting"]
 
-        subgraph Server["Сервер (Docker Compose)"]
-            direction TB
-
-            NginxD["nginx:alpine :80 → :443 SSL termination rate limiting"]
-
-            subgraph AppContainers["Application Containers"]
-                direction LR
-                FrontendD["ghcr.io/.../frontend SvelteKit Node.js :3000 256MB limit"]
-                BackendD["ghcr.io/.../backend Rust binary :3000 256MB limit"]
-            end
-
-            PostgresD["postgres:16 :5432 512MB limit volume: pgdata"]
+        subgraph Containers["Application Containers"]
+            direction LR
+            FrontendD["Frontend\nSvelteKit Node.js\n:3000 / 256MB"]
+            BackendD["Backend\nRust binary\n:3000 / 256MB"]
         end
 
-        LelyExt(("Lely Cloud API"))
-        GHCRExt(("GHCR Registry"))
-
-        Internet -->|"HTTPS :443"| NginxD
-        NginxD -->|"/*"| FrontendD
-        NginxD -->|"/api/*"| BackendD
-        BackendD -->|"sqlx"| PostgresD
-        BackendD -.->|"sync"| LelyExt
-        GHCRExt -.->|"docker pull"| AppContainers
+        PostgresD["postgres:16\n:5432 / 512MB\nvolume: pgdata"]
     end
+
+    LelyExt(("Lely Cloud"))
+    GHCRExt(("GHCR Registry"))
+
+    Internet -->|"HTTPS :443"| NginxD
+    NginxD -->|"/*"| FrontendD
+    NginxD -->|"/api/*"| BackendD
+    BackendD -->|"sqlx"| PostgresD
+    BackendD -.->|"sync"| LelyExt
+    GHCRExt -.->|"docker pull"| Containers
 
     style Internet fill:#757575,stroke:#424242,color:#fff
     style Server fill:#fafafa,stroke:#bdbdbd,color:#333
@@ -226,6 +328,6 @@ flowchart TB
     style FrontendD fill:#2e7d32,stroke:#1b5e20,color:#fff
     style BackendD fill:#c62828,stroke:#b71c1c,color:#fff
     style PostgresD fill:#1565c0,stroke:#0d47a1,color:#fff
-    style AppContainers fill:#f5f5f5,stroke:#9e9e9e,color:#333
+    style Containers fill:#f5f5f5,stroke:#9e9e9e,color:#333
     style LelyExt fill:#6a1b9a,stroke:#4a148c,color:#fff
     style GHCRExt fill:#546e7a,stroke:#37474f,color:#fff
