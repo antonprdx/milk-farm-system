@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { MilkDayProductionTimeRow } from '$lib/api/reports';
 	import { fmtNum } from '$lib/utils/format';
-	import { thCls, tdCls, tblCls } from '../_shared';
+	import { thCls, tdCls, tdHidden, thHidden, tblCls } from '../_shared';
 
 	let { rows }: { rows: MilkDayProductionTimeRow[] } = $props();
 </script>
@@ -11,8 +11,8 @@
 		<thead class="bg-slate-50 dark:bg-slate-900/50">
 			<tr>
 				<th class={thCls}>Дата</th><th class={thCls}>Коров</th><th class={thCls}>Надой (л)</th>
-				<th class={thCls}>Средн./корова</th><th class={thCls}>Доек</th><th class={thCls}>Отказов</th>
-				<th class={thCls}>Неудач</th><th class={thCls}>Вес</th><th class={thCls}>Корм (кг)</th><th class={thCls}>Ост. корм</th>
+				<th class={thCls}>Средн./корова</th><th class={thHidden}>Доек</th><th class={thHidden}>Отказов</th>
+				<th class={thHidden}>Неудач</th><th class={thHidden}>Вес</th><th class={thHidden}>Корм (кг)</th><th class={thHidden}>Ост. корм</th>
 			</tr>
 		</thead>
 		<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
@@ -20,9 +20,9 @@
 				<tr>
 					<td class={tdCls}>{row.date}</td><td class={tdCls}>{row.cow_count}</td>
 					<td class={tdCls}>{fmtNum(row.total_milk)}</td><td class={tdCls}>{fmtNum(row.avg_milk_per_cow)}</td>
-					<td class={tdCls}>{row.milkings ?? '—'}</td><td class={tdCls}>{row.refusals ?? '—'}</td>
-					<td class={tdCls}>{row.failures ?? '—'}</td><td class={tdCls}>{fmtNum(row.avg_weight)}</td>
-					<td class={tdCls}>{fmtNum(row.total_feed)}</td><td class={tdCls}>{row.total_rest_feed ?? '—'}</td>
+					<td class={tdHidden}>{row.milkings ?? '—'}</td><td class={tdHidden}>{row.refusals ?? '—'}</td>
+					<td class={tdHidden}>{row.failures ?? '—'}</td><td class={tdHidden}>{fmtNum(row.avg_weight)}</td>
+					<td class={tdHidden}>{fmtNum(row.total_feed)}</td><td class={tdHidden}>{row.total_rest_feed ?? '—'}</td>
 				</tr>
 			{/each}
 		</tbody>

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { CalendarResponse } from '$lib/api/reports';
-	import { thCls, tdCls, tblCls, badgeRed, badgeYellow } from '../_shared';
+	import { thCls, tdCls, tdHidden, thHidden, tblCls, badgeRed, badgeYellow } from '../_shared';
 
 	let { data }: { data: CalendarResponse } = $props();
 </script>
@@ -12,17 +12,17 @@
 			<table class={tblCls}>
 				<thead class="bg-slate-50 dark:bg-slate-900/50">
 					<tr>
-						<th class={thCls}>Животное</th><th class={thCls}>Лактация</th><th class={thCls}>Последняя инсем.</th>
-						<th class={thCls}>Ожид. отёл</th><th class={thCls}>Дней до отёла</th><th class={thCls}>Бык</th><th class={thCls}>Дней стельности</th>
+						<th class={thCls}>Животное</th><th class={thHidden}>Лактация</th><th class={thHidden}>Последняя инсем.</th>
+						<th class={thCls}>Ожид. отёл</th><th class={thCls}>Дней до отёла</th><th class={thHidden}>Бык</th><th class={thHidden}>Дней стельности</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 					{#each data.expected_calvings as row (row.animal_id)}
 						<tr>
-							<td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdCls}>{row.lac_number ?? '—'}</td>
-							<td class={tdCls}>{row.last_insemination_date ?? '—'}</td><td class={tdCls}>{row.expected_calving_date ?? '—'}</td>
+							<td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdHidden}>{row.lac_number ?? '—'}</td>
+							<td class={tdHidden}>{row.last_insemination_date ?? '—'}</td><td class={tdCls}>{row.expected_calving_date ?? '—'}</td>
 							<td class={tdCls}><span class={row.days_until_calving && row.days_until_calving < 14 ? badgeRed : row.days_until_calving && row.days_until_calving < 30 ? badgeYellow : ''}>{row.days_until_calving ?? '—'}</span></td>
-							<td class={tdCls}>{row.sire_code ?? '—'}</td><td class={tdCls}>{row.days_pregnant ?? '—'}</td>
+							<td class={tdHidden}>{row.sire_code ?? '—'}</td><td class={tdHidden}>{row.days_pregnant ?? '—'}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -59,7 +59,7 @@
 				<thead class="bg-slate-50 dark:bg-slate-900/50">
 					<tr>
 						<th class={thCls}>Животное</th><th class={thCls}>Посл. охота</th><th class={thCls}>Ожид. охота</th>
-						<th class={thCls}>Дней до</th><th class={thCls}>Дней в лакт.</th><th class={thCls}>Осеменена</th>
+						<th class={thCls}>Дней до</th><th class={thHidden}>Дней в лакт.</th><th class={thHidden}>Осеменена</th>
 					</tr>
 				</thead>
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
@@ -69,8 +69,8 @@
 							<td class={tdCls}>{row.last_heat_date ?? '—'}</td>
 							<td class={tdCls}>{row.expected_heat_date ?? '—'}</td>
 							<td class={tdCls}><span class={row.overdue ? badgeRed : row.days_until_heat && row.days_until_heat < 3 ? badgeYellow : ''}>{row.days_until_heat ?? '—'}</span></td>
-							<td class={tdCls}>{row.days_in_lactation ?? '—'}</td>
-							<td class={tdCls}>{row.inseminated ? 'Да' : 'Нет'}</td>
+							<td class={tdHidden}>{row.days_in_lactation ?? '—'}</td>
+							<td class={tdHidden}>{row.inseminated ? 'Да' : 'Нет'}</td>
 						</tr>
 					{/each}
 				</tbody>

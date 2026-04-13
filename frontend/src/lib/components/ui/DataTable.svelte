@@ -7,6 +7,7 @@
 		label: string;
 		align?: 'left' | 'right' | 'center';
 		sortable?: boolean;
+		hideOnMobile?: boolean;
 	};
 
 	let {
@@ -63,7 +64,7 @@
 									? 'text-center'
 									: 'text-left'} px-4 py-3 text-slate-600 dark:text-slate-400 font-medium {col.sortable
 								? 'cursor-pointer select-none hover:text-slate-800 dark:hover:text-slate-200'
-								: ''}"
+								: ''} {col.hideOnMobile ? 'hidden md:table-cell' : ''}"
 							onclick={col.sortable ? () => toggleSort(col.key) : undefined}
 						>
 							<span class="inline-flex items-center gap-1">
