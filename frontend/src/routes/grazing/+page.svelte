@@ -6,10 +6,18 @@
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import { usePaginatedList } from '$lib/utils/usePaginatedList.svelte';
 
+	let { data: pageData } = $props();
+
 	let dataTable: DataTable;
 	let data = $state<GrazingData[]>([]);
 
 	const list = usePaginatedList({ perPage: 50 });
+	let _skipLoad = !!pageData.initialData;
+	let _hasInitial = $state(!!pageData.initialData);
+
+	if (pageData.initialData) {
+		data = pageData.initialData.data;
+	}
 
 	async function load() {
 		await list.load(
@@ -32,6 +40,10 @@
 
 	$effect(() => {
 		list.page;
+		if (_skipLoad) {
+			_skipLoad = false;
+			return;
+		}
 		load();
 	});
 </script>

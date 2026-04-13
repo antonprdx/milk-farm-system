@@ -6,10 +6,18 @@
 	import { usePaginatedList } from '$lib/utils/usePaginatedList.svelte';
 	import { MapPin } from 'lucide-svelte';
 
+	let { data } = $props();
+
 	let dataTable: DataTable;
 	let locations = $state<Location[]>([]);
 
 	const list = usePaginatedList();
+	let _skipLoad = !!data.initialData;
+	let _hasInitial = $state(!!data.initialData);
+
+	if (data.initialData) {
+		locations = data.initialData.data;
+	}
 
 	async function load() {
 		await list.load(
@@ -23,6 +31,10 @@
 
 	$effect(() => {
 		list.page;
+		if (_skipLoad) {
+			_skipLoad = false;
+			return;
+		}
 		load();
 	});
 </script>

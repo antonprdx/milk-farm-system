@@ -13,6 +13,8 @@
 	import { formatDatetime } from '$lib/utils/format';
 	import { usePaginatedList } from '$lib/utils/usePaginatedList.svelte';
 
+	let { data: pageData } = $props();
+
 	type Tab = 'activities' | 'ruminations';
 
 	let tab = $state<Tab>('activities');
@@ -23,6 +25,12 @@
 	let ruminations = $state<Rumination[]>([]);
 
 	const list = usePaginatedList({ perPage: 50 });
+	let _skipLoad = !!pageData.initialData;
+	let _hasInitial = $state(!!pageData.initialData);
+
+	if (pageData.initialData) {
+		activities = pageData.initialData.data;
+	}
 
 	async function load() {
 		const params = {
@@ -59,6 +67,10 @@
 
 	$effect(() => {
 		list.page;
+		if (_skipLoad) {
+			_skipLoad = false;
+			return;
+		}
 		load();
 	});
 </script>
