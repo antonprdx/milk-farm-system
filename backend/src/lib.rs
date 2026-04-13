@@ -84,6 +84,8 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
         .with_state(state)
 }
 
-async fn metrics_endpoint() -> String {
-    crate::middleware::metrics::gather()
+async fn metrics_endpoint(
+    _admin: crate::middleware::auth::AdminGuard,
+) -> Result<String, crate::errors::AppError> {
+    Ok(crate::middleware::metrics::gather())
 }

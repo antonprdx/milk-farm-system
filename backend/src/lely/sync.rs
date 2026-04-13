@@ -12,7 +12,13 @@ use crate::state::AppStateInner;
 pub fn start_sync_scheduler(state: Arc<AppStateInner>) {
     let cfg = state.lely.get_config();
     let interval = Duration::from_secs(cfg.sync_interval_secs);
-    let cancel = state.lely.cancel.read().unwrap().clone();
+    let cancel = match state.lely.cancel.read() {
+        Ok(guard) => guard.clone(),
+        Err(e) => {
+            tracing::error!("Lely cancel lock poisoned: {}", e);
+            e.into_inner().clone()
+        }
+    };
 
     tokio::spawn(async move {
         tracing::info!(
