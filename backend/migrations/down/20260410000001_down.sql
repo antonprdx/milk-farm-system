@@ -1,0 +1,2 @@
+-- Rollback: 20260410000001_add_must_change_password
+ALTER TABLE users DROP COLUMN IF EXISTS must_change_password;
