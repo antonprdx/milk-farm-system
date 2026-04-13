@@ -123,11 +123,11 @@ export function listGroups(signal?: AbortSignal) {
 }
 
 export function createFeedType(data: CreateFeedType) {
-	return post<FeedType>('/feed/types', data);
+	return post<{ data: FeedType }>('/feed/types', data);
 }
 
 export function updateFeedType(id: number, data: UpdateFeedType) {
-	return put<FeedType>(`/feed/types/${id}`, data);
+	return put<{ data: FeedType }>(`/feed/types/${id}`, data);
 }
 
 export function deleteFeedType(id: number) {
@@ -135,11 +135,11 @@ export function deleteFeedType(id: number) {
 }
 
 export function createFeedGroup(data: CreateFeedGroup) {
-	return post<FeedGroup>('/feed/groups', data);
+	return post<{ data: FeedGroup }>('/feed/groups', data);
 }
 
 export function updateFeedGroup(id: number, data: UpdateFeedGroup) {
-	return put<FeedGroup>(`/feed/groups/${id}`, data);
+	return put<{ data: FeedGroup }>(`/feed/groups/${id}`, data);
 }
 
 export function deleteFeedGroup(id: number) {

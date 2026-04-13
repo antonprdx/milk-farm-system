@@ -156,10 +156,10 @@ async fn create_type(
     _admin: AdminGuard,
     State(state): State<AppState>,
     Json(data): Json<CreateFeedType>,
-) -> Result<Json<FeedType>, AppError> {
+) -> Result<Json<Value>, AppError> {
     data.validate()?;
     let feed_type = feed_service::create_feed_type(&state.pool, &data).await?;
-    Ok(Json(feed_type))
+    Ok(Json(json!({ "data": feed_type })))
 }
 
 #[utoipa::path(
@@ -180,10 +180,10 @@ async fn update_type(
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(data): Json<UpdateFeedType>,
-) -> Result<Json<FeedType>, AppError> {
+) -> Result<Json<Value>, AppError> {
     data.validate()?;
     let feed_type = feed_service::update_feed_type(&state.pool, id, &data).await?;
-    Ok(Json(feed_type))
+    Ok(Json(json!({ "data": feed_type })))
 }
 
 #[utoipa::path(
@@ -221,10 +221,10 @@ async fn create_group(
     _admin: AdminGuard,
     State(state): State<AppState>,
     Json(data): Json<CreateFeedGroup>,
-) -> Result<Json<FeedGroup>, AppError> {
+) -> Result<Json<Value>, AppError> {
     data.validate()?;
     let group = feed_service::create_feed_group(&state.pool, &data).await?;
-    Ok(Json(group))
+    Ok(Json(json!({ "data": group })))
 }
 
 #[utoipa::path(
@@ -245,10 +245,10 @@ async fn update_group(
     State(state): State<AppState>,
     Path(id): Path<i32>,
     Json(data): Json<UpdateFeedGroup>,
-) -> Result<Json<FeedGroup>, AppError> {
+) -> Result<Json<Value>, AppError> {
     data.validate()?;
     let group = feed_service::update_feed_group(&state.pool, id, &data).await?;
-    Ok(Json(group))
+    Ok(Json(json!({ "data": group })))
 }
 
 #[utoipa::path(
