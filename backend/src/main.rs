@@ -79,10 +79,11 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Server running on http://{}", addr);
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(async {
+        .with_graceful_shutdown(async move {
+            let timeout_secs = cfg.shutdown_timeout_secs;
             shutdown_signal().await;
-            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-            tracing::warn!("Graceful shutdown timed out after 30s");
+            tokio::time::sleep(std::time::Duration::from_secs(timeout_secs)).await;
+            tracing::warn!("Graceful shutdown timed out after {}s", timeout_secs);
         })
         .await?;
 

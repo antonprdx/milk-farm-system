@@ -23,6 +23,9 @@ pub fn test_config() -> Config {
         jwt_refresh_ttl_secs: 604800,
         trust_proxy: false,
         lely_encryption_key: "test-lely-key-32-characters-long!!".to_string(),
+        rate_limit_max: 100,
+        rate_limit_window_secs: 60,
+        shutdown_timeout_secs: 30,
         lely_env: LelyConfig {
             enabled: false,
             base_url: String::new(),
