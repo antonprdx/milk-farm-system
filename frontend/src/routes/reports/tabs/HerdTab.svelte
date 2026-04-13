@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { HerdOverviewResponse } from '$lib/api/reports';
 	import { fmtNum } from '$lib/utils/format';
-	import { thCls, tdCls, tblCls } from '../_shared';
+	import { thCls, tdCls, tdHidden, thHidden, tblCls } from '../_shared';
 
 	let { data }: { data: HerdOverviewResponse } = $props();
 </script>
@@ -33,8 +33,8 @@
 		<thead class="bg-slate-50 dark:bg-slate-900/50">
 			<tr>
 				<th class={thCls}>Дата</th><th class={thCls}>Коров</th><th class={thCls}>Надой (л)</th>
-				<th class={thCls}>Средн./корова</th><th class={thCls}>Доек</th><th class={thCls}>Отказов</th>
-				<th class={thCls}>Неудач</th><th class={thCls}>Сепарация</th><th class={thCls}>SCC</th>
+				<th class={thCls}>Средн./корова</th><th class={thHidden}>Доек</th><th class={thHidden}>Отказов</th>
+				<th class={thHidden}>Неудач</th><th class={thHidden}>Сепарация</th><th class={thHidden}>SCC</th>
 			</tr>
 		</thead>
 		<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
@@ -42,9 +42,9 @@
 				<tr>
 					<td class={tdCls}>{row.date}</td><td class={tdCls}>{row.cow_count}</td>
 					<td class={tdCls}>{fmtNum(row.total_milk)}</td><td class={tdCls}>{fmtNum(row.avg_day_production)}</td>
-					<td class={tdCls}>{row.total_milkings ?? '—'}</td><td class={tdCls}>{row.total_refusals ?? '—'}</td>
-					<td class={tdCls}>{row.total_failures ?? '—'}</td><td class={tdCls}>{row.milk_separated ?? '—'}</td>
-					<td class={tdCls}>{fmtNum(row.avg_scc, 0)}</td>
+					<td class={tdHidden}>{row.total_milkings ?? '—'}</td><td class={tdHidden}>{row.total_refusals ?? '—'}</td>
+					<td class={tdHidden}>{row.total_failures ?? '—'}</td><td class={tdHidden}>{row.milk_separated ?? '—'}</td>
+					<td class={tdHidden}>{fmtNum(row.avg_scc, 0)}</td>
 				</tr>
 			{/each}
 		</tbody>

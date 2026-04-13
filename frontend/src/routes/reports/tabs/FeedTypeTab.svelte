@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { FeedPerTypeResponse } from '$lib/api/reports';
 	import { fmtNum } from '$lib/utils/format';
-	import { thCls, tdCls, tblCls } from '../_shared';
+	import { thCls, tdCls, tdHidden, thHidden, tblCls } from '../_shared';
 
 	let { data }: { data: FeedPerTypeResponse } = $props();
 </script>
@@ -17,8 +17,8 @@
 		<thead class="bg-slate-50 dark:bg-slate-900/50">
 			<tr>
 				<th class={thCls}>Дата</th><th class={thCls}>Тип</th><th class={thCls}>Название</th>
-				<th class={thCls}>Продукт (кг)</th><th class={thCls}>Сухое в-во (кг)</th>
-				<th class={thCls}>Стоимость</th><th class={thCls}>На 100л молока</th>
+				<th class={thCls}>Продукт (кг)</th><th class={thHidden}>Сухое в-во (кг)</th>
+				<th class={thCls}>Стоимость</th><th class={thHidden}>На 100л молока</th>
 			</tr>
 		</thead>
 		<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
@@ -27,9 +27,9 @@
 					<td class={tdCls}>{row.date}</td><td class={tdCls}>{row.feed_type}</td>
 					<td class={tdCls}>{row.feed_type_name}</td>
 					<td class={tdCls}>{fmtNum(row.total_amount_product)}</td>
-					<td class={tdCls}>{fmtNum(row.total_amount_dm)}</td>
+					<td class={tdHidden}>{fmtNum(row.total_amount_dm)}</td>
 					<td class={tdCls}>{fmtNum(row.total_cost)}</td>
-					<td class={tdCls}>{fmtNum(row.cost_per_100milk)}</td>
+					<td class={tdHidden}>{fmtNum(row.cost_per_100milk)}</td>
 				</tr>
 			{/each}
 		</tbody>
