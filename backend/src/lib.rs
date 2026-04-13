@@ -67,7 +67,7 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
         utoipa_swagger_ui::SwaggerUi::new("/api/v1/docs").url("/api/v1/docs/openapi.json", api_doc);
 
     let rate_limit =
-        crate::middleware::rate_limit::RateLimitLayer::new(100, 60, state.config.trust_proxy);
+        crate::middleware::rate_limit::RateLimitLayer::new(state.config.rate_limit_max, state.config.rate_limit_window_secs, state.config.trust_proxy);
     let request_id = crate::middleware::request_id::RequestIdLayer;
     let metrics_layer = crate::middleware::metrics::MetricsLayer;
 

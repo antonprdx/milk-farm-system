@@ -22,6 +22,9 @@ pub struct Config {
     pub jwt_refresh_ttl_secs: u64,
     pub trust_proxy: bool,
     pub lely_encryption_key: String,
+    pub rate_limit_max: u32,
+    pub rate_limit_window_secs: u64,
+    pub shutdown_timeout_secs: u64,
     pub lely_env: LelyConfig,
 }
 
@@ -78,6 +81,18 @@ impl Config {
                 }
                 key
             },
+            rate_limit_max: std::env::var("RATE_LIMIT_MAX")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(100),
+            rate_limit_window_secs: std::env::var("RATE_LIMIT_WINDOW_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(60),
+            shutdown_timeout_secs: std::env::var("SHUTDOWN_TIMEOUT_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(30),
             lely_env: LelyConfig {
                 enabled: std::env::var("LELY_ENABLED")
                     .unwrap_or_else(|_| "false".into())
