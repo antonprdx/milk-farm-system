@@ -26,8 +26,8 @@ async fn test_create_feed_type(pool: sqlx::PgPool) {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;
-    assert_eq!(body["name"], "Test Grain");
-    assert_eq!(body["feed_type"], "grain");
+    assert_eq!(body["data"]["name"], "Test Grain");
+    assert_eq!(body["data"]["feed_type"], "grain");
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -44,8 +44,8 @@ async fn test_update_feed_type(pool: sqlx::PgPool) {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;
-    assert_eq!(body["name"], "Updated Feed");
-    assert_eq!(body["price"], 15.0);
+    assert_eq!(body["data"]["name"], "Updated Feed");
+    assert_eq!(body["data"]["price"], 15.0);
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -86,7 +86,7 @@ async fn test_create_feed_group(pool: sqlx::PgPool) {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;
-    assert_eq!(body["name"], "High Yield");
+    assert_eq!(body["data"]["name"], "High Yield");
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -108,7 +108,7 @@ async fn test_update_feed_group(pool: sqlx::PgPool) {
     let resp = app.oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let body: Value = read_body_json(resp.into_body()).await;
-    assert_eq!(body["name"], "Updated Group");
+    assert_eq!(body["data"]["name"], "Updated Group");
 }
 
 #[sqlx::test(migrations = "./migrations")]
