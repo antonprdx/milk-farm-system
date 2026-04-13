@@ -81,6 +81,10 @@
 					{loading ? 'Входим...' : 'Войти'}
 				</button>
 			</form>
+
+			<p class="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
+				Забыли пароль? Обратитесь к администратору системы.
+			</p>
 		</div>
 	</div>
 </div>

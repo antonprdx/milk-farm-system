@@ -66,6 +66,10 @@ export async function deleteUser(id: number) {
 	return del<{ message: string }>(`/settings/users/${id}`);
 }
 
+export async function resetUserPassword(id: number, new_password: string) {
+	return post<{ message: string }>(`/settings/users/${id}/reset-password`, { new_password });
+}
+
 export async function updateUserRole(id: number, role: string) {
 	return put<{ message: string }>(`/settings/users/${id}/role`, { role });
 }

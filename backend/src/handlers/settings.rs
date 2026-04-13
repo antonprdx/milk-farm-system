@@ -43,6 +43,7 @@ pub fn routes() -> Router<AppState> {
         .route("/settings/users", get(list_users).post(create_user))
         .route("/settings/users/{id}", delete(delete_user))
         .route("/settings/users/{id}/role", put(update_role))
+        .route("/settings/users/{id}/reset-password", post(reset_user_password))
         .route("/settings/password", post(change_password))
         .route(
             "/settings/preferences",
@@ -202,6 +203,53 @@ async fn update_role(
     }
     user_service::update_role(&state.pool, id, &body.role).await?;
     Ok(Json(json!({ "message": "Роль обновлена" })))
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct ResetPasswordRequest {
+    pub new_password: String,
+}
+
+impl ResetPasswordRequest {
+    pub fn validate(&self) -> Result<(), AppError> {
+        crate::validation::password(&self.new_password)?;
+        Ok(())
+    }
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/settings/users/{id}/reset-password",
+    request_body = ResetPasswordRequest,
+    responses(
+        (status = 200, description = "Password reset", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    params(("id" = i32, Path, description = "User ID")),
+    security(("cookie_auth" = []))
+)]
+async fn reset_user_password(
+    _admin: AdminGuard,
+    claims: Claims,
+    State(state): State<AppState>,
+    Path(id): Path<i32>,
+    Json(req): Json<ResetPasswordRequest>,
+) -> Result<Json<Value>, AppError> {
+    req.validate()?;
+    let target = user_service::find_by_id(&state.pool, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Пользователь не найден".into()))?;
+    if target.username == claims.sub {
+        return Err(AppError::Forbidden(
+            "Используйте смену пароля для своего аккаунта".into(),
+        ));
+    }
+    let hash = bcrypt::hash(&req.new_password, bcrypt::DEFAULT_COST)
+        .map_err(|e| AppError::Internal(anyhow::anyhow!("{}", e)))?;
+    user_service::update_password_and_clear_flag(&state.pool, id, &hash).await?;
+    Ok(Json(json!({ "message": "Пароль сброшен" })))
 }
 
 #[utoipa::path(
