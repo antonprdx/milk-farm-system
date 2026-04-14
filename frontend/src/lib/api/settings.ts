@@ -26,6 +26,7 @@ export interface UserPreferences {
 	page_size: number;
 	compact_view: boolean;
 	language: string;
+	dashboard_widgets: string[];
 }
 
 export interface SystemInfo {
