@@ -319,3 +319,128 @@ pub struct CowClusterResponse {
     pub clusters: Vec<ClusterCowEntry>,
     pub cluster_names: std::collections::HashMap<String, String>,
 }
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct EstrusPrediction {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub estrus_probability: f64,
+    pub status: String,
+    pub contributing_signals: Vec<String>,
+    pub optimal_window: Option<String>,
+    pub model_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct EstrusResponse {
+    pub predictions: Vec<EstrusPrediction>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct EquipmentAnomalyEntry {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub is_anomaly: bool,
+    pub anomaly_score: f64,
+    pub severity: String,
+    pub flags: Vec<String>,
+    pub device_address: Option<i32>,
+    pub model_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct EquipmentAnomalyResponse {
+    pub entries: Vec<EquipmentAnomalyEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct FeedRecommendationEntry {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub current_feed_avg: f64,
+    pub recommended_feed: f64,
+    pub difference_kg: f64,
+    pub suggestion: String,
+    pub dim_days: i32,
+    pub lactation_number: i32,
+    pub model_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct FeedRecommendationResponse {
+    pub recommendations: Vec<FeedRecommendationEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct KetosisWarningEntry {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub risk_probability: f64,
+    pub risk_type: String,
+    pub severity: String,
+    pub fpr_current: f64,
+    pub fpr_trend: f64,
+    pub contributing_factors: Vec<String>,
+    pub model_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct KetosisWarningResponse {
+    pub predictions: Vec<KetosisWarningEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct CowFeedEfficiency {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub avg_daily_milk: Option<f64>,
+    pub avg_daily_feed: Option<f64>,
+    pub feed_efficiency: Option<f64>,
+    pub milk_per_feed: Option<f64>,
+    pub efficiency_rank: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct FeedEfficiencyResponse {
+    pub cows: Vec<CowFeedEfficiency>,
+    pub herd_avg_efficiency: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct DryOffRecommendationEntry {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub expected_calving_date: Option<String>,
+    pub current_daily_milk: Option<f64>,
+    pub recommended_dry_off_date: Option<String>,
+    pub days_until_dry_off: Option<i64>,
+    pub scc_status: String,
+    pub readiness: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct DryOffOptimizerResponse {
+    pub cows: Vec<DryOffRecommendationEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct LifetimeValueEntry {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub age_years: Option<f64>,
+    pub lactation_count: i64,
+    pub total_milk_produced: Option<f64>,
+    pub estimated_remaining_lactations: i32,
+    pub projected_milk_value: Option<f64>,
+    pub projected_feed_cost: Option<f64>,
+    pub projected_net_value: Option<f64>,
+    pub recommendation: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct LifetimeValueResponse {
+    pub cows: Vec<LifetimeValueEntry>,
+}
