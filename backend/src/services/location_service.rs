@@ -18,6 +18,15 @@ pub async fn count(pool: &PgPool) -> Result<i64, AppError> {
     Ok(row.0)
 }
 
+pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Location, AppError> {
+    sqlx::query_as::<_, Location>("SELECT * FROM locations WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(AppError::Database)?
+        .ok_or_else(|| AppError::NotFound("Локация не найдена".into()))
+}
+
 pub async fn create(pool: &PgPool, req: &CreateLocation) -> Result<Location, AppError> {
     sqlx::query_as::<_, Location>(
         "INSERT INTO locations (name, location_type) VALUES ($1, $2) RETURNING *",
