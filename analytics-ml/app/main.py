@@ -6,7 +6,10 @@ import joblib
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+import pandas as pd
 
 from app.config import settings
 from app.models import clustering as clustering_model
@@ -68,7 +71,7 @@ async def _scheduled_retrain():
     logger.info("Scheduled retraining started")
     try:
         async with async_session() as session:
-            for name in ("mastitis", "culling"):
+            for name in ("mastitis", "culling", "cow_clusters", "milk_forecast"):
                 try:
                     result = await _train_model(name, session)
                     _model_timestamps[name] = _check_model(name)
@@ -86,7 +89,7 @@ async def lifespan(app: FastAPI):
     for name in MODEL_FILES:
         _model_timestamps[name] = _check_model(name)
 
-    missing = [m for m in ("mastitis", "culling") if _model_timestamps[m] is None]
+    missing = [m for m in ("mastitis", "culling", "milk_forecast", "cow_clusters") if _model_timestamps.get(m) is None]
     if missing:
         logger.info("Auto-training missing models: %s", missing)
         try:
@@ -267,6 +270,22 @@ async def _train_model(name: str, session: AsyncSession) -> dict:
         if df.empty:
             raise ValueError("No data for clustering training")
         return clustering_model.train(df)
+    elif name == "milk_forecast":
+        animals = await session.execute(
+            text("SELECT DISTINCT animal_id FROM milk_day_productions WHERE date >= CURRENT_DATE - INTERVAL '365 days' LIMIT 50")
+        )
+        animal_ids = [r[0] for r in animals.fetchall()]
+        if not animal_ids:
+            raise ValueError("No animals with milk data for forecast training")
+        frames = []
+        for aid in animal_ids:
+            df = await load_milk_timeseries(session, aid, days=365)
+            if not df.empty and len(df) >= 14:
+                frames.append(df)
+        if not frames:
+            raise ValueError("Not enough timeseries data for forecast training")
+        combined = pd.concat(frames, ignore_index=True)
+        return forecast_model.train(combined)
     else:
         raise ValueError(f"Unknown model: {name}")
 
