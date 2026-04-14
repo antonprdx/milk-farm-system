@@ -1731,3 +1731,534 @@ pub async fn ketosis_warning(pool: &PgPool) -> Result<KetosisWarningResponse, Ap
     predictions.sort_by(|a, b| b.risk_probability.partial_cmp(&a.risk_probability).unwrap_or(std::cmp::Ordering::Equal));
     Ok(KetosisWarningResponse { predictions })
 }
+
+pub async fn animal_summary(
+    pool: &PgPool,
+    animal_id: i32,
+) -> Result<AnimalSummaryResponse, AppError> {
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true AND gender = 'female')",
+    )
+    .bind(animal_id)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    if !exists {
+        return Ok(AnimalSummaryResponse {
+            animal_id,
+            health_index: None,
+            mastitis_risk: None,
+            estrus: None,
+            energy_balance: None,
+            feed_recommendation: None,
+            ketosis_warning: None,
+            lifetime_value: None,
+            culling_risk: None,
+            cluster: None,
+        });
+    }
+
+    let (health, mastitis, estrus, energy, feed, ketosis, lifetime, culling, cluster) = tokio::try_join!(
+        summary_health_index(pool, animal_id),
+        summary_mastitis_risk(pool, animal_id),
+        summary_estrus(pool, animal_id),
+        summary_energy_balance(pool, animal_id),
+        summary_feed_rec(pool, animal_id),
+        summary_ketosis(pool, animal_id),
+        summary_lifetime(pool, animal_id),
+        summary_culling(pool, animal_id),
+        summary_cluster(pool, animal_id),
+    )?;
+
+    Ok(AnimalSummaryResponse {
+        animal_id,
+        health_index: health,
+        mastitis_risk: mastitis,
+        estrus,
+        energy_balance: energy,
+        feed_recommendation: feed,
+        ketosis_warning: ketosis,
+        lifetime_value: lifetime,
+        culling_risk: culling,
+        cluster,
+    })
+}
+
+async fn summary_health_index(pool: &PgPool, id: i32) -> Result<Option<CowHealthIndex>, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.life_number,
+                short_m.milk, long_m.milk, long_m.std as milk_std,
+                short_r.rum, long_r.rum, long_r.std as rum_std,
+                short_a.act, long_a.act, long_a.std as act_std
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '3 days'
+         ) short_m ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(m.milk_amount)::float8 as milk, STDDEV(m.milk_amount)::float8 as std FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+         ) long_m ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '30 days' AND r.date < CURRENT_DATE - INTERVAL '3 days'
+         ) short_r ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '30 days'
+         ) long_r ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(act.activity_counter)::float8 as act FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - INTERVAL '3 days'
+         ) short_a ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(act.activity_counter)::float8 as act, STDDEV(act.activity_counter)::float8 as std FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - INTERVAL '30 days' AND act.activity_datetime < CURRENT_DATE - INTERVAL '3 days'
+         ) long_a ON true
+         WHERE a.id = $1"
+    )
+    .bind(id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let Some((_, name, ln, short_milk, long_milk, milk_std, short_rum, long_rum, rum_std, short_act, long_act, act_std)) = rows.into_iter().next() else {
+        return Ok(None);
+    };
+
+    let scc_row: Option<(f64, Option<f64>)> = sqlx::query_as(
+        "SELECT recent.scc, baseline.avg_scc FROM
+         (SELECT COALESCE(AVG(q.scc),0)::float8 as scc FROM milk_quality q WHERE q.animal_id = $1 AND q.date >= CURRENT_DATE - INTERVAL '3 days') recent,
+         (SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q WHERE q.animal_id = $1 AND q.date >= CURRENT_DATE - INTERVAL '90 days' AND q.date < CURRENT_DATE - INTERVAL '3 days') baseline"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let milk_z = zscore(short_milk, long_milk, milk_std);
+    let rum_z = zscore(short_rum, long_rum, rum_std);
+    let act_z = zscore(short_act, long_act, act_std);
+
+    let (scc_z, scc_concern) = if let Some((recent, avg)) = scc_row {
+        if recent > 0.0 && avg.is_some() {
+            let baseline = avg.unwrap();
+            let ratio = recent / baseline;
+            let z = if baseline > 0.0 { (recent - baseline) / (baseline * 0.5) } else { 0.0 };
+            (Some(z), ratio > 1.5)
+        } else {
+            (None, false)
+        }
+    } else {
+        (None, false)
+    };
+
+    let mut score = 100.0_f64;
+    let mut concerns = Vec::new();
+
+    if let Some(z) = milk_z {
+        if z < -2.0 { score -= 30.0; concerns.push(("milk_drop".to_string(), z)); }
+        else if z < -1.0 { score -= 15.0; concerns.push(("milk_drop".to_string(), z)); }
+    }
+    if let Some(z) = rum_z {
+        if z < -2.0 { score -= 25.0; concerns.push(("rumination_drop".to_string(), z)); }
+        else if z < -1.0 { score -= 10.0; concerns.push(("rumination_drop".to_string(), z)); }
+    }
+    if let Some(z) = act_z {
+        if z < -2.0 { score -= 20.0; concerns.push(("activity_drop".to_string(), z)); }
+        else if z < -1.0 { score -= 10.0; concerns.push(("activity_drop".to_string(), z)); }
+    }
+    if let Some(z) = scc_z {
+        if z > 2.0 { score -= 25.0; concerns.push(("high_scc".to_string(), z)); }
+        else if z > 1.0 || scc_concern { score -= 10.0; concerns.push(("high_scc".to_string(), z)); }
+    }
+
+    score = score.max(0.0).min(100.0);
+    let risk_level = if score < 40.0 { "critical" } else if score < 60.0 { "high" } else if score < 80.0 { "moderate" } else { "low" };
+    concerns.sort_by(|a, b| a.1.abs().partial_cmp(&b.1.abs()).unwrap_or(std::cmp::Ordering::Equal).reverse());
+
+    Ok(Some(CowHealthIndex {
+        animal_id: id,
+        animal_name: name,
+        life_number: ln,
+        health_score: round2(score),
+        milk_deviation_zscore: milk_z.map(round2),
+        rumination_deviation_zscore: rum_z.map(round2),
+        activity_deviation_zscore: act_z.map(round2),
+        scc_deviation_zscore: scc_z.map(round2),
+        risk_level: risk_level.to_string(),
+        top_concern: concerns.first().map(|c| c.0.clone()),
+    }))
+}
+
+async fn summary_mastitis_risk(pool: &PgPool, id: i32) -> Result<Option<MastitisRiskEntry>, AppError> {
+    let row: Option<(Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
+        "SELECT scc_latest.scc, scc_trend.ratio, cond.avg_cond, milk_dev.dev, dim.days
+         FROM animals a
+         LEFT JOIN LATERAL (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days') scc_latest ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.scc / NULLIF(baseline.scc, 0))::float8 as ratio FROM
+             (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days') recent,
+             (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days' AND q.date < CURRENT_DATE - INTERVAL '7 days') baseline
+         ) scc_trend ON true
+         LEFT JOIN LATERAL (SELECT AVG((v.lf_conductivity + v.lr_conductivity + v.rf_conductivity + v.rr_conductivity)::float8 / 4.0) as avg_cond FROM milk_visit_quality v WHERE v.animal_id = a.id AND v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days') cond ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.milk / NULLIF(baseline.milk, 0) - 1)::float8 as dev FROM
+             (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days') recent,
+             (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days' AND m.date < CURRENT_DATE - INTERVAL '7 days') baseline
+         ) milk_dev ON true
+         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         WHERE a.id = $1"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let Some(row) = row else { return Ok(None) };
+    let (scc, scc_t, cond, milk_dev, dim) = row;
+    let Some(recent_scc) = scc else { return Ok(None) };
+
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM animals WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(AppError::Database)?;
+
+    let mut score = 0.0_f64;
+    let mut factors = Vec::new();
+    if recent_scc > 500000.0 { score += 0.4; factors.push("SCC>500k".to_string()); }
+    else if recent_scc > 300000.0 { score += 0.25; factors.push("SCC>300k".to_string()); }
+    else if recent_scc > 200000.0 { score += 0.1; factors.push("SCC>200k".to_string()); }
+    if let Some(t) = scc_t { if t > 2.0 { score += 0.25; factors.push("SCC↑↑".to_string()); } else if t > 1.5 { score += 0.15; factors.push("SCC↑".to_string()); } }
+    if let Some(c) = cond { if c > 60.0 { score += 0.2; factors.push("conductivity↑".to_string()); } }
+    if let Some(d) = milk_dev { if d < -0.15 { score += 0.15; factors.push("milk↓".to_string()); } }
+    if let Some(d) = dim { if d < 30 { score += 0.1; factors.push("early_lactation".to_string()); } }
+
+    if score < 0.05 { return Ok(None); }
+    score = score.min(1.0);
+    let risk_level = if score >= 0.6 { "high" } else if score >= 0.3 { "medium" } else { "low" };
+
+    Ok(Some(MastitisRiskEntry {
+        animal_id: id,
+        animal_name: name,
+        life_number: None,
+        risk_score: round2(score),
+        risk_level: risk_level.to_string(),
+        contributing_factors: factors,
+    }))
+}
+
+async fn summary_estrus(pool: &PgPool, id: i32) -> Result<Option<EstrusPrediction>, AppError> {
+    let row: Option<(Option<i64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT dim.days, act_ratio.ratio, rum_ratio.ratio, milk_ratio.ratio
+         FROM animals a
+         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.act / NULLIF(baseline.act, 0))::float8 as ratio FROM
+             (SELECT AVG(activity_counter)::float8 as act FROM activities WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '2 days') recent,
+             (SELECT AVG(activity_counter)::float8 as act FROM activities WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '14 days' AND activity_datetime < CURRENT_DATE - INTERVAL '2 days') baseline
+         ) act_ratio ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.rum / NULLIF(baseline.rum, 0))::float8 as ratio FROM
+             (SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days') recent,
+             (SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days' AND date < CURRENT_DATE - INTERVAL '2 days') baseline
+         ) rum_ratio ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.milk / NULLIF(baseline.milk, 0))::float8 as ratio FROM
+             (SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days') recent,
+             (SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days' AND date < CURRENT_DATE - INTERVAL '2 days') baseline
+         ) milk_ratio ON true
+         WHERE a.id = $1"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let Some((dim, act_signal, rum_signal, milk_signal)) = row else { return Ok(None) };
+
+    let in_window = dim.map_or(false, |d| d >= 30 && d <= 150);
+    let mut score = 0.0_f64;
+    let mut signals = Vec::new();
+
+    if let Some(s) = act_signal { if s > 1.4 { score += 0.45; signals.push("high_activity".to_string()); } else if s > 1.2 { score += 0.25; signals.push("elevated_activity".to_string()); } }
+    if let Some(s) = rum_signal { if s < 0.8 { score += 0.35; signals.push("low_rumination".to_string()); } else if s < 0.9 { score += 0.15; signals.push("reduced_rumination".to_string()); } }
+    if let Some(s) = milk_signal { if s < 0.85 { score += 0.2; signals.push("milk_drop".to_string()); } }
+    if in_window { score += 0.1; } else { score *= 0.5; }
+    if score < 0.15 { return Ok(None); }
+    score = score.min(1.0);
+
+    let status = if score >= 0.7 { "in_estrus" } else if score >= 0.4 { "approaching" } else { "possible" };
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM animals WHERE id = $1").bind(id).fetch_optional(pool).await.map_err(AppError::Database)?;
+
+    Ok(Some(EstrusPrediction {
+        animal_id: id,
+        animal_name: name,
+        estrus_probability: round2(score),
+        status: status.to_string(),
+        contributing_signals: signals,
+        optimal_window: if in_window { Some("within_breeding_window".to_string()) } else { None },
+        model_version: "rule-based-v1".to_string(),
+    }))
+}
+
+async fn summary_energy_balance(pool: &PgPool, id: i32) -> Result<Option<CowEnergyBalance>, AppError> {
+    let row: Option<(Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT recent_7d.fat, recent_7d.protein, recent_30d.fpr_trend
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT AVG(q.fat_percentage)::float8 as fat, AVG(q.protein_percentage)::float8 as protein FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+         ) recent_7d ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.fpr / NULLIF(baseline.fpr, 0) - 1)::float8 as fpr_trend FROM
+             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '7 days') recent,
+             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '30 days' AND date < CURRENT_DATE - INTERVAL '7 days') baseline
+         ) recent_30d ON true
+         WHERE a.id = $1"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let Some((fat, protein, trend_30d)) = row else { return Ok(None) };
+    let fpr = match (fat, protein) { (Some(f), Some(p)) if p > 0.0 => Some(round2(f / p)), _ => None };
+    if fpr.is_none() && trend_30d.is_none() { return Ok(None); }
+
+    let status = match fpr {
+        Some(r) if r < 1.0 => "ketosis_risk",
+        Some(r) if r > 1.5 => "acidosis_risk",
+        Some(r) if r >= 1.2 && r <= 1.4 => "optimal",
+        Some(_) => "normal",
+        None => "unknown",
+    };
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM animals WHERE id = $1").bind(id).fetch_optional(pool).await.map_err(AppError::Database)?;
+
+    Ok(Some(CowEnergyBalance {
+        animal_id: id,
+        animal_name: name,
+        life_number: None,
+        avg_fat_pct: fat.map(round2),
+        avg_protein_pct: protein.map(round2),
+        fat_protein_ratio: fpr,
+        status: status.to_string(),
+        trend_7d: fpr,
+        trend_30d: trend_30d.map(round2),
+    }))
+}
+
+async fn summary_feed_rec(pool: &PgPool, id: i32) -> Result<Option<FeedRecommendationEntry>, AppError> {
+    let row: Option<(Option<f64>, Option<f64>, Option<i64>, Option<i64>)> = sqlx::query_as(
+        "SELECT f.feed, m.milk, dim.days, lac.n
+         FROM animals a
+         LEFT JOIN LATERAL (SELECT AVG(f.total)::float8 as feed FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - INTERVAL '7 days') f ON true
+         LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days') m ON true
+         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         LEFT JOIN LATERAL (SELECT COUNT(*)::int8 as n FROM calvings c WHERE c.animal_id = a.id) lac ON true
+         WHERE a.id = $1 AND f.feed IS NOT NULL"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let Some((feed_avg, milk_avg, dim_days, lac_count)) = row else { return Ok(None) };
+    let current_feed = feed_avg.unwrap_or(0.0);
+    let milk = milk_avg.unwrap_or(0.0);
+    let dim = dim_days.unwrap_or(150);
+    let lac_n = lac_count.unwrap_or(1);
+
+    let base_feed = 12.0 + milk * 0.4;
+    let dim_factor = if dim < 60 { 1.15 } else if dim < 120 { 1.05 } else if dim > 250 { 0.9 } else { 1.0 };
+    let lac_factor = if lac_n <= 1 { 1.0 } else if lac_n <= 3 { 1.05 } else { 1.1 };
+    let recommended = base_feed * dim_factor * lac_factor;
+    let diff = recommended - current_feed;
+    let suggestion = if diff > 2.0 { "increase_feed".to_string() } else if diff < -2.0 { "reduce_feed".to_string() } else { "maintain".to_string() };
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM animals WHERE id = $1").bind(id).fetch_optional(pool).await.map_err(AppError::Database)?;
+
+    Ok(Some(FeedRecommendationEntry {
+        animal_id: id,
+        animal_name: name,
+        current_feed_avg: round2(current_feed),
+        recommended_feed: round2(recommended),
+        difference_kg: round2(diff),
+        suggestion,
+        dim_days: dim as i32,
+        lactation_number: lac_n as i32,
+        model_version: "rule-based-v1".to_string(),
+    }))
+}
+
+async fn summary_ketosis(pool: &PgPool, id: i32) -> Result<Option<KetosisWarningEntry>, AppError> {
+    let row: Option<(Option<f64>, Option<f64>, Option<i64>, Option<f64>)> = sqlx::query_as(
+        "SELECT recent.fpr, fpr_trend.trend, dim.days, rum.rum
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+         ) recent ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.fpr / NULLIF(baseline.fpr, 0) - 1)::float8 as trend FROM
+             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '7 days') recent,
+             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '30 days' AND date < CURRENT_DATE - INTERVAL '7 days') baseline
+         ) fpr_trend ON true
+         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         LEFT JOIN LATERAL (SELECT AVG(r.rumination_minutes)::float8 as rum FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '7 days') rum ON true
+         WHERE a.id = $1 AND recent.fpr IS NOT NULL"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let Some((fpr_opt, fpr_trend, dim_days, rum_7d)) = row else { return Ok(None) };
+    let Some(fpr) = fpr_opt else { return Ok(None) };
+
+    let mut risk = 0.0_f64;
+    let mut factors = Vec::new();
+    let mut risk_type = "subclinical".to_string();
+    if fpr < 1.0 { risk += 0.5; factors.push("fpr_below_1.0".to_string()); risk_type = "clinical".to_string(); }
+    else if fpr < 1.1 { risk += 0.25; factors.push("fpr_low".to_string()); }
+    if let Some(trend) = fpr_trend { if trend < -0.1 { risk += 0.3; factors.push("fpr_declining".to_string()); } }
+    if let Some(dim) = dim_days { if dim < 30 { risk += 0.25; factors.push("early_lactation".to_string()); } else if dim < 60 { risk += 0.1; factors.push("fresh_cow".to_string()); } }
+    if let Some(rum) = rum_7d { if rum < 400.0 { risk += 0.2; factors.push("low_rumination".to_string()); } }
+    if risk < 0.1 { return Ok(None); }
+    risk = risk.min(1.0);
+    let severity = if risk >= 0.6 { "high" } else if risk >= 0.3 { "moderate" } else { "low" };
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM animals WHERE id = $1").bind(id).fetch_optional(pool).await.map_err(AppError::Database)?;
+
+    Ok(Some(KetosisWarningEntry {
+        animal_id: id,
+        animal_name: name,
+        risk_probability: round2(risk),
+        risk_type,
+        severity: severity.to_string(),
+        fpr_current: round2(fpr),
+        fpr_trend: fpr_trend.unwrap_or(0.0),
+        contributing_factors: factors,
+        model_version: "rule-based-v1".to_string(),
+    }))
+}
+
+async fn summary_lifetime(pool: &PgPool, id: i32) -> Result<Option<LifetimeValueEntry>, AppError> {
+    let row: Option<(Option<f64>, i64, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::float8 as age_years,
+                COALESCE(lac_cnt.n, 0) as lac_count,
+                total_milk.milk as total_milk,
+                avg_milk.avg_m as avg_milk_per_lac
+         FROM animals a
+         LEFT JOIN LATERAL (SELECT COUNT(*)::int8 as n FROM calvings c WHERE c.animal_id = a.id) lac_cnt ON true
+         LEFT JOIN LATERAL (SELECT SUM(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id) total_milk ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(lac_milk.total)::float8 as avg_m FROM (
+                 SELECT SUM(m.milk_amount)::float8 as total FROM milk_day_productions m JOIN calvings c ON c.animal_id = m.animal_id WHERE m.animal_id = a.id AND m.date >= c.calving_date GROUP BY c.id
+             ) lac_milk
+         ) avg_milk ON true
+         WHERE a.id = $1"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let Some((age, lac_count, total_milk, avg_milk_per_lac)) = row else { return Ok(None) };
+    let max_lacs: i32 = 6;
+    let remaining = max_lacs.saturating_sub(lac_count as i32).max(0);
+    let avg_per_lac = avg_milk_per_lac.unwrap_or(0.0);
+    let proj_milk_val = remaining as f64 * avg_per_lac * 25.0;
+    let proj_feed = remaining as f64 * 305.0 * 150.0;
+    let net = proj_milk_val - proj_feed;
+    let recommendation = if remaining <= 0 || age.unwrap_or(0.0) > 8.0 { "culling_candidate" } else if net < 0.0 { "review" } else if remaining <= 1 { "last_lactation" } else { "keep" };
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM animals WHERE id = $1").bind(id).fetch_optional(pool).await.map_err(AppError::Database)?;
+
+    Ok(Some(LifetimeValueEntry {
+        animal_id: id,
+        animal_name: name,
+        life_number: None,
+        age_years: age,
+        lactation_count: lac_count,
+        total_milk_produced: total_milk,
+        estimated_remaining_lactations: remaining,
+        projected_milk_value: Some(round2(proj_milk_val)),
+        projected_feed_cost: Some(round2(proj_feed)),
+        projected_net_value: Some(round2(net)),
+        recommendation: recommendation.to_string(),
+    }))
+}
+
+async fn summary_culling(pool: &PgPool, id: i32) -> Result<Option<CullingSurvivalEntry>, AppError> {
+    let row: Option<(Option<i64>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
+        "SELECT EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::int8 as age_years,
+                latest_milk.milk, avg_scc.scc, ci.interval, lac_count.lacs
+         FROM animals a
+         LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days') latest_milk ON true
+         LEFT JOIN LATERAL (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days') avg_scc ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG((c2.calving_date - c1.calving_date))::float8 as interval FROM calvings c1 JOIN calvings c2 ON c1.animal_id = c2.animal_id AND c2.calving_date > c1.calving_date
+             WHERE c1.animal_id = a.id AND NOT EXISTS (SELECT 1 FROM calvings c3 WHERE c3.animal_id = c1.animal_id AND c3.calving_date > c1.calving_date AND c3.calving_date < c2.calving_date)
+         ) ci ON true
+         LEFT JOIN LATERAL (SELECT COUNT(*)::int8 as lacs FROM calvings c WHERE c.animal_id = a.id) lac_count ON true
+         WHERE a.id = $1"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let Some((age, milk, scc, interval, lac_count)) = row else { return Ok(None) };
+    let mut risk = 0.0_f64;
+    let mut factors = Vec::new();
+    let mut base_days = 730.0_f64;
+
+    if let Some(a) = age { if a >= 10 { risk += 0.4; base_days -= 365.0; factors.push("age>=10yr".to_string()); } else if a >= 8 { risk += 0.25; base_days -= 200.0; factors.push("age>=8yr".to_string()); } else if a >= 6 { risk += 0.1; base_days -= 100.0; factors.push("age>=6yr".to_string()); } }
+    if let Some(m) = milk { if m < 15.0 { risk += 0.3; base_days -= 180.0; factors.push("milk<15L".to_string()); } else if m < 20.0 { risk += 0.1; base_days -= 60.0; factors.push("milk<20L".to_string()); } }
+    if let Some(s) = scc { if s > 300000.0 { risk += 0.25; base_days -= 180.0; factors.push("SCC>300k".to_string()); } else if s > 200000.0 { risk += 0.1; base_days -= 90.0; factors.push("SCC>200k".to_string()); } }
+    if let Some(ci) = interval { if ci > 450.0 { risk += 0.2; base_days -= 120.0; factors.push("interval>450d".to_string()); } else if ci > 400.0 { risk += 0.1; base_days -= 60.0; factors.push("interval>400d".to_string()); } }
+    if let Some(lc) = lac_count { if lc >= 6 { risk += 0.1; factors.push("lac>=6".to_string()); } }
+
+    if risk < 0.1 { return Ok(None); }
+    risk = risk.min(1.0);
+    let expected_days = (base_days * (1.0 - risk)).max(0.0) as i64;
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM animals WHERE id = $1").bind(id).fetch_optional(pool).await.map_err(AppError::Database)?;
+
+    Ok(Some(CullingSurvivalEntry {
+        animal_id: id,
+        animal_name: name,
+        life_number: None,
+        expected_days_remaining: Some(expected_days),
+        risk_score: round2(risk),
+        risk_factors: factors,
+    }))
+}
+
+async fn summary_cluster(pool: &PgPool, id: i32) -> Result<Option<ClusterCowEntry>, AppError> {
+    let row: Option<(Option<f64>, Option<f64>, Option<i64>, Option<i64>)> = sqlx::query_as(
+        "SELECT m.avg_milk, r.rum, dim.days, lac.n
+         FROM animals a
+         LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as avg_milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '90 days') m ON true
+         LEFT JOIN LATERAL (SELECT AVG(r.rumination_minutes)::float8 as rum FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '90 days') r ON true
+         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         LEFT JOIN LATERAL (SELECT COUNT(*)::int8 as n FROM calvings c WHERE c.animal_id = a.id) lac ON true
+         WHERE a.id = $1 AND m.avg_milk IS NOT NULL"
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let Some((avg_milk, rum, dim, lac)) = row else { return Ok(None) };
+    let milk = avg_milk.unwrap_or(0.0);
+    let rumination = rum.unwrap_or(0.0);
+    let dim_days = dim.unwrap_or(0) as f64;
+    let lac_n = lac.unwrap_or(0) as f64;
+
+    let cluster_id = if milk > 30.0 && rumination > 500.0 { 0 } else if milk > 25.0 { 1 } else if dim_days < 100.0 { 2 } else { 3 };
+    let cluster_name = match cluster_id { 0 => "Высокопродуктивные", 1 => "Среднепродуктивные", 2 => "Свежие коровы", _ => "Низкопродуктивные" };
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM animals WHERE id = $1").bind(id).fetch_optional(pool).await.map_err(AppError::Database)?;
+
+    Ok(Some(ClusterCowEntry {
+        animal_id: id,
+        animal_name: name,
+        cluster_id,
+        cluster_name: cluster_name.to_string(),
+        avg_milk: round2(milk),
+        avg_rumination: round2(rumination),
+        distance_to_center: round2(((milk - 25.0).powi(2) + (rumination - 450.0).powi(2) + (dim_days - 150.0).powi(2) + (lac_n - 2.0).powi(2)).sqrt()),
+        model_version: "rule-based-v1".to_string(),
+    }))
+}
