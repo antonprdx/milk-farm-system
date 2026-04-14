@@ -3,7 +3,8 @@ use sqlx::PgPool;
 
 use crate::errors::AppError;
 use crate::models::analytics::{
-    CullingSurvivalEntry, CullingSurvivalResponse, MastitisRiskEntry, MastitisRiskResponse,
+    ClusterCowEntry, CowClusterResponse, CullingSurvivalEntry, CullingSurvivalResponse,
+    MastitisRiskEntry, MastitisRiskResponse, MilkForecastDataResponse, MilkForecastDay,
 };
 
 #[derive(Debug, Clone)]
@@ -29,6 +30,17 @@ struct MastitisRequest {
 struct CullingRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     animal_id: Option<i32>,
+}
+
+#[derive(Debug, Serialize)]
+struct ForecastRequest {
+    animal_id: i32,
+    days: i32,
+}
+
+#[derive(Debug, Serialize)]
+struct ClusterRequest {
+    days: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,6 +73,42 @@ struct MlCullingPrediction {
 #[derive(Debug, Deserialize)]
 struct MlCullingResponse {
     predictions: Vec<MlCullingPrediction>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlForecastResponse {
+    #[allow(dead_code)]
+    animal_id: i32,
+    animal_name: Option<String>,
+    current_daily_avg: Option<f64>,
+    forecast: Vec<MlForecastDay>,
+    model_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlForecastDay {
+    day_offset: i32,
+    predicted_milk: f64,
+    lower_bound: f64,
+    upper_bound: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlClusterEntry {
+    animal_id: i32,
+    animal_name: Option<String>,
+    cluster_id: i32,
+    cluster_name: String,
+    avg_milk: f64,
+    avg_rumination: f64,
+    distance_to_center: f64,
+    model_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlClusterResponse {
+    clusters: Vec<MlClusterEntry>,
+    cluster_names: std::collections::HashMap<String, String>,
 }
 
 impl MlClient {
@@ -124,6 +172,94 @@ impl MlClient {
             }
         }
         super::predictive_service::culling_survival(fallback_pool).await
+    }
+
+    pub async fn milk_forecast(
+        &self,
+        animal_id: i32,
+        days: i32,
+    ) -> Result<MilkForecastDataResponse, AppError> {
+        let resp = self
+            .client
+            .post(format!("{}/predict/milk-forecast", self.base_url))
+            .json(&ForecastRequest { animal_id, days })
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Internal(anyhow::anyhow!(
+                "ML service returned {}",
+                resp.status()
+            )));
+        }
+
+        let ml_resp: MlForecastResponse = resp
+            .json()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        Ok(MilkForecastDataResponse {
+            animal_id: ml_resp.animal_id,
+            animal_name: ml_resp.animal_name,
+            current_daily_avg: ml_resp.current_daily_avg,
+            forecast: ml_resp
+                .forecast
+                .into_iter()
+                .map(|d| MilkForecastDay {
+                    day_offset: d.day_offset,
+                    predicted_milk: d.predicted_milk,
+                    lower_bound: d.lower_bound,
+                    upper_bound: d.upper_bound,
+                })
+                .collect(),
+            model_version: ml_resp.model_version,
+        })
+    }
+
+    pub async fn cow_clusters(
+        &self,
+        days: i32,
+    ) -> Result<CowClusterResponse, AppError> {
+        let resp = self
+            .client
+            .post(format!("{}/predict/clusters", self.base_url))
+            .json(&ClusterRequest { days })
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Internal(anyhow::anyhow!(
+                "ML service returned {}",
+                resp.status()
+            )));
+        }
+
+        let ml_resp: MlClusterResponse = resp
+            .json()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        let clusters: Vec<ClusterCowEntry> = ml_resp
+            .clusters
+            .into_iter()
+            .map(|c| ClusterCowEntry {
+                animal_id: c.animal_id,
+                animal_name: c.animal_name,
+                cluster_id: c.cluster_id,
+                cluster_name: c.cluster_name,
+                avg_milk: c.avg_milk,
+                avg_rumination: c.avg_rumination,
+                distance_to_center: c.distance_to_center,
+                model_version: c.model_version,
+            })
+            .collect();
+
+        Ok(CowClusterResponse {
+            cluster_names: ml_resp.cluster_names,
+            clusters,
+        })
     }
 
     async fn try_ml_mastitis(

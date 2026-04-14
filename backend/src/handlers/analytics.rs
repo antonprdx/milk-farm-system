@@ -6,10 +6,11 @@ use serde::Deserialize;
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
 use crate::models::analytics::{
-    AlertsResponse, CullingSurvivalResponse, EnergyBalanceResponse, FeedForecastResponse,
-    FertilityWindowResponse, HealthIndexResponse, KpiResponse, LactationCurveResponse,
-    MastitisRiskResponse, MilkTrendResponse, ProfitabilityResponse, QuarterHealthResponse,
-    ReproductionForecastResponse, SeasonalResponse,
+    AlertsResponse, CowClusterResponse, CullingSurvivalResponse,
+    EnergyBalanceResponse, FeedForecastResponse, FertilityWindowResponse, HealthIndexResponse,
+    KpiResponse, LactationCurveResponse, MastitisRiskResponse, MilkForecastDataResponse,
+    MilkTrendResponse, ProfitabilityResponse, QuarterHealthResponse, ReproductionForecastResponse,
+    SeasonalResponse,
 };
 use crate::services::{analytics_service, predictive_service};
 use crate::state::AppState;
@@ -29,6 +30,17 @@ pub struct LactationQuery {
 pub struct ProfitQuery {
     pub milk_price: Option<f64>,
     pub feed_price: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
+pub struct ForecastQuery {
+    pub animal_id: i32,
+    pub days: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
+pub struct ClusterQuery {
+    pub days: Option<i32>,
 }
 
 pub fn routes() -> Router<AppState> {
@@ -51,6 +63,8 @@ pub fn routes() -> Router<AppState> {
         .route("/analytics/culling-survival", get(culling_survival))
         .route("/analytics/energy-balance", get(energy_balance))
         .route("/analytics/quarter-health", get(quarter_health))
+        .route("/analytics/milk-forecast", get(milk_forecast))
+        .route("/analytics/cow-clusters", get(cow_clusters))
 }
 
 #[utoipa::path(
@@ -326,4 +340,58 @@ async fn quarter_health(
 ) -> Result<Json<QuarterHealthResponse>, AppError> {
     let data = predictive_service::quarter_health(&state.pool).await?;
     Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/milk-forecast",
+    responses(
+        (status = 200, description = "30-day milk production forecast", body = MilkForecastDataResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(ForecastQuery),
+    security(("cookie_auth" = []))
+)]
+async fn milk_forecast(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Query(params): Query<ForecastQuery>,
+) -> Result<Json<MilkForecastDataResponse>, AppError> {
+    let days = params.days.unwrap_or(30).clamp(7, 90);
+    match &state.ml {
+        Some(ml) => {
+            let data = ml.milk_forecast(params.animal_id, days).await?;
+            Ok(Json(data))
+        }
+        None => Err(AppError::Internal(anyhow::anyhow!(
+            "ML service unavailable"
+        ))),
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/cow-clusters",
+    responses(
+        (status = 200, description = "Cow clustering analysis", body = CowClusterResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(ClusterQuery),
+    security(("cookie_auth" = []))
+)]
+async fn cow_clusters(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Query(params): Query<ClusterQuery>,
+) -> Result<Json<CowClusterResponse>, AppError> {
+    let days = params.days.unwrap_or(90).clamp(30, 365);
+    match &state.ml {
+        Some(ml) => {
+            let data = ml.cow_clusters(days).await?;
+            Ok(Json(data))
+        }
+        None => Err(AppError::Internal(anyhow::anyhow!(
+            "ML service unavailable"
+        ))),
+    }
 }

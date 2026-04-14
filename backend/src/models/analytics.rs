@@ -284,3 +284,38 @@ pub struct CowQuarterHealth {
     pub worst_quarter: Option<String>,
     pub risk_level: String,
 }
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct MilkForecastDay {
+    pub day_offset: i32,
+    pub predicted_milk: f64,
+    pub lower_bound: f64,
+    pub upper_bound: f64,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct MilkForecastDataResponse {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub current_daily_avg: Option<f64>,
+    pub forecast: Vec<MilkForecastDay>,
+    pub model_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct ClusterCowEntry {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub cluster_id: i32,
+    pub cluster_name: String,
+    pub avg_milk: f64,
+    pub avg_rumination: f64,
+    pub distance_to_center: f64,
+    pub model_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct CowClusterResponse {
+    pub clusters: Vec<ClusterCowEntry>,
+    pub cluster_names: std::collections::HashMap<String, String>,
+}
