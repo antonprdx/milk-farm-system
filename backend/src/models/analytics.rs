@@ -58,10 +58,23 @@ pub struct ForecastPoint {
 }
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct BreakPoint {
+    pub date: String,
+    pub index: i32,
+    pub direction: String,
+    pub magnitude: f64,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct MilkTrendResponse {
     pub daily: Vec<DailyMilkPoint>,
     pub forecast: Vec<ForecastPoint>,
     pub trend_direction: String,
+    pub trend_percent: f64,
+    pub confidence: f64,
+    pub mape: f64,
+    pub model_type: String,
+    pub structural_breaks: Vec<BreakPoint>,
 }
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
