@@ -38,6 +38,7 @@ struct MlMastitisPrediction {
     risk_probability: f64,
     risk_level: String,
     contributing_features: Vec<String>,
+    #[allow(dead_code)]
     model_version: String,
 }
 
@@ -53,6 +54,7 @@ struct MlCullingPrediction {
     risk_probability: f64,
     expected_days_remaining: Option<i64>,
     risk_factors: Vec<String>,
+    #[allow(dead_code)]
     model_version: String,
 }
 
