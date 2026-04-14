@@ -19,7 +19,6 @@ pub async fn lactation_curves(
          FROM calvings c
          JOIN animals a ON a.id = c.animal_id
          WHERE a.active = true AND a.gender = 'female'
-         AND c.calving_date >= CURRENT_DATE - INTERVAL '400 days'
          AND NOT EXISTS (
              SELECT 1 FROM calvings c2 WHERE c2.animal_id = c.animal_id
              AND c2.calving_date > c.calving_date
@@ -56,9 +55,11 @@ pub async fn lactation_curves(
         .await
         .map_err(AppError::Database)?;
 
-        if milk_rows.len() < 5 {
+        if milk_rows.len() < 3 {
             continue;
         }
+
+        let has_enough_for_fit = milk_rows.len() >= 5;
 
         let actual_points: Vec<LactationPoint> = milk_rows
             .iter()
@@ -73,34 +74,50 @@ pub async fn lactation_curves(
             .filter_map(|(dim, milk)| milk.map(|m| (*dim, m)))
             .collect();
 
-        let (a, b, c) = fit_wood_model(&actual_map);
-
-        let max_dim = (current_dim + 120).min(400);
         let mut fitted_curve = Vec::new();
         let mut forecast = Vec::new();
         let mut peak_milk = 0.0_f64;
         let mut peak_dim = 0_i32;
+        let mut predicted_305: Option<f64> = None;
 
-        for dim in 1..=max_dim {
-            let val = wood_predict(a, b, c, dim);
-            if val > peak_milk {
-                peak_milk = val;
-                peak_dim = dim;
+        if has_enough_for_fit {
+            let (a, b, c) = fit_wood_model(&actual_map);
+
+            let max_dim = (current_dim + 120).min(400);
+
+            for dim in 1..=max_dim {
+                let val = wood_predict(a, b, c, dim);
+                if val > peak_milk {
+                    peak_milk = val;
+                    peak_dim = dim;
+                }
+                let pt = LactationPoint {
+                    dim,
+                    milk: Some((val * 100.0).round() / 100.0),
+                };
+                if dim <= current_dim {
+                    fitted_curve.push(pt);
+                } else {
+                    forecast.push(pt);
+                }
             }
-            let pt = LactationPoint {
-                dim,
-                milk: Some((val * 100.0).round() / 100.0),
-            };
-            if dim <= current_dim {
-                fitted_curve.push(pt);
-            } else {
-                forecast.push(pt);
-            }
+
+            predicted_305 = Some(
+                (1..=305)
+                    .map(|d| wood_predict(a, b, c, d))
+                    .sum::<f64>(),
+            );
+        } else {
+            peak_milk = actual_points
+                .iter()
+                .filter_map(|p| p.milk)
+                .fold(0.0_f64, f64::max);
+            peak_dim = actual_points
+                .iter()
+                .filter_map(|p| if p.milk == Some(peak_milk) { Some(p.dim) } else { None })
+                .next()
+                .unwrap_or(0);
         }
-
-        let predicted_305 = (1..=305)
-            .map(|d| wood_predict(a, b, c, d))
-            .sum::<f64>();
 
         results.push(LactationCurveResponse {
             animal_id: aid,
@@ -109,17 +126,18 @@ pub async fn lactation_curves(
             lac_number: lac,
             calving_date: calving_str,
             current_dim,
-            peak_milk: Some((peak_milk * 100.0).round() / 100.0),
-            peak_dim: Some(peak_dim),
-            predicted_total_305d: Some((predicted_305 * 100.0).round() / 100.0),
+            peak_milk: if has_enough_for_fit || peak_milk > 0.0 {
+                Some((peak_milk * 100.0).round() / 100.0)
+            } else {
+                None
+            },
+            peak_dim: if peak_dim > 0 { Some(peak_dim) } else { None },
+            predicted_total_305d: predicted_305.map(|v| (v * 100.0).round() / 100.0),
             actual_points,
             fitted_curve,
             forecast,
         });
 
-        if results.len() >= 50 {
-            break;
-        }
     }
 
     Ok(results)
