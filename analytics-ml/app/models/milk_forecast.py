@@ -16,18 +16,17 @@ MODEL_FILENAME = "milk_forecast_xgb.pkl"
 
 def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     df = df.sort_values("date").copy()
-    df["day_idx"] = range(len(df))
 
-    features = pd.DataFrame()
-    features["day_idx"] = df["day_idx"]
+    features = pd.DataFrame(index=df.index)
     features["milk_lag1"] = df["milk_amount"].shift(1)
     features["milk_lag7"] = df["milk_amount"].shift(7)
     features["milk_roll7"] = df["milk_amount"].rolling(7, min_periods=1).mean()
     features["milk_roll30"] = df["milk_amount"].rolling(30, min_periods=1).mean()
+    features["milk_diff1"] = df["milk_amount"].diff(1)
+    features["milk_diff7"] = df["milk_amount"].diff(7)
     features["feed_amount"] = df["feed_amount"].fillna(0)
     features["rumination"] = df["rumination_minutes"].fillna(0)
     features["activity"] = df["activity_counter"].fillna(0)
-    features["milk_feed_ratio"] = features["milk_roll7"] / features["feed_amount"].replace(0, np.nan).fillna(1)
 
     valid = features.dropna(subset=["milk_lag1"])
     target = df.loc[valid.index, "milk_amount"]
@@ -81,23 +80,43 @@ def predict(df: pd.DataFrame, days: int = 30) -> dict:
     df = df.sort_values("date").copy()
     current_avg = df["milk_amount"].mean()
 
+    feed_mean = df["feed_amount"].mean() or 0
+    rum_mean = df["rumination_minutes"].mean() or 0
+    act_mean = df["activity_counter"].mean() or 0
+
+    recent_30 = df["milk_amount"].tail(30).tolist()
+    recent_7_vals = df["milk_amount"].tail(7).tolist()
+    recent_30_vals = df["milk_amount"].tail(30).tolist()
+    last_milk = float(df["milk_amount"].iloc[-1]) if len(df) > 0 else float(current_avg or 0)
+    last_milk_diff1 = float(df["milk_amount"].diff(1).iloc[-1]) if len(df) > 1 else 0.0
+    last_milk_diff7 = float(df["milk_amount"].diff(7).iloc[-1]) if len(df) > 7 else 0.0
+
     forecast = []
-    last_row = df.iloc[-1].copy() if len(df) > 0 else None
 
     for offset in range(1, days + 1):
+        lag1 = forecast[-1]["predicted_milk"] if forecast else last_milk
+        lag7 = forecast[-7]["predicted_milk"] if len(forecast) >= 7 else (recent_7_vals[-(7 - len(forecast))] if len(forecast) < 7 and len(recent_7_vals) >= (7 - len(forecast)) else current_avg)
+
+        all_recent = [f["predicted_milk"] for f in forecast[-6:]] + [last_milk]
+        roll7 = float(np.mean(all_recent))
+
+        history_for_30 = recent_30_vals + [f["predicted_milk"] for f in forecast]
+        roll30 = float(np.mean(history_for_30[-30:])) if history_for_30 else float(current_avg or 0)
+
+        prev1 = forecast[-1]["predicted_milk"] if forecast else last_milk
+        diff1 = prev1 - (forecast[-2]["predicted_milk"] if len(forecast) >= 2 else last_milk)
+        diff7 = prev1 - (forecast[-7]["predicted_milk"] if len(forecast) >= 7 else (recent_7_vals[0] if recent_7_vals else last_milk))
+
         feature_row = {
-            "day_idx": [len(df) + offset - 1],
-            "milk_lag1": [forecast[-1]["predicted_milk"] if forecast else (current_avg or 0)],
-            "milk_lag7": [forecast[-7]["predicted_milk"] if len(forecast) >= 7 else (current_avg or 0)],
-            "milk_roll7": [
-                np.mean([f["predicted_milk"] for f in forecast[-6:]] + [current_avg or 0])
-                if forecast else (current_avg or 0)
-            ],
-            "milk_roll30": [current_avg or 0],
-            "feed_amount": [df["feed_amount"].mean() or 0],
-            "rumination": [df["rumination_minutes"].mean() or 0],
-            "activity": [df["activity_counter"].mean() or 0],
-            "milk_feed_ratio": [1.0],
+            "milk_lag1": [lag1],
+            "milk_lag7": [lag7],
+            "milk_roll7": [roll7],
+            "milk_roll30": [roll30],
+            "milk_diff1": [diff1],
+            "milk_diff7": [diff7],
+            "feed_amount": [feed_mean],
+            "rumination": [rum_mean],
+            "activity": [act_mean],
         }
         X_pred = pd.DataFrame(feature_row)
         pred = float(model.predict(X_pred.values)[0])
