@@ -25,6 +25,7 @@ pub struct Config {
     pub rate_limit_max: u32,
     pub rate_limit_window_secs: u64,
     pub shutdown_timeout_secs: u64,
+    pub swagger_enabled: bool,
     pub lely_env: LelyConfig,
 }
 
@@ -93,6 +94,10 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(30),
+            swagger_enabled: std::env::var("SWAGGER_ENABLED")
+                .unwrap_or_else(|_| "true".into())
+                .parse()
+                .unwrap_or(true),
             lely_env: LelyConfig {
                 enabled: std::env::var("LELY_ENABLED")
                     .unwrap_or_else(|_| "false".into())
