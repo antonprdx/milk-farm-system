@@ -84,10 +84,12 @@
 	if (data.error) error = data.error;
 
 	if (data.initialData) {
+		kpi = data.initialData.kpi;
 		alerts = data.initialData.alerts;
 		trend = data.initialData.trend;
 		repro = data.initialData.repro;
 		feed = data.initialData.feed;
+		latestMilk = data.initialData.latestMilk ?? [];
 		loading = false;
 	}
 
