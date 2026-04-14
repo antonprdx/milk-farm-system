@@ -174,7 +174,9 @@ async def load_clustering_features(session: AsyncSession, days: int = 90) -> pd.
             COALESCE(m.std_milk, 0) as std_milk,
             COALESCE(r.rum, 0) as rumination_minutes,
             COALESCE(act.act, 0) as activity_counter,
-            COALESCE(f.feed, 0) as feed_amount
+            COALESCE(f.feed, 0) as feed_amount,
+            COALESCE(dim.days, 0) as dim_days,
+            COALESCE(lac.n, 0) as lactation_number
         FROM animals a
         JOIN LATERAL (
             SELECT AVG(m.milk_amount)::float8 as avg_milk,
@@ -194,6 +196,13 @@ async def load_clustering_features(session: AsyncSession, days: int = 90) -> pd.
             SELECT SUM(f.total)::float8 / NULLIF(COUNT(DISTINCT f.feed_date)::float8, 0) as feed
             FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - make_interval(days => :days)
         ) f ON true
+        LEFT JOIN LATERAL (
+            SELECT (CURRENT_DATE - c.calving_date)::int8 as days
+            FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1
+        ) dim ON true
+        LEFT JOIN LATERAL (
+            SELECT COUNT(*)::int8 as n FROM calvings c WHERE c.animal_id = a.id
+        ) lac ON true
         WHERE a.active = true AND a.gender = 'female' AND m.avg_milk IS NOT NULL
         ORDER BY a.name
     """)
