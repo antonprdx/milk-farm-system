@@ -88,6 +88,25 @@ impl UpdateMilkDayProduction {
     }
 }
 
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct CreateMilkVisit {
+    pub animal_id: i32,
+    pub visit_datetime: chrono::DateTime<chrono::Utc>,
+    pub milk_amount: Option<f64>,
+    pub duration_seconds: Option<i32>,
+    pub milk_destination: Option<i32>,
+}
+
+impl CreateMilkVisit {
+    pub fn validate(&self) -> Result<(), crate::errors::AppError> {
+        use crate::validation::*;
+        positive_i32(self.animal_id, "ID животного")?;
+        opt_non_negative_f64(&self.milk_amount, "Надой")?;
+        opt_non_negative_i32(&self.duration_seconds, "Длительность")?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct MilkFilter {
     pub animal_id: Option<String>,
