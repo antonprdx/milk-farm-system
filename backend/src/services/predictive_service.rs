@@ -174,7 +174,7 @@ fn fit_wood_model(data: &std::collections::HashMap<i32, f64>) -> (f64, f64, f64)
         / denom;
 
     let a = ln_a.exp();
-    (a, b_val, -c_val.abs().max(0.001).min(0.1))
+    (a, b_val, c_val.abs().max(0.001).min(0.1))
 }
 
 fn wood_predict(a: f64, b: f64, c: f64, dim: i32) -> f64 {
