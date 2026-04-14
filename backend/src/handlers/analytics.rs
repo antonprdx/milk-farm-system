@@ -6,16 +6,28 @@ use serde::Deserialize;
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
 use crate::models::analytics::{
-    AlertsResponse, FeedForecastResponse, KpiResponse, MilkTrendResponse,
-    ReproductionForecastResponse,
+    AlertsResponse, CullingSurvivalResponse, FeedForecastResponse, FertilityWindowResponse,
+    HealthIndexResponse, KpiResponse, LactationCurveResponse, MastitisRiskResponse,
+    MilkTrendResponse, ProfitabilityResponse, ReproductionForecastResponse, SeasonalResponse,
 };
-use crate::services::analytics_service;
+use crate::services::{analytics_service, predictive_service};
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct TrendQuery {
     pub days: Option<i64>,
     pub forecast_days: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
+pub struct LactationQuery {
+    pub animal_id: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
+pub struct ProfitQuery {
+    pub milk_price: Option<f64>,
+    pub feed_price: Option<f64>,
 }
 
 pub fn routes() -> Router<AppState> {
@@ -29,6 +41,13 @@ pub fn routes() -> Router<AppState> {
         )
         .route("/analytics/feed-forecast", get(feed_forecast))
         .route("/analytics/latest-milk", get(latest_milk))
+        .route("/analytics/lactation-curves", get(lactation_curves))
+        .route("/analytics/health-index", get(health_index))
+        .route("/analytics/fertility-window", get(fertility_window))
+        .route("/analytics/profitability", get(profitability))
+        .route("/analytics/seasonal", get(seasonal))
+        .route("/analytics/mastitis-risk", get(mastitis_risk))
+        .route("/analytics/culling-survival", get(culling_survival))
 }
 
 #[utoipa::path(
@@ -134,5 +153,130 @@ async fn latest_milk(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<crate::models::analytics::LatestMilkEntry>>, AppError> {
     let data = analytics_service::latest_milk(&state.pool).await?;
+    Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/lactation-curves",
+    responses(
+        (status = 200, description = "Lactation curves with Wood's model fit", body = Vec<LactationCurveResponse>),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(LactationQuery),
+    security(("cookie_auth" = []))
+)]
+async fn lactation_curves(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Query(params): Query<LactationQuery>,
+) -> Result<Json<Vec<LactationCurveResponse>>, AppError> {
+    let data = predictive_service::lactation_curves(&state.pool, params.animal_id).await?;
+    Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/health-index",
+    responses(
+        (status = 200, description = "Health index scores", body = HealthIndexResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn health_index(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<HealthIndexResponse>, AppError> {
+    let data = predictive_service::health_index(&state.pool).await?;
+    Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/fertility-window",
+    responses(
+        (status = 200, description = "Fertility window detection", body = FertilityWindowResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn fertility_window(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<FertilityWindowResponse>, AppError> {
+    let data = predictive_service::fertility_window(&state.pool).await?;
+    Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/profitability",
+    responses(
+        (status = 200, description = "Per-cow profitability analysis", body = ProfitabilityResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(ProfitQuery),
+    security(("cookie_auth" = []))
+)]
+async fn profitability(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Query(params): Query<ProfitQuery>,
+) -> Result<Json<ProfitabilityResponse>, AppError> {
+    let milk_price = params.milk_price.unwrap_or(25.0).clamp(1.0, 200.0);
+    let feed_price = params.feed_price.unwrap_or(12.0).clamp(1.0, 200.0);
+    let data = predictive_service::profitability(&state.pool, milk_price, feed_price).await?;
+    Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/seasonal",
+    responses(
+        (status = 200, description = "Seasonal decomposition of milk production", body = SeasonalResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn seasonal(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<SeasonalResponse>, AppError> {
+    let data = predictive_service::seasonal_decomposition(&state.pool).await?;
+    Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/mastitis-risk",
+    responses(
+        (status = 200, description = "Mastitis risk assessment", body = MastitisRiskResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn mastitis_risk(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<MastitisRiskResponse>, AppError> {
+    let data = predictive_service::mastitis_risk(&state.pool).await?;
+    Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/culling-survival",
+    responses(
+        (status = 200, description = "Culling survival estimates", body = CullingSurvivalResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn culling_survival(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<CullingSurvivalResponse>, AppError> {
+    let data = predictive_service::culling_survival(&state.pool).await?;
     Ok(Json(data))
 }

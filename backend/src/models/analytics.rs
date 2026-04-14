@@ -119,3 +119,130 @@ pub struct LatestMilkEntry {
     pub avg_amount: Option<f64>,
     pub isk: Option<f64>,
 }
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct LactationCurveResponse {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub lac_number: i32,
+    pub calving_date: String,
+    pub current_dim: i32,
+    pub peak_milk: Option<f64>,
+    pub peak_dim: Option<i32>,
+    pub predicted_total_305d: Option<f64>,
+    pub actual_points: Vec<LactationPoint>,
+    pub fitted_curve: Vec<LactationPoint>,
+    pub forecast: Vec<LactationPoint>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct LactationPoint {
+    pub dim: i32,
+    pub milk: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct HealthIndexResponse {
+    pub cows: Vec<CowHealthIndex>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct CowHealthIndex {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub health_score: f64,
+    pub milk_deviation_zscore: Option<f64>,
+    pub rumination_deviation_zscore: Option<f64>,
+    pub activity_deviation_zscore: Option<f64>,
+    pub scc_deviation_zscore: Option<f64>,
+    pub risk_level: String,
+    pub top_concern: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct FertilityWindowResponse {
+    pub cows: Vec<CowFertilityWindow>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct CowFertilityWindow {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub days_since_calving: Option<i64>,
+    pub activity_signal: Option<f64>,
+    pub rumination_signal: Option<f64>,
+    pub milk_signal: Option<f64>,
+    pub combined_score: f64,
+    pub window_status: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct ProfitabilityResponse {
+    pub cows: Vec<CowProfitability>,
+    pub herd_avg_margin_day: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct CowProfitability {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub avg_daily_milk: Option<f64>,
+    pub avg_daily_feed: Option<f64>,
+    pub estimated_milk_revenue_day: Option<f64>,
+    pub estimated_feed_cost_day: Option<f64>,
+    pub estimated_margin_day: Option<f64>,
+    pub margin_30d: Option<f64>,
+    pub feed_cost_ratio: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct SeasonalResponse {
+    pub monthly_indices: Vec<MonthlyIndex>,
+    pub trend_7d: Option<f64>,
+    pub trend_30d: Option<f64>,
+    pub current_seasonal_factor: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct MonthlyIndex {
+    pub month: i32,
+    pub month_name: String,
+    pub avg_daily_milk: Option<f64>,
+    pub seasonal_index: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct MastitisRiskResponse {
+    pub cows: Vec<MastitisRiskEntry>,
+    pub model_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct MastitisRiskEntry {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub risk_score: f64,
+    pub risk_level: String,
+    pub contributing_factors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct CullingSurvivalResponse {
+    pub cows: Vec<CullingSurvivalEntry>,
+    pub model_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct CullingSurvivalEntry {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub expected_days_remaining: Option<i64>,
+    pub risk_score: f64,
+    pub risk_factors: Vec<String>,
+}

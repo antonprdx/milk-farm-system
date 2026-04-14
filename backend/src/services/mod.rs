@@ -10,6 +10,7 @@ pub mod location_service;
 pub mod milk_service;
 pub mod pdf_service;
 pub mod preferences_service;
+pub mod predictive_service;
 pub mod reports_service;
 pub mod reproduction_service;
 pub mod retry;
