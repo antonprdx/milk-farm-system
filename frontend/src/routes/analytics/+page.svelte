@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
+	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import LactationCurveChart from '$lib/components/LactationCurveChart.svelte';
 	import SeasonalChart from '$lib/components/SeasonalChart.svelte';
 	import {
@@ -108,6 +109,8 @@
 	let activeTab: AnalyticsTab = $state('lactation');
 	let loading = $state(false);
 	let error = $state('');
+	let page = $state(1);
+	const PAGE_SIZE = 25;
 
 	let lactationData: LactationCurveResponse[] = $state([]);
 	let healthData: HealthIndexResponse | null = $state(null);
@@ -128,6 +131,8 @@
 	let dryOffData: DryOffOptimizerResponse | null = $state(null);
 	let lifetimeData: LifetimeValueResponse | null = $state(null);
 
+	const loadedTabs = new Set<AnalyticsTab>();
+
 	let selectedAnimalId = $state<number | ''>('');
 	let forecastAnimalId = $state<number | ''>('');
 	let milkPrice = $state(25);
@@ -135,7 +140,11 @@
 
 	let lactationDetailAnimal = $state<number | null>(null);
 
-	async function load() {
+	async function load(force = false) {
+		if (!force && loadedTabs.has(activeTab) && activeTab !== 'lactation' && activeTab !== 'profit' && activeTab !== 'forecast') {
+			return;
+		}
+
 		try {
 			loading = true;
 			error = '';
@@ -185,12 +194,14 @@
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';
 		} finally {
 			loading = false;
+			loadedTabs.add(activeTab);
 		}
 	}
 
 	function switchTab(key: string) {
 		activeTab = key as AnalyticsTab;
 		lactationDetailAnimal = null;
+		page = 1;
 		load();
 	}
 
@@ -201,6 +212,10 @@
 	const tdCls = 'px-3 py-2 text-sm text-slate-700 dark:text-slate-300 whitespace-nowrap';
 	const tblCls =
 		'min-w-full divide-y divide-slate-200 dark:divide-slate-700';
+
+	function paginate<T>(arr: T[]): T[] {
+		return arr.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+	}
 
 	function riskBadge(level: string) {
 		const m: Record<string, string> = {
@@ -298,7 +313,7 @@
 				class="w-32 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
 			/>
 			<button
-				onclick={load}
+				onclick={() => load(true)}
 				class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer"
 				>Показать</button
 			>
@@ -359,7 +374,7 @@
 						</tr>
 					</thead>
 					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-						{#each lactationData as c (c.animal_id)}
+						{#each paginate(lactationData) as c (c.animal_id)}
 							<tr
 								class="hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
 								onclick={() => (lactationDetailAnimal = c.animal_id)}
@@ -376,6 +391,7 @@
 					</tbody>
 				</table>
 			</div>
+			<Pagination bind:page total={lactationData.length} perPage={PAGE_SIZE} />
 		{/if}
 
 	<!-- HEALTH INDEX -->
@@ -395,7 +411,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each healthData.cows as c (c.animal_id)}
+					{#each paginate(healthData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={`${tdCls} font-semibold ${scoreColor(c.health_score)}`}>{c.health_score.toFixed(1)}</td>
@@ -412,6 +428,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={healthData.cows.length} perPage={PAGE_SIZE} />
 
 	<!-- FERTILITY WINDOW -->
 	{:else if activeTab === 'fertility' && fertilityData}
@@ -429,7 +446,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each fertilityData.cows as c (c.animal_id)}
+					{#each paginate(fertilityData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={tdCls}>{c.days_since_calving ?? '—'}</td>
@@ -445,6 +462,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={fertilityData.cows.length} perPage={PAGE_SIZE} />
 
 	<!-- PROFITABILITY -->
 	{:else if activeTab === 'profit' && profitData}
@@ -470,7 +488,7 @@
 				руб/кг
 			</label>
 			<button
-				onclick={load}
+				onclick={() => load(true)}
 				class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer"
 				>Пересчитать</button
 			>
@@ -500,7 +518,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each profitData.cows as c (c.animal_id)}
+					{#each paginate(profitData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={tdCls}>{c.avg_daily_milk?.toFixed(1) ?? '—'}</td>
@@ -515,6 +533,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={profitData.cows.length} perPage={PAGE_SIZE} />
 
 	<!-- SEASONAL -->
 	{:else if activeTab === 'seasonal' && seasonalData}
@@ -587,7 +606,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each mastitisData.cows as c (c.animal_id)}
+					{#each paginate(mastitisData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={`${tdCls} font-semibold ${(c.risk_score) >= 0.6 ? 'text-red-600 dark:text-red-400' : (c.risk_score >= 0.3 ? 'text-orange-600 dark:text-orange-400' : 'text-yellow-600 dark:text-yellow-400')}`}>{(c.risk_score * 100).toFixed(0)}%</td>
@@ -605,6 +624,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={mastitisData.cows.length} perPage={PAGE_SIZE} />
 
 	<!-- CULLING SURVIVAL -->
 	{:else if activeTab === 'culling' && cullingData}
@@ -622,7 +642,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each cullingData.cows as c (c.animal_id)}
+					{#each paginate(cullingData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={`${tdCls} font-semibold ${(c.risk_score) >= 0.6 ? 'text-red-600 dark:text-red-400' : (c.risk_score >= 0.3 ? 'text-orange-600 dark:text-orange-400' : 'text-yellow-600 dark:text-yellow-400')}`}>{(c.risk_score * 100).toFixed(0)}%</td>
@@ -638,6 +658,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={cullingData.cows.length} perPage={PAGE_SIZE} />
 
 	<!-- ENERGY BALANCE -->
 	{:else if activeTab === 'energy' && energyData}
@@ -655,7 +676,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each energyData.cows as c (c.animal_id)}
+					{#each paginate(energyData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={tdCls}>{c.avg_fat_pct?.toFixed(2) ?? '—'}</td>
@@ -671,6 +692,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={energyData.cows.length} perPage={PAGE_SIZE} />
 
 	<!-- QUARTER HEALTH -->
 	{:else if activeTab === 'udder' && udderData}
@@ -690,7 +712,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each udderData.cows as c (c.animal_id)}
+					{#each paginate(udderData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={tdCls}>{c.lf_conductivity?.toFixed(1) ?? '—'}</td>
@@ -708,6 +730,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={udderData.cows.length} perPage={PAGE_SIZE} />
 
 	<!-- MILK FORECAST 30D -->
 	{:else if activeTab === 'forecast'}
@@ -720,7 +743,7 @@
 				class="w-32 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
 			/>
 			<button
-				onclick={load}
+				onclick={() => load(true)}
 				class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer"
 				disabled={!forecastAnimalId}
 			>Прогноз</button>
@@ -792,7 +815,7 @@
 						</tr>
 					</thead>
 					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-						{#each clusterData.clusters.toSorted((a, b) => a.cluster_id - b.cluster_id) as c (c.animal_id)}
+						{#each paginate(clusterData.clusters.toSorted((a, b) => a.cluster_id - b.cluster_id)) as c (c.animal_id)}
 							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 								<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 								<td class={tdCls}>
@@ -806,6 +829,7 @@
 					</tbody>
 				</table>
 			</div>
+			<Pagination bind:page total={clusterData.clusters.length} perPage={PAGE_SIZE} />
 		{:else if clusterData}
 			<div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Нет данных для кластеризации</div>
 		{:else}
@@ -826,7 +850,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each estrusData.predictions.toSorted((a, b) => b.estrus_probability - a.estrus_probability) as p (p.animal_id)}
+					{#each paginate(estrusData.predictions.toSorted((a, b) => b.estrus_probability - a.estrus_probability)) as p (p.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{p.animal_name ?? `#${p.animal_id}`}</td>
 							<td class={`${tdCls} font-semibold ${p.estrus_probability >= 0.7 ? 'text-red-600 dark:text-red-400' : p.estrus_probability >= 0.4 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{(p.estrus_probability * 100).toFixed(0)}%</td>
@@ -845,6 +869,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={estrusData.predictions.length} perPage={PAGE_SIZE} />
 
 	<!-- EQUIPMENT ANOMALY -->
 	{:else if activeTab === 'equipment' && equipmentData}
@@ -866,9 +891,8 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each equipmentData.entries.toSorted((a, b) => a.anomaly_score - b.anomaly_score) as e (e.animal_id)}
-						{#if e.is_anomaly}
-							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 bg-red-50/50 dark:bg-red-900/10">
+					{#each paginate(equipmentData.entries.filter(e => e.is_anomaly).toSorted((a, b) => a.anomaly_score - b.anomaly_score)) as e (e.animal_id)}
+						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 bg-red-50/50 dark:bg-red-900/10">
 								<td class={tdCls}>{e.animal_name ?? `#${e.animal_id}`}</td>
 								<td class={tdCls}>#{e.device_address ?? '—'}</td>
 								<td class={`${tdCls} font-semibold text-red-600 dark:text-red-400`}>Да</td>
@@ -882,12 +906,12 @@
 										<span class="text-xs">{f}</span>
 									{/each}
 								</td>
-							</tr>
-						{/if}
+						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={equipmentData.entries.filter(e => e.is_anomaly).length} perPage={PAGE_SIZE} />
 
 	<!-- FEED RECOMMENDATION -->
 	{:else if activeTab === 'feedRec' && feedRecData}
@@ -905,7 +929,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each feedRecData.recommendations.toSorted((a, b) => Math.abs(b.difference_kg) - Math.abs(a.difference_kg)) as r (r.animal_id)}
+					{#each paginate(feedRecData.recommendations.toSorted((a, b) => Math.abs(b.difference_kg) - Math.abs(a.difference_kg))) as r (r.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{r.animal_name ?? `#${r.animal_id}`}</td>
 							<td class={tdCls}>{r.dim_days}</td>
@@ -921,6 +945,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={feedRecData.recommendations.length} perPage={PAGE_SIZE} />
 
 	<!-- KETOSIS WARNING -->
 	{:else if activeTab === 'ketosis' && ketosisData}
@@ -938,7 +963,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each ketosisData.predictions.toSorted((a, b) => b.risk_probability - a.risk_probability) as k (k.animal_id)}
+					{#each paginate(ketosisData.predictions.toSorted((a, b) => b.risk_probability - a.risk_probability)) as k (k.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{k.animal_name ?? `#${k.animal_id}`}</td>
 							<td class={`${tdCls} font-semibold ${k.risk_probability >= 0.7 ? 'text-red-600 dark:text-red-400' : k.risk_probability >= 0.4 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{(k.risk_probability * 100).toFixed(0)}%</td>
@@ -961,6 +986,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={ketosisData.predictions.length} perPage={PAGE_SIZE} />
 
 	<!-- FEED EFFICIENCY -->
 	{:else if activeTab === 'feedEff' && feedEffData}
@@ -984,7 +1010,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each feedEffData.cows as c (c.animal_id)}
+					{#each paginate(feedEffData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.efficiency_rank ?? '—'}</td>
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
@@ -996,6 +1022,7 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={feedEffData.cows.length} perPage={PAGE_SIZE} />
 
 	<!-- DRY OFF OPTIMIZER -->
 	{:else if activeTab === 'dryOff' && dryOffData}
@@ -1016,7 +1043,7 @@
 						</tr>
 					</thead>
 					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-						{#each dryOffData.cows.toSorted((a, b) => (a.days_until_dry_off ?? 999) - (b.days_until_dry_off ?? 999)) as c (c.animal_id)}
+						{#each paginate(dryOffData.cows.toSorted((a, b) => (a.days_until_dry_off ?? 999) - (b.days_until_dry_off ?? 999))) as c (c.animal_id)}
 							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 								<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 								<td class={tdCls}>{c.expected_calving_date ?? '—'}</td>
@@ -1034,6 +1061,7 @@
 					</tbody>
 				</table>
 			</div>
+			<Pagination bind:page total={dryOffData.cows.length} perPage={PAGE_SIZE} />
 		{/if}
 
 	<!-- LIFETIME VALUE -->
@@ -1054,7 +1082,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each lifetimeData.cows.toSorted((a, b) => (b.projected_net_value ?? 0) - (a.projected_net_value ?? 0)) as c (c.animal_id)}
+					{#each paginate(lifetimeData.cows.toSorted((a, b) => (b.projected_net_value ?? 0) - (a.projected_net_value ?? 0))) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={tdCls}>{c.age_years?.toFixed(1) ?? '—'}</td>
@@ -1072,5 +1100,6 @@
 				</tbody>
 			</table>
 		</div>
+		<Pagination bind:page total={lifetimeData.cows.length} perPage={PAGE_SIZE} />
 	{/if}
 {/if}

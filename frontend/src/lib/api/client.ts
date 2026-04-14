@@ -9,7 +9,19 @@ type RequestOptions = {
 	method?: string;
 	body?: unknown;
 	signal?: AbortSignal;
+	retries?: number;
 };
+
+const MAX_RETRIES = 3;
+const BASE_DELAY = 500;
+
+function backoff(attempt: number): number {
+	return BASE_DELAY * Math.pow(2, attempt) + Math.random() * 200;
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((r) => setTimeout(r, ms));
+}
 
 let refreshingPromise: Promise<boolean> | null = null;
 
@@ -38,37 +50,47 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 		'Content-Type': 'application/json',
 	};
 
-	const res = await fetch(`${API_BASE}${path}`, {
-		method: opts.method ?? 'GET',
-		headers,
-		credentials: 'include',
-		body: opts.body ? JSON.stringify(opts.body) : undefined,
-		signal: opts.signal,
-	});
+	const maxRetries = opts.retries ?? MAX_RETRIES;
 
-	if (!res.ok) {
-		if (res.status === 401 && browser) {
-			const refreshed = await tryRefresh();
-			if (refreshed) {
-				const retryRes = await fetch(`${API_BASE}${path}`, {
-					method: opts.method ?? 'GET',
-					headers,
-					credentials: 'include',
-					body: opts.body ? JSON.stringify(opts.body) : undefined,
-				});
-				if (retryRes.ok) {
-					return retryRes.json();
+	for (let attempt = 0; ; attempt++) {
+		const res = await fetch(`${API_BASE}${path}`, {
+			method: opts.method ?? 'GET',
+			headers,
+			credentials: 'include',
+			body: opts.body ? JSON.stringify(opts.body) : undefined,
+			signal: opts.signal,
+		});
+
+		if (!res.ok) {
+			if (res.status === 401 && browser) {
+				const refreshed = await tryRefresh();
+				if (refreshed) {
+					const retryRes = await fetch(`${API_BASE}${path}`, {
+						method: opts.method ?? 'GET',
+						headers,
+						credentials: 'include',
+						body: opts.body ? JSON.stringify(opts.body) : undefined,
+					});
+					if (retryRes.ok) {
+						return retryRes.json();
+					}
 				}
+				auth.logout();
+				goto('/auth/login');
+				throw new Error('Сессия истекла. Войдите заново.');
 			}
-			auth.logout();
-			goto('/auth/login');
-			throw new Error('Сессия истекла. Войдите заново.');
-		}
-		const err = await res.json().catch(() => ({ error: res.statusText }));
-		throw new Error(err.error || res.statusText);
-	}
 
-	return res.json();
+			if (res.status >= 500 && attempt < maxRetries) {
+				await sleep(backoff(attempt));
+				continue;
+			}
+
+			const err = await res.json().catch(() => ({ error: res.statusText }));
+			throw new Error(err.error || res.statusText);
+		}
+
+		return res.json();
+	}
 }
 
 export function del<T>(path: string) {

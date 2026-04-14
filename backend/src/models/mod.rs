@@ -15,6 +15,7 @@ pub mod reproduction;
 pub mod system_settings;
 pub mod timeline;
 pub mod user;
+pub mod vet;
 
 use serde::{Deserialize, Serialize};
 

@@ -20,3 +20,4 @@ pub mod system_settings_service;
 pub mod timeline_service;
 pub mod token_revocation_service;
 pub mod user_service;
+pub mod vet_service;
