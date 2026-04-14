@@ -16,6 +16,7 @@
 		MapPin,
 		Users,
 		BarChart3,
+		TrendingUp,
 		Settings,
 		Sun,
 		Moon,
@@ -54,6 +55,7 @@
 		{ href: '/contacts', label: 'Контакты', icon: Users },
 		{ href: '/locations', label: 'Локации', icon: MapPin },
 		{ href: '/reports', label: 'Отчёты', icon: BarChart3 },
+		{ href: '/analytics', label: 'Аналитика', icon: TrendingUp },
 		{ href: '/settings', label: 'Настройки', icon: Settings, adminOnly: true },
 	];
 
