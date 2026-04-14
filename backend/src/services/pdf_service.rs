@@ -1,5 +1,6 @@
 use genpdf::Element as _;
-use genpdf::{Document, SimplePageDecorator, elements, fonts, style};
+use genpdf::{elements, fonts, style, Document, SimplePageDecorator};
+use sqlx::PgPool;
 
 use crate::errors::AppError;
 
@@ -98,4 +99,153 @@ pub fn generate_pdf(
         .map_err(|e| AppError::Internal(anyhow::anyhow!("PDF render error: {e}")))?;
 
     Ok(buf)
+}
+
+pub async fn generate_animal_card(pool: &PgPool, animal_id: i32) -> Result<Vec<u8>, AppError> {
+    let animal = sqlx::query_as::<_, crate::models::animal::Animal>(
+        "SELECT * FROM animals WHERE id = $1",
+    )
+    .bind(animal_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?
+    .ok_or_else(|| AppError::NotFound(format!("Животное с ID {} не найдено", animal_id)))?;
+
+    let gender = match animal.gender {
+        crate::models::GenderType::Male => "М",
+        crate::models::GenderType::Female => "Ж",
+    };
+
+    let title = format!(
+        "Карточка животного #{}",
+        animal.id
+    );
+    let subtitle = format!(
+        "Сформировано: {}",
+        chrono::Local::now().format("%d.%m.%Y")
+    );
+
+    let info_rows = vec![
+        vec![
+            "ID".into(),
+            animal.id.to_string(),
+            "Кличка".into(),
+            animal.name.unwrap_or_default(),
+        ],
+        vec![
+            "Номер жизни".into(),
+            animal.life_number.unwrap_or_default(),
+            "Пол".into(),
+            gender.into(),
+        ],
+        vec![
+            "Дата рождения".into(),
+            animal.birth_date.to_string(),
+            "Локация".into(),
+            animal.location.unwrap_or_default(),
+        ],
+        vec![
+            "UCN".into(),
+            animal.ucn_number.unwrap_or_default(),
+            "Статус".into(),
+            if animal.active { "Активно" } else { "Неактивно" }.into(),
+        ],
+    ];
+
+    let calvings: Vec<(chrono::NaiveDate, Option<i32>)> = sqlx::query_as(
+        "SELECT calving_date, lac_number FROM calvings WHERE animal_id = $1 ORDER BY calving_date DESC LIMIT 10",
+    )
+    .bind(animal_id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut lac_rows: Vec<Vec<String>> = vec![];
+    for (date, lac) in &calvings {
+        lac_rows.push(vec![date.to_string(), lac.map_or("-".into(), |l| l.to_string())]);
+    }
+
+    let vet_records: Vec<(chrono::NaiveDate, String, Option<String>)> = sqlx::query_as(
+        "SELECT event_date, record_type::text, diagnosis FROM vet_records WHERE animal_id = $1 ORDER BY event_date DESC LIMIT 10",
+    )
+    .bind(animal_id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut vet_rows: Vec<Vec<String>> = vec![];
+    for (date, rt, diag) in &vet_records {
+        vet_rows.push(vec![date.to_string(), rt.clone(), diag.clone().unwrap_or_default()]);
+    }
+
+    let weights: Vec<(chrono::NaiveDate, f64)> = sqlx::query_as(
+        "SELECT measure_date, weight_kg FROM weight_records WHERE animal_id = $1 ORDER BY measure_date DESC LIMIT 10",
+    )
+    .bind(animal_id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut weight_rows: Vec<Vec<String>> = vec![];
+    for (date, w) in &weights {
+        weight_rows.push(vec![date.to_string(), format!("{:.1}", w)]);
+    }
+
+    let milk_stats: (Option<f64>, Option<f64>) = sqlx::query_as(
+        "SELECT AVG(milk_amount)::double precision, MAX(milk_amount)::double precision FROM milk_day_productions WHERE animal_id = $1 AND date >= CURRENT_DATE - INTERVAL '30 days'",
+    )
+    .bind(animal_id)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut milk_rows: Vec<Vec<String>> = vec![];
+    if milk_stats.0.is_some() || milk_stats.1.is_some() {
+        milk_rows.push(vec![
+            "Средний надой (30 дн.)".into(),
+            milk_stats.0.map_or("-".into(), |v| format!("{:.1} л", v)),
+            "Макс. надой (30 дн.)".into(),
+            milk_stats.1.map_or("-".into(), |v| format!("{:.1} л", v)),
+        ]);
+    }
+
+    let mut sections = vec![TableSection {
+        title: Some("Основная информация".into()),
+        headers: vec!["Поле".into(), "Значение".into(), "Поле".into(), "Значение".into()],
+        rows: info_rows,
+    }];
+
+    if !lac_rows.is_empty() {
+        sections.push(TableSection {
+            title: Some("История лактаций".into()),
+            headers: vec!["Дата отёла".into(), "Лактация".into()],
+            rows: lac_rows,
+        });
+    }
+
+    if !vet_rows.is_empty() {
+        sections.push(TableSection {
+            title: Some("Ветеринарные записи".into()),
+            headers: vec!["Дата".into(), "Тип".into(), "Диагноз".into()],
+            rows: vet_rows,
+        });
+    }
+
+    if !weight_rows.is_empty() {
+        sections.push(TableSection {
+            title: Some("История веса".into()),
+            headers: vec!["Дата".into(), "Вес, кг".into()],
+            rows: weight_rows,
+        });
+    }
+
+    if !milk_rows.is_empty() {
+        sections.push(TableSection {
+            title: Some("Показатели надоя".into()),
+            headers: vec!["Показатель".into(), "Значение".into(), "Показатель".into(), "Значение".into()],
+            rows: milk_rows,
+        });
+    }
+
+    generate_pdf(&title, &subtitle, &sections)
 }

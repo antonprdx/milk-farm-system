@@ -6,6 +6,7 @@ pub mod contact;
 pub mod feed;
 pub mod fitness;
 pub mod grazing;
+pub mod inventory;
 pub mod location;
 pub mod milk;
 pub mod pagination;

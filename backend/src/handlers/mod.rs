@@ -6,6 +6,7 @@ pub(crate) mod contacts;
 pub(crate) mod feed;
 pub(crate) mod fitness;
 pub(crate) mod grazing;
+pub(crate) mod inventory;
 pub(crate) mod lely;
 pub(crate) mod locations;
 pub(crate) mod milk;
@@ -45,4 +46,5 @@ pub fn routes() -> Router<AppState> {
         .merge(tasks::routes())
         .merge(sires::routes())
         .merge(transfers::routes())
+        .merge(inventory::routes())
 }

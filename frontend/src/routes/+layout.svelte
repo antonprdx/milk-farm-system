@@ -49,6 +49,7 @@
 
 <svelte:head>
 	<title>Молочная ферма</title>
+	<link rel="manifest" href="/manifest.json" />
 </svelte:head>
 
 <a
@@ -60,6 +61,7 @@
 {#if browser}
 	<!-- eslint-disable svelte/no-at-html-tags -->
 	{@html '<script>(() => { const t = localStorage.getItem("theme"); if (t === "dark") document.documentElement.classList.add("dark"); })()</script>'}
+	{@html '<script>if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js").catch(() => {}); }</script>'}
 {/if}
 
 {#if isAuthenticated}
