@@ -288,3 +288,94 @@ export interface CullingSurvivalResponse {
 export function getCullingSurvival(signal?: AbortSignal) {
 	return api<CullingSurvivalResponse>('/analytics/culling-survival', { signal });
 }
+
+export interface CowEnergyBalance {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	avg_fat_pct: number | null;
+	avg_protein_pct: number | null;
+	fat_protein_ratio: number | null;
+	status: string;
+	trend_7d: number | null;
+	trend_30d: number | null;
+}
+
+export interface EnergyBalanceResponse {
+	cows: CowEnergyBalance[];
+}
+
+export function getEnergyBalance(signal?: AbortSignal) {
+	return api<EnergyBalanceResponse>('/analytics/energy-balance', { signal });
+}
+
+export interface CowQuarterHealth {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	lf_conductivity: number | null;
+	lr_conductivity: number | null;
+	rf_conductivity: number | null;
+	rr_conductivity: number | null;
+	avg_conductivity: number | null;
+	max_asymmetry: number | null;
+	worst_quarter: string | null;
+	risk_level: string;
+}
+
+export interface QuarterHealthResponse {
+	cows: CowQuarterHealth[];
+}
+
+export function getQuarterHealth(signal?: AbortSignal) {
+	return api<QuarterHealthResponse>('/analytics/quarter-health', { signal });
+}
+
+export interface MilkForecastDay {
+	day_offset: number;
+	predicted_milk: number;
+	lower_bound: number;
+	upper_bound: number;
+}
+
+export interface MilkForecastResponse {
+	animal_id: number;
+	animal_name: string | null;
+	current_daily_avg: number | null;
+	forecast: MilkForecastDay[];
+	model_version: string;
+}
+
+export function getMilkForecast(animalId: number, days?: number, signal?: AbortSignal) {
+	const params: Record<string, string> = { animal_id: String(animalId) };
+	if (days) params.days = String(days);
+	return api<MilkForecastResponse>(
+		`/analytics/milk-forecast${buildQuery(params)}`,
+		{ signal },
+	);
+}
+
+export interface ClusterEntry {
+	animal_id: number;
+	animal_name: string | null;
+	cluster_id: number;
+	cluster_name: string;
+	avg_milk: number;
+	avg_rumination: number;
+	distance_to_center: number;
+	model_version: string;
+}
+
+export interface ClusterResponse {
+	clusters: ClusterEntry[];
+	cluster_names: Record<string, string>;
+}
+
+export function getCowClusters(days?: number, signal?: AbortSignal) {
+	const params: Record<string, string> = {};
+	if (days) params.days = String(days);
+	return api<ClusterResponse>(
+		`/analytics/cow-clusters${buildQuery(params)}`,
+		{ signal },
+	);
+}

@@ -12,6 +12,10 @@
 		getSeasonal,
 		getMastitisRisk,
 		getCullingSurvival,
+		getEnergyBalance,
+		getQuarterHealth,
+		getMilkForecast,
+		getCowClusters,
 		type LactationCurveResponse,
 		type HealthIndexResponse,
 		type FertilityWindowResponse,
@@ -19,6 +23,10 @@
 		type SeasonalResponse,
 		type MastitisRiskResponse,
 		type CullingSurvivalResponse,
+		type EnergyBalanceResponse,
+		type QuarterHealthResponse,
+		type MilkForecastResponse,
+		type ClusterResponse,
 	} from '$lib/api/analytics';
 
 	type AnalyticsTab =
@@ -28,7 +36,11 @@
 		| 'profit'
 		| 'seasonal'
 		| 'mastitis'
-		| 'culling';
+		| 'culling'
+		| 'energy'
+		| 'udder'
+		| 'forecast'
+		| 'clusters';
 
 	const tabs: { key: AnalyticsTab; label: string }[] = [
 		{ key: 'lactation', label: 'Кривые лактации' },
@@ -38,6 +50,10 @@
 		{ key: 'seasonal', label: 'Сезонность' },
 		{ key: 'mastitis', label: 'Риск мастита' },
 		{ key: 'culling', label: 'Выбраковка' },
+		{ key: 'energy', label: 'Энергобаланс' },
+		{ key: 'udder', label: 'Здоровье вымени' },
+		{ key: 'forecast', label: 'Прогноз 30д' },
+		{ key: 'clusters', label: 'Кластеры' },
 	];
 
 	let activeTab: AnalyticsTab = $state('lactation');
@@ -51,8 +67,13 @@
 	let seasonalData: SeasonalResponse | null = $state(null);
 	let mastitisData: MastitisRiskResponse | null = $state(null);
 	let cullingData: CullingSurvivalResponse | null = $state(null);
+	let energyData: EnergyBalanceResponse | null = $state(null);
+	let udderData: QuarterHealthResponse | null = $state(null);
+	let forecastData: MilkForecastResponse | null = $state(null);
+	let clusterData: ClusterResponse | null = $state(null);
 
 	let selectedAnimalId = $state<number | ''>('');
+	let forecastAnimalId = $state<number | ''>('');
 	let milkPrice = $state(25);
 	let feedPrice = $state(12);
 
@@ -79,6 +100,16 @@
 				mastitisData = await getMastitisRisk();
 			} else if (activeTab === 'culling') {
 				cullingData = await getCullingSurvival();
+			} else if (activeTab === 'energy') {
+				energyData = await getEnergyBalance();
+			} else if (activeTab === 'udder') {
+				udderData = await getQuarterHealth();
+			} else if (activeTab === 'forecast') {
+				if (forecastAnimalId) {
+					forecastData = await getMilkForecast(Number(forecastAnimalId), 30);
+				}
+			} else if (activeTab === 'clusters') {
+				clusterData = await getCowClusters();
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';
@@ -501,6 +532,173 @@
 									<span class="text-xs">{f}</span>
 								{/each}
 							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+	<!-- ENERGY BALANCE -->
+	{:else if activeTab === 'energy' && energyData}
+		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+			<table class={tblCls}>
+				<thead class="bg-slate-50 dark:bg-slate-900">
+					<tr>
+						<th class={thCls}>Корова</th>
+						<th class={thCls}>Жир, %</th>
+						<th class={thCls}>Белок, %</th>
+						<th class={thCls}>FPR</th>
+						<th class={thCls}>Статус</th>
+						<th class={thCls}>Тренд 7д</th>
+						<th class={thCls}>Тренд 30д</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+					{#each energyData.cows as c (c.animal_id)}
+						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}>{c.avg_fat_pct?.toFixed(2) ?? '—'}</td>
+							<td class={tdCls}>{c.avg_protein_pct?.toFixed(2) ?? '—'}</td>
+							<td class={`${tdCls} font-semibold`}>{c.fat_protein_ratio?.toFixed(2) ?? '—'}</td>
+							<td class={tdCls}>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.status === 'optimal' ? 'optimal' : c.status === 'ketosis_risk' || c.status === 'acidosis_risk' ? 'high' : c.status === 'normal' ? 'low' : 'medium')}">{c.status}</span>
+							</td>
+							<td class={tdCls}>{c.trend_7d?.toFixed(2) ?? '—'}</td>
+							<td class={tdCls}>{c.trend_30d !== null ? `${c.trend_30d >= 0 ? '+' : ''}${(c.trend_30d * 100).toFixed(1)}%` : '—'}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+	<!-- QUARTER HEALTH -->
+	{:else if activeTab === 'udder' && udderData}
+		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+			<table class={tblCls}>
+				<thead class="bg-slate-50 dark:bg-slate-900">
+					<tr>
+						<th class={thCls}>Корова</th>
+						<th class={thCls}>LF</th>
+						<th class={thCls}>LR</th>
+						<th class={thCls}>RF</th>
+						<th class={thCls}>RR</th>
+						<th class={thCls}>Среднее</th>
+						<th class={thCls}>Асимметрия</th>
+						<th class={thCls}>Худшая доля</th>
+						<th class={thCls}>Риск</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+					{#each udderData.cows as c (c.animal_id)}
+						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}>{c.lf_conductivity?.toFixed(1) ?? '—'}</td>
+							<td class={tdCls}>{c.lr_conductivity?.toFixed(1) ?? '—'}</td>
+							<td class={tdCls}>{c.rf_conductivity?.toFixed(1) ?? '—'}</td>
+							<td class={tdCls}>{c.rr_conductivity?.toFixed(1) ?? '—'}</td>
+							<td class={tdCls}>{c.avg_conductivity?.toFixed(1) ?? '—'}</td>
+							<td class={`${tdCls} ${(c.max_asymmetry ?? 0) > 5 ? 'text-orange-600 dark:text-orange-400 font-semibold' : ''}`}>{c.max_asymmetry?.toFixed(1) ?? '—'}</td>
+							<td class={tdCls}>{c.worst_quarter ?? '—'}</td>
+							<td class={tdCls}>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.risk_level)}">{c.risk_level}</span>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+	<!-- MILK FORECAST 30D -->
+	{:else if activeTab === 'forecast'}
+		<div class="mb-4 flex items-center gap-3">
+			<label class="text-sm text-slate-600 dark:text-slate-400">ID коровы:</label>
+			<input
+				type="number"
+				bind:value={forecastAnimalId}
+				placeholder="Обязательное поле"
+				class="w-32 px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+			/>
+			<button
+				onclick={load}
+				class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer"
+				disabled={!forecastAnimalId}
+			>Прогноз</button>
+		</div>
+
+		{#if forecastData}
+			<div class="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+				<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4">
+					<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Текущий средний надой</div>
+					<div class="text-lg font-bold">{forecastData.current_daily_avg?.toFixed(1) ?? '—'} л/д</div>
+				</div>
+				<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4">
+					<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Корова</div>
+					<div class="text-lg font-bold">{forecastData.animal_name ?? `#${forecastData.animal_id}`}</div>
+				</div>
+				<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4">
+					<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Модель</div>
+					<div class="text-lg font-bold">{forecastData.model_version}</div>
+				</div>
+			</div>
+			<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+				<table class={tblCls}>
+					<thead class="bg-slate-50 dark:bg-slate-900">
+						<tr>
+							<th class={thCls}>День</th>
+							<th class={thCls}>Прогноз, л</th>
+							<th class={thCls}>Нижняя граница</th>
+							<th class={thCls}>Верхняя граница</th>
+						</tr>
+					</thead>
+					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+						{#each forecastData.forecast as d (d.day_offset)}
+							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+								<td class={tdCls}>+{d.day_offset}</td>
+								<td class={`${tdCls} font-semibold`}>{d.predicted_milk.toFixed(1)}</td>
+								<td class={tdCls}>{d.lower_bound.toFixed(1)}</td>
+								<td class={tdCls}>{d.upper_bound.toFixed(1)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{:else if !forecastAnimalId}
+			<div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Введите ID коровы для получения прогноза</div>
+		{/if}
+
+	<!-- COW CLUSTERS -->
+	{:else if activeTab === 'clusters' && clusterData}
+		{#if Object.keys(clusterData.cluster_names).length > 0}
+			<div class="mb-4 flex flex-wrap gap-2">
+				{#each Object.entries(clusterData.cluster_names) as [id, name] (id)}
+					<span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
+						{name} (#{id})
+					</span>
+				{/each}
+			</div>
+		{/if}
+
+		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+			<table class={tblCls}>
+				<thead class="bg-slate-50 dark:bg-slate-900">
+					<tr>
+						<th class={thCls}>Корова</th>
+						<th class={thCls}>Кластер</th>
+						<th class={thCls}>Средний надой</th>
+						<th class={thCls}>Средняя жвачка</th>
+						<th class={thCls}>Расст. до центра</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+					{#each clusterData.clusters.sort((a, b) => a.cluster_id - b.cluster_id) as c (c.animal_id)}
+						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">{c.cluster_name}</span>
+							</td>
+							<td class={`${tdCls} font-semibold`}>{c.avg_milk.toFixed(1)} л</td>
+							<td class={tdCls}>{c.avg_rumination.toFixed(0)} мин</td>
+							<td class={tdCls}>{c.distance_to_center.toFixed(2)}</td>
 						</tr>
 					{/each}
 				</tbody>
