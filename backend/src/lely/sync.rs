@@ -265,11 +265,41 @@ async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error>
 
     try_sync!(sync_bloodlines(&client, pool, &cache));
 
-    for entity in &["feed_types", "feed_groups", "contacts", "locations"] {
-        tracing::info!(entity, "Синхронизация (stub) начата");
-        service::update_sync_state(pool, entity, "success", 0, None).await?;
-        tracing::info!(entity, "Синхронизация (stub) завершена");
-    }
+    try_sync!(async {
+        tracing::info!("Синхронизация: feed_types");
+        let records = client.get_feed_types().await?;
+        let count = records.len() as i64;
+        service::update_sync_state(pool, "feed_types", "success", count, None).await?;
+        tracing::info!(count, "Синхронизация: feed_types завершена");
+        Ok::<(), anyhow::Error>(())
+    });
+
+    try_sync!(async {
+        tracing::info!("Синхронизация: feed_groups");
+        let records = client.get_feed_groups().await?;
+        let count = records.len() as i64;
+        service::update_sync_state(pool, "feed_groups", "success", count, None).await?;
+        tracing::info!(count, "Синхронизация: feed_groups завершена");
+        Ok::<(), anyhow::Error>(())
+    });
+
+    try_sync!(async {
+        tracing::info!("Синхронизация: contacts");
+        let records = client.get_contacts().await?;
+        let count = records.len() as i64;
+        service::update_sync_state(pool, "contacts", "success", count, None).await?;
+        tracing::info!(count, "Синхронизация: contacts завершена");
+        Ok::<(), anyhow::Error>(())
+    });
+
+    try_sync!(async {
+        tracing::info!("Синхронизация: locations");
+        let records = client.get_locations().await?;
+        let count = records.len() as i64;
+        service::update_sync_state(pool, "locations", "success", count, None).await?;
+        tracing::info!(count, "Синхронизация: locations завершена");
+        Ok::<(), anyhow::Error>(())
+    });
 
     Ok(())
 }
