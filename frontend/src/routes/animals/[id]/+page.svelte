@@ -11,6 +11,28 @@
 		type TimelineEvent,
 		type AnimalStats,
 	} from '$lib/api/animals';
+	import {
+		getHealthIndex,
+		getMastitisRisk,
+		getEstrusDetection,
+		getMilkForecast,
+		getEnergyBalance,
+		getFeedRecommendation,
+		getKetosisWarning,
+		getLifetimeValue,
+		getCullingSurvival,
+		getCowClusters,
+		type CowHealthIndex,
+		type MastitisRiskEntry,
+		type EstrusPrediction,
+		type MilkForecastResponse,
+		type CowEnergyBalance,
+		type FeedRecommendationEntry,
+		type KetosisWarningEntry,
+		type LifetimeValueEntry,
+		type CullingSurvivalEntry,
+		type ClusterEntry,
+	} from '$lib/api/analytics';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { toasts } from '$lib/stores/toast';
@@ -66,8 +88,21 @@
 
 	let milkCanvas: HTMLCanvasElement | undefined = $state();
 	let sccCanvas: HTMLCanvasElement | undefined = $state();
+	let forecastCanvas: HTMLCanvasElement | undefined = $state();
 	let milkChart: Chart | null = null;
 	let sccChart: Chart | null = null;
+	let forecastChart: Chart | null = null;
+
+	let healthIndex = $state<CowHealthIndex | null>(null);
+	let mastitisRisk = $state<MastitisRiskEntry | null>(null);
+	let estrusPred = $state<EstrusPrediction | null>(null);
+	let milkForecast = $state<MilkForecastResponse | null>(null);
+	let energyBalance = $state<CowEnergyBalance | null>(null);
+	let feedRec = $state<FeedRecommendationEntry | null>(null);
+	let ketosisWarn = $state<KetosisWarningEntry | null>(null);
+	let lifetimeVal = $state<LifetimeValueEntry | null>(null);
+	let cullingRisk = $state<CullingSurvivalEntry | null>(null);
+	let cowCluster = $state<ClusterEntry | null>(null);
 
 	let id = $derived(Number($page.params.id));
 
@@ -261,6 +296,12 @@
 	});
 
 	$effect(() => {
+		milkForecast;
+		$theme;
+		buildForecastChart();
+	});
+
+	$effect(() => {
 		return () => {
 			if (milkChart) {
 				milkChart.destroy();
@@ -270,8 +311,111 @@
 				sccChart.destroy();
 				sccChart = null;
 			}
+			if (forecastChart) {
+				forecastChart.destroy();
+				forecastChart = null;
+			}
 		};
 	});
+
+	async function loadAnalytics() {
+		const results = await Promise.allSettled([
+			getHealthIndex(),
+			getMastitisRisk(),
+			getEstrusDetection(),
+			getMilkForecast(id, 30),
+			getEnergyBalance(),
+			getFeedRecommendation(),
+			getKetosisWarning(),
+			getLifetimeValue(),
+			getCullingSurvival(),
+			getCowClusters(),
+		]);
+
+		const [health, mastitis, estrus, forecast, energy, feed, ketosis, lifetime, culling, clusters] = results;
+
+		if (health.status === 'fulfilled')
+			healthIndex = health.value.cows.find((c) => c.animal_id === id) ?? null;
+		if (mastitis.status === 'fulfilled')
+			mastitisRisk = mastitis.value.cows.find((c) => c.animal_id === id) ?? null;
+		if (estrus.status === 'fulfilled')
+			estrusPred = estrus.value.predictions.find((p) => p.animal_id === id) ?? null;
+		if (forecast.status === 'fulfilled' && forecast.value.forecast.length > 0)
+			milkForecast = forecast.value;
+		if (energy.status === 'fulfilled')
+			energyBalance = energy.value.cows.find((c) => c.animal_id === id) ?? null;
+		if (feed.status === 'fulfilled')
+			feedRec = feed.value.recommendations.find((r) => r.animal_id === id) ?? null;
+		if (ketosis.status === 'fulfilled')
+			ketosisWarn = ketosis.value.predictions.find((p) => p.animal_id === id) ?? null;
+		if (lifetime.status === 'fulfilled')
+			lifetimeVal = lifetime.value.cows.find((c) => c.animal_id === id) ?? null;
+		if (culling.status === 'fulfilled')
+			cullingRisk = culling.value.cows.find((c) => c.animal_id === id) ?? null;
+		if (clusters.status === 'fulfilled')
+			cowCluster = clusters.value.clusters.find((c) => c.animal_id === id) ?? null;
+	}
+
+	function buildForecastChart() {
+		if (!forecastCanvas || !milkForecast || milkForecast.forecast.length === 0) return;
+
+		if (forecastChart) {
+			forecastChart.destroy();
+			forecastChart = null;
+		}
+
+		const isDark = $theme === 'dark';
+		const data = milkForecast.forecast;
+
+		forecastChart = new Chart(forecastCanvas, {
+			type: 'line',
+			data: {
+				labels: data.map((d) => `+${d.day_offset}д`),
+				datasets: [
+					{
+						label: 'Прогноз, л',
+						data: data.map((d) => d.predicted_milk),
+						borderColor: dsColors(isDark, 'green').border,
+						backgroundColor: dsColors(isDark, 'green').bg,
+						fill: false,
+						tension: 0.3,
+						pointRadius: 2,
+						borderWidth: 2,
+					},
+					{
+						label: 'Верхняя граница',
+						data: data.map((d) => d.upper_bound),
+						borderColor: 'transparent',
+						backgroundColor: dsColors(isDark, 'green').bg,
+						fill: '+1',
+						pointRadius: 0,
+						borderWidth: 0,
+					},
+					{
+						label: 'Нижняя граница',
+						data: data.map((d) => d.lower_bound),
+						borderColor: 'transparent',
+						backgroundColor: 'transparent',
+						fill: false,
+						pointRadius: 0,
+						borderWidth: 0,
+					},
+				],
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: {
+					legend: { display: false },
+					tooltip: defaultTooltip(isDark, {
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						label: (ctx: any) => `${ctx.parsed.y?.toFixed(1) ?? '0'} л`,
+					}),
+				},
+				scales: defaultScales(isDark, (v) => `${v} л`),
+			},
+		});
+	}
 
 	function fmt(v: number | null | undefined, suffix = ''): string {
 		if (v == null) return '—';
@@ -287,6 +431,7 @@
 		load();
 		loadTimeline();
 		loadStats();
+		loadAnalytics();
 	});
 </script>
 
@@ -508,6 +653,290 @@
 					{/if}
 				</div>
 			</div>
+		</div>
+	{/if}
+
+	<!-- Predictive Analytics -->
+	{#if healthIndex || mastitisRisk || estrusPred || ketosisWarn || cullingRisk || energyBalance || feedRec || lifetimeVal || cowCluster || milkForecast}
+		<div class="mb-6">
+			<h2
+				class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2"
+			>
+				<TrendingUp size={20} class="text-indigo-500" />
+				Предиктивная аналитика
+			</h2>
+
+			<div
+				class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-6"
+			>
+				{#if healthIndex}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
+					>
+						<div class="flex items-center gap-2 mb-1">
+							<ShieldCheck size={14} class="text-indigo-500" />
+							<span class="text-xs text-slate-500 dark:text-slate-400"
+								>Индекс здоровья</span
+							>
+						</div>
+						<div class="flex items-baseline gap-2">
+							<p
+								class="text-lg font-semibold {healthIndex.health_score >= 80 ? 'text-green-600' : healthIndex.health_score >= 60 ? 'text-yellow-600' : healthIndex.health_score >= 40 ? 'text-orange-600' : 'text-red-600'}"
+							>
+								{healthIndex.health_score.toFixed(0)}
+							</p>
+							<span
+								class="text-xs px-1.5 py-0.5 rounded {healthIndex.risk_level === 'low' ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400' : healthIndex.risk_level === 'moderate' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-400' : healthIndex.risk_level === 'high' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400' : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400'}"
+							>
+								{healthIndex.risk_level}
+							</span>
+						</div>
+						{#if healthIndex.top_concern}
+							<p class="text-xs text-slate-400 mt-1">{healthIndex.top_concern}</p>
+						{/if}
+					</div>
+				{/if}
+
+				{#if mastitisRisk}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
+					>
+						<div class="flex items-center gap-2 mb-1">
+							<Activity size={14} class="text-rose-500" />
+							<span class="text-xs text-slate-500 dark:text-slate-400"
+								>Риск мастита</span
+							>
+						</div>
+						<div class="flex items-baseline gap-2">
+							<p
+								class="text-lg font-semibold {mastitisRisk.risk_level === 'high' ? 'text-red-600' : mastitisRisk.risk_level === 'medium' ? 'text-orange-600' : 'text-green-600'}"
+							>
+								{(mastitisRisk.risk_score * 100).toFixed(0)}%
+							</p>
+							<span
+								class="text-xs px-1.5 py-0.5 rounded {mastitisRisk.risk_level === 'high' ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400' : mastitisRisk.risk_level === 'medium' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-400'}"
+							>
+								{mastitisRisk.risk_level}
+							</span>
+						</div>
+						{#if mastitisRisk.contributing_factors.length > 0}
+							<p class="text-xs text-slate-400 mt-1">
+								{mastitisRisk.contributing_factors.join(', ')}
+							</p>
+						{/if}
+					</div>
+				{/if}
+
+				{#if estrusPred}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
+					>
+						<div class="flex items-center gap-2 mb-1">
+							<ThermometerSun size={14} class="text-pink-500" />
+							<span class="text-xs text-slate-500 dark:text-slate-400"
+								>Детекция охоты</span
+							>
+						</div>
+						<div class="flex items-baseline gap-2">
+							<p
+								class="text-lg font-semibold {estrusPred.status === 'in_estrus' ? 'text-pink-600' : estrusPred.status === 'approaching' ? 'text-orange-600' : 'text-slate-600 dark:text-slate-400'}"
+							>
+								{(estrusPred.estrus_probability * 100).toFixed(0)}%
+							</p>
+							<span
+								class="text-xs px-1.5 py-0.5 rounded {estrusPred.status === 'in_estrus' ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-400' : estrusPred.status === 'approaching' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}"
+							>
+								{estrusPred.status}
+							</span>
+						</div>
+						{#if estrusPred.optimal_window}
+							<p class="text-xs text-slate-400 mt-1">{estrusPred.optimal_window}</p>
+						{/if}
+					</div>
+				{/if}
+
+				{#if ketosisWarn}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
+					>
+						<div class="flex items-center gap-2 mb-1">
+							<Droplets size={14} class="text-amber-500" />
+							<span class="text-xs text-slate-500 dark:text-slate-400"
+								>Риск кетоза</span
+							>
+						</div>
+						<div class="flex items-baseline gap-2">
+							<p
+								class="text-lg font-semibold {ketosisWarn.severity === 'high' ? 'text-red-600' : ketosisWarn.severity === 'moderate' ? 'text-orange-600' : 'text-green-600'}"
+							>
+								{(ketosisWarn.risk_probability * 100).toFixed(0)}%
+							</p>
+							<span
+								class="text-xs px-1.5 py-0.5 rounded {ketosisWarn.severity === 'high' ? 'bg-red-100 text-red-700' : ketosisWarn.severity === 'moderate' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}"
+							>
+								{ketosisWarn.severity}
+							</span>
+						</div>
+						<p class="text-xs text-slate-400 mt-1">
+							FPR: {ketosisWarn.fpr_current.toFixed(2)}
+						</p>
+					</div>
+				{/if}
+
+				{#if cullingRisk}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
+					>
+						<div class="flex items-center gap-2 mb-1">
+							<Activity size={14} class="text-slate-500" />
+							<span class="text-xs text-slate-500 dark:text-slate-400"
+								>Риск выбраковки</span
+							>
+						</div>
+						<div class="flex items-baseline gap-2">
+							<p
+								class="text-lg font-semibold {cullingRisk.risk_score > 0.5 ? 'text-red-600' : cullingRisk.risk_score > 0.3 ? 'text-orange-600' : 'text-green-600'}"
+							>
+								{(cullingRisk.risk_score * 100).toFixed(0)}%
+							</p>
+							{#if cullingRisk.expected_days_remaining}
+								<span class="text-xs text-slate-400"
+									>~{cullingRisk.expected_days_remaining}д</span
+								>
+							{/if}
+						</div>
+						{#if cullingRisk.risk_factors.length > 0}
+							<p class="text-xs text-slate-400 mt-1">
+								{cullingRisk.risk_factors.join(', ')}
+							</p>
+						{/if}
+					</div>
+				{/if}
+
+				{#if energyBalance}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
+					>
+						<div class="flex items-center gap-2 mb-1">
+							<ThermometerSun size={14} class="text-teal-500" />
+							<span class="text-xs text-slate-500 dark:text-slate-400"
+								>Энергобаланс (FPR)</span
+							>
+						</div>
+						<div class="flex items-baseline gap-2">
+							<p
+								class="text-lg font-semibold {energyBalance.status === 'optimal' ? 'text-green-600' : energyBalance.status === 'ketosis_risk' || energyBalance.status === 'acidosis_risk' ? 'text-red-600' : 'text-slate-600 dark:text-slate-400'}"
+							>
+								{energyBalance.fat_protein_ratio?.toFixed(2) ?? '—'}
+							</p>
+							<span
+								class="text-xs px-1.5 py-0.5 rounded {energyBalance.status === 'optimal' ? 'bg-green-100 text-green-700' : energyBalance.status === 'ketosis_risk' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}"
+							>
+								{energyBalance.status}
+							</span>
+						</div>
+						{#if energyBalance.trend_30d != null}
+							<p class="text-xs text-slate-400 mt-1">
+								Тренд 30д: {energyBalance.trend_30d > 0 ? '+' : ''}{(energyBalance.trend_30d * 100).toFixed(0)}%
+							</p>
+						{/if}
+					</div>
+				{/if}
+
+				{#if feedRec}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
+					>
+						<div class="flex items-center gap-2 mb-1">
+							<TrendingUp size={14} class="text-lime-500" />
+							<span class="text-xs text-slate-500 dark:text-slate-400"
+								>Рекомендация корма</span
+							>
+						</div>
+						<div class="flex items-baseline gap-2">
+							<p class="text-lg font-semibold text-slate-800 dark:text-slate-100">
+								{feedRec.recommended_feed.toFixed(1)} кг
+							</p>
+							<span
+								class="text-xs px-1.5 py-0.5 rounded {feedRec.difference_kg > 0 ? 'bg-amber-100 text-amber-700' : feedRec.difference_kg < -0.5 ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}"
+							>
+								{feedRec.difference_kg > 0 ? '+' : ''}{feedRec.difference_kg.toFixed(1)}
+							</span>
+						</div>
+						<p class="text-xs text-slate-400 mt-1">
+							Текущий: {feedRec.current_feed_avg.toFixed(1)} кг
+						</p>
+					</div>
+				{/if}
+
+				{#if lifetimeVal}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
+					>
+						<div class="flex items-center gap-2 mb-1">
+							<Milk size={14} class="text-violet-500" />
+							<span class="text-xs text-slate-500 dark:text-slate-400"
+								>Пожизненная ценность</span
+							>
+						</div>
+						<div class="flex items-baseline gap-2">
+							<p
+								class="text-lg font-semibold {(lifetimeVal.projected_net_value ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}"
+							>
+								{((lifetimeVal.projected_net_value ?? 0) / 1000).toFixed(0)}к
+							</p>
+							<span
+								class="text-xs px-1.5 py-0.5 rounded {lifetimeVal.recommendation === 'keep' ? 'bg-green-100 text-green-700' : lifetimeVal.recommendation === 'culling_candidate' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}"
+							>
+								{lifetimeVal.recommendation}
+							</span>
+						</div>
+						<p class="text-xs text-slate-400 mt-1">
+							Лактаций осталось: {lifetimeVal.estimated_remaining_lactations}
+						</p>
+					</div>
+				{/if}
+
+				{#if cowCluster}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4"
+					>
+						<div class="flex items-center gap-2 mb-1">
+							<CircleDot size={14} class="text-sky-500" />
+							<span class="text-xs text-slate-500 dark:text-slate-400"
+								>Кластер</span
+							>
+						</div>
+						<p class="text-lg font-semibold text-slate-800 dark:text-slate-100">
+							{cowCluster.cluster_name}
+						</p>
+						<p class="text-xs text-slate-400 mt-1">
+							Надой: {cowCluster.avg_milk.toFixed(1)}л / Жвачка: {cowCluster.avg_rumination.toFixed(0)}мин
+						</p>
+					</div>
+				{/if}
+			</div>
+
+			{#if milkForecast && milkForecast.forecast.length > 0}
+				<div
+					class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 mb-6"
+				>
+					<h2
+						class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2"
+					>
+						<TrendingUp size={16} class="text-green-500" />
+						Прогноз удоя 30 дней
+						{#if milkForecast.current_daily_avg}
+							<span class="text-xs text-slate-400 font-normal">
+								(текущий: {milkForecast.current_daily_avg.toFixed(1)} л/день)
+							</span>
+						{/if}
+					</h2>
+					<div class="relative h-64">
+						<canvas bind:this={forecastCanvas}></canvas>
+					</div>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
