@@ -16,6 +16,13 @@
 		getQuarterHealth,
 		getMilkForecast,
 		getCowClusters,
+		getEstrusDetection,
+		getEquipmentAnomaly,
+		getFeedRecommendation,
+		getKetosisWarning,
+		getFeedEfficiency,
+		getDryOffOptimizer,
+		getLifetimeValue,
 		type LactationCurveResponse,
 		type HealthIndexResponse,
 		type FertilityWindowResponse,
@@ -27,6 +34,13 @@
 		type QuarterHealthResponse,
 		type MilkForecastResponse,
 		type ClusterResponse,
+		type EstrusResponse,
+		type EquipmentAnomalyResponse,
+		type FeedRecommendationResponse,
+		type KetosisWarningResponse,
+		type FeedEfficiencyResponse,
+		type DryOffOptimizerResponse,
+		type LifetimeValueResponse,
 	} from '$lib/api/analytics';
 
 	type AnalyticsTab =
@@ -40,7 +54,14 @@
 		| 'energy'
 		| 'udder'
 		| 'forecast'
-		| 'clusters';
+		| 'clusters'
+		| 'estrus'
+		| 'equipment'
+		| 'feedRec'
+		| 'ketosis'
+		| 'feedEff'
+		| 'dryOff'
+		| 'lifetime';
 
 	const tabs: { key: AnalyticsTab; label: string }[] = [
 		{ key: 'lactation', label: 'Кривые лактации' },
@@ -54,6 +75,13 @@
 		{ key: 'udder', label: 'Здоровье вымени' },
 		{ key: 'forecast', label: 'Прогноз 30д' },
 		{ key: 'clusters', label: 'Кластеры' },
+		{ key: 'estrus', label: 'Детекция охоты' },
+		{ key: 'equipment', label: 'Оборудование' },
+		{ key: 'feedRec', label: 'Рекомендация корма' },
+		{ key: 'ketosis', label: 'Кетоз/ацидоз' },
+		{ key: 'feedEff', label: 'Конверсия корма' },
+		{ key: 'dryOff', label: 'Запуск' },
+		{ key: 'lifetime', label: 'Ценность коровы' },
 	];
 
 	let activeTab: AnalyticsTab = $state('lactation');
@@ -71,6 +99,13 @@
 	let udderData: QuarterHealthResponse | null = $state(null);
 	let forecastData: MilkForecastResponse | null = $state(null);
 	let clusterData: ClusterResponse | null = $state(null);
+	let estrusData: EstrusResponse | null = $state(null);
+	let equipmentData: EquipmentAnomalyResponse | null = $state(null);
+	let feedRecData: FeedRecommendationResponse | null = $state(null);
+	let ketosisData: KetosisWarningResponse | null = $state(null);
+	let feedEffData: FeedEfficiencyResponse | null = $state(null);
+	let dryOffData: DryOffOptimizerResponse | null = $state(null);
+	let lifetimeData: LifetimeValueResponse | null = $state(null);
 
 	let selectedAnimalId = $state<number | ''>('');
 	let forecastAnimalId = $state<number | ''>('');
@@ -110,7 +145,20 @@
 				}
 			} else if (activeTab === 'clusters') {
 				clusterData = await getCowClusters();
-				console.log('clusters loaded:', clusterData?.clusters?.length, clusterData);
+			} else if (activeTab === 'estrus') {
+				estrusData = await getEstrusDetection();
+			} else if (activeTab === 'equipment') {
+				equipmentData = await getEquipmentAnomaly();
+			} else if (activeTab === 'feedRec') {
+				feedRecData = await getFeedRecommendation();
+			} else if (activeTab === 'ketosis') {
+				ketosisData = await getKetosisWarning();
+			} else if (activeTab === 'feedEff') {
+				feedEffData = await getFeedEfficiency();
+			} else if (activeTab === 'dryOff') {
+				dryOffData = await getDryOffOptimizer();
+			} else if (activeTab === 'lifetime') {
+				lifetimeData = await getLifetimeValue();
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';
@@ -711,5 +759,266 @@
 		{:else}
 			<div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Загрузка кластеров...</div>
 		{/if}
+
+	<!-- ESTRUS DETECTION -->
+	{:else if activeTab === 'estrus' && estrusData}
+		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+			<table class={tblCls}>
+				<thead class="bg-slate-50 dark:bg-slate-900">
+					<tr>
+						<th class={thCls}>Корова</th>
+						<th class={thCls}>Вероятность</th>
+						<th class={thCls}>Статус</th>
+						<th class={thCls}>Окно</th>
+						<th class={thCls}>Сигналы</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+					{#each estrusData.predictions.toSorted((a, b) => b.estrus_probability - a.estrus_probability) as p (p.animal_id)}
+						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+							<td class={tdCls}>{p.animal_name ?? `#${p.animal_id}`}</td>
+							<td class={`${tdCls} font-semibold ${p.estrus_probability >= 0.7 ? 'text-red-600 dark:text-red-400' : p.estrus_probability >= 0.4 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{(p.estrus_probability * 100).toFixed(0)}%</td>
+							<td class={tdCls}>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(p.status === 'in_heat' ? 'high' : p.status === 'approaching' ? 'medium' : 'low')}">{p.status}</span>
+							</td>
+							<td class={tdCls}>{p.optimal_window ?? '—'}</td>
+							<td class={tdCls}>
+								{#each p.contributing_signals as s, i}
+									{#if i > 0}<span class="text-slate-300 dark:text-slate-600 mx-1">·</span>{/if}
+									<span class="text-xs">{s}</span>
+								{/each}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+	<!-- EQUIPMENT ANOMALY -->
+	{:else if activeTab === 'equipment' && equipmentData}
+		{#if equipmentData.entries.filter(e => e.is_anomaly).length > 0}
+			<div class="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+				<div class="text-sm font-semibold text-red-700 dark:text-red-400">Обнаружено аномалий: {equipmentData.entries.filter(e => e.is_anomaly).length}</div>
+			</div>
+		{/if}
+		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+			<table class={tblCls}>
+				<thead class="bg-slate-50 dark:bg-slate-900">
+					<tr>
+						<th class={thCls}>Корова</th>
+						<th class={thCls}>Станок</th>
+						<th class={thCls}>Аномалия</th>
+						<th class={thCls}>Score</th>
+						<th class={thCls}>Серьёзность</th>
+						<th class={thCls}>Флаги</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+					{#each equipmentData.entries.toSorted((a, b) => a.anomaly_score - b.anomaly_score) as e (e.animal_id)}
+						{#if e.is_anomaly}
+							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 bg-red-50/50 dark:bg-red-900/10">
+								<td class={tdCls}>{e.animal_name ?? `#${e.animal_id}`}</td>
+								<td class={tdCls}>#{e.device_address ?? '—'}</td>
+								<td class={`${tdCls} font-semibold text-red-600 dark:text-red-400`}>Да</td>
+								<td class={tdCls}>{e.anomaly_score.toFixed(4)}</td>
+								<td class={tdCls}>
+									<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(e.severity)}">{e.severity}</span>
+								</td>
+								<td class={tdCls}>
+									{#each e.flags as f, i}
+										{#if i > 0}<span class="text-slate-300 dark:text-slate-600 mx-1">·</span>{/if}
+										<span class="text-xs">{f}</span>
+									{/each}
+								</td>
+							</tr>
+						{/if}
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+	<!-- FEED RECOMMENDATION -->
+	{:else if activeTab === 'feedRec' && feedRecData}
+		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+			<table class={tblCls}>
+				<thead class="bg-slate-50 dark:bg-slate-900">
+					<tr>
+						<th class={thCls}>Корова</th>
+						<th class={thCls}>DIM</th>
+						<th class={thCls}>Лакт.</th>
+						<th class={thCls}>Текущий корм</th>
+						<th class={thCls}>Рекомендация</th>
+						<th class={thCls}>Δ кг</th>
+						<th class={thCls}>Действие</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+					{#each feedRecData.recommendations.toSorted((a, b) => Math.abs(b.difference_kg) - Math.abs(a.difference_kg)) as r (r.animal_id)}
+						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+							<td class={tdCls}>{r.animal_name ?? `#${r.animal_id}`}</td>
+							<td class={tdCls}>{r.dim_days}</td>
+							<td class={tdCls}>{r.lactation_number}</td>
+							<td class={tdCls}>{r.current_feed_avg.toFixed(1)} кг</td>
+							<td class={`${tdCls} font-semibold`}>{r.recommended_feed.toFixed(1)} кг</td>
+							<td class={`${tdCls} ${r.difference_kg > 0 ? 'text-orange-600 dark:text-orange-400' : r.difference_kg < 0 ? 'text-green-600 dark:text-green-400' : ''}`}>{r.difference_kg > 0 ? '+' : ''}{r.difference_kg.toFixed(1)}</td>
+							<td class={tdCls}>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {r.suggestion === 'increase' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400' : r.suggestion === 'decrease' ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}">{r.suggestion === 'increase' ? 'Увеличить' : r.suggestion === 'decrease' ? 'Уменьшить' : 'Держать'}</span>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+	<!-- KETOSIS WARNING -->
+	{:else if activeTab === 'ketosis' && ketosisData}
+		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+			<table class={tblCls}>
+				<thead class="bg-slate-50 dark:bg-slate-900">
+					<tr>
+						<th class={thCls}>Корова</th>
+						<th class={thCls}>Риск</th>
+						<th class={thCls}>Тип</th>
+						<th class={thCls}>Серьёзность</th>
+						<th class={thCls}>FPR</th>
+						<th class={thCls}>Тренд FPR</th>
+						<th class={thCls}>Факторы</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+					{#each ketosisData.predictions.toSorted((a, b) => b.risk_probability - a.risk_probability) as k (k.animal_id)}
+						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+							<td class={tdCls}>{k.animal_name ?? `#${k.animal_id}`}</td>
+							<td class={`${tdCls} font-semibold ${k.risk_probability >= 0.7 ? 'text-red-600 dark:text-red-400' : k.risk_probability >= 0.4 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{(k.risk_probability * 100).toFixed(0)}%</td>
+							<td class={tdCls}>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {k.risk_type === 'ketosis_risk' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' : k.risk_type === 'acidosis_risk' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}">{k.risk_type}</span>
+							</td>
+							<td class={tdCls}>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(k.severity)}">{k.severity}</span>
+							</td>
+							<td class={tdCls}>{k.fpr_current.toFixed(3)}</td>
+							<td class={`${tdCls} ${k.fpr_trend > 0.05 ? 'text-red-600 dark:text-red-400' : k.fpr_trend < -0.05 ? 'text-green-600 dark:text-green-400' : ''}`}>{k.fpr_trend >= 0 ? '+' : ''}{(k.fpr_trend * 100).toFixed(1)}%</td>
+							<td class={tdCls}>
+								{#each k.contributing_factors as f, i}
+									{#if i > 0}<span class="text-slate-300 dark:text-slate-600 mx-1">·</span>{/if}
+									<span class="text-xs">{f}</span>
+								{/each}
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+	<!-- FEED EFFICIENCY -->
+	{:else if activeTab === 'feedEff' && feedEffData}
+		{#if feedEffData.herd_avg_efficiency !== null}
+			<div class="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+				<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4">
+					<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Средняя конверсия стада</div>
+					<div class="text-lg font-bold">{feedEffData.herd_avg_efficiency?.toFixed(3) ?? '—'}</div>
+				</div>
+			</div>
+		{/if}
+		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+			<table class={tblCls}>
+				<thead class="bg-slate-50 dark:bg-slate-900">
+					<tr>
+						<th class={thCls}>#</th>
+						<th class={thCls}>Корова</th>
+						<th class={thCls}>Надой, л/д</th>
+						<th class={thCls}>Корм, кг/д</th>
+						<th class={thCls}>Конверсия</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+					{#each feedEffData.cows as c (c.animal_id)}
+						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+							<td class={tdCls}>{c.efficiency_rank ?? '—'}</td>
+							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}>{c.avg_daily_milk?.toFixed(1) ?? '—'}</td>
+							<td class={tdCls}>{c.avg_daily_feed?.toFixed(1) ?? '—'}</td>
+							<td class={`${tdCls} font-semibold ${scoreColor((c.feed_efficiency ?? 0) * 2, 100)}`}>{c.feed_efficiency?.toFixed(3) ?? '—'}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+
+	<!-- DRY OFF OPTIMIZER -->
+	{:else if activeTab === 'dryOff' && dryOffData}
+		{#if dryOffData.cows.length === 0}
+			<div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Нет стельных коров с подтверждённой стельностью в ближайшие 120 дней</div>
+		{:else}
+			<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+				<table class={tblCls}>
+					<thead class="bg-slate-50 dark:bg-slate-900">
+						<tr>
+							<th class={thCls}>Корова</th>
+							<th class={thCls}>Ожид. отёл</th>
+							<th class={thCls}>Надой, л/д</th>
+							<th class={thCls}>Реком. запуск</th>
+							<th class={thCls}>Дней до запуска</th>
+							<th class={thCls}>SCC</th>
+							<th class={thCls}>Готовность</th>
+						</tr>
+					</thead>
+					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+						{#each dryOffData.cows.toSorted((a, b) => (a.days_until_dry_off ?? 999) - (b.days_until_dry_off ?? 999)) as c (c.animal_id)}
+							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+								<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+								<td class={tdCls}>{c.expected_calving_date ?? '—'}</td>
+								<td class={tdCls}>{c.current_daily_milk?.toFixed(1) ?? '—'}</td>
+								<td class={tdCls}>{c.recommended_dry_off_date ?? '—'}</td>
+								<td class={`${tdCls} font-semibold ${(c.days_until_dry_off ?? 999) <= 0 ? 'text-red-600 dark:text-red-400' : (c.days_until_dry_off ?? 999) <= 7 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{c.days_until_dry_off !== null ? `${c.days_until_dry_off} д` : '—'}</td>
+								<td class={tdCls}>
+									<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.scc_status === 'elevated' ? 'high' : c.scc_status === 'moderate' ? 'medium' : 'low')}">{c.scc_status}</span>
+								</td>
+								<td class={tdCls}>
+									<span class="px-2 py-0.5 rounded-full text-xs font-medium {c.readiness === 'overdue' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' : c.readiness === 'now' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400' : c.readiness === 'soon' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}">{c.readiness}</span>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+
+	<!-- LIFETIME VALUE -->
+	{:else if activeTab === 'lifetime' && lifetimeData}
+		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+			<table class={tblCls}>
+				<thead class="bg-slate-50 dark:bg-slate-900">
+					<tr>
+						<th class={thCls}>Корова</th>
+						<th class={thCls}>Возраст</th>
+						<th class={thCls}>Лакт.</th>
+						<th class={thCls}>Всего молока, л</th>
+						<th class={thCls}>Осталось лакт.</th>
+						<th class={thCls}>Прогноз выручка</th>
+						<th class={thCls}>Прогноз расход</th>
+						<th class={thCls}>Чистая ценность</th>
+						<th class={thCls}>Рекомендация</th>
+					</tr>
+				</thead>
+				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+					{#each lifetimeData.cows.toSorted((a, b) => (b.projected_net_value ?? 0) - (a.projected_net_value ?? 0)) as c (c.animal_id)}
+						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}>{c.age_years?.toFixed(1) ?? '—'}</td>
+							<td class={tdCls}>{c.lactation_count}</td>
+							<td class={tdCls}>{c.total_milk_produced?.toFixed(0) ?? '—'}</td>
+							<td class={tdCls}>{c.estimated_remaining_lactations}</td>
+							<td class={tdCls}>{c.projected_milk_value !== null ? `${(c.projected_milk_value / 1000).toFixed(0)}k` : '—'}</td>
+							<td class={tdCls}>{c.projected_feed_cost !== null ? `${(c.projected_feed_cost / 1000).toFixed(0)}k` : '—'}</td>
+							<td class={`${tdCls} font-semibold ${(c.projected_net_value ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{c.projected_net_value !== null ? `${(c.projected_net_value / 1000).toFixed(0)}k` : '—'}</td>
+							<td class={tdCls}>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {c.recommendation === 'culling_candidate' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' : c.recommendation === 'review' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400' : c.recommendation === 'last_lactation' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'}">{c.recommendation}</span>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
 	{/if}
 {/if}

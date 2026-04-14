@@ -379,3 +379,142 @@ export function getCowClusters(days?: number, signal?: AbortSignal) {
 		{ signal },
 	);
 }
+
+export interface EstrusPrediction {
+	animal_id: number;
+	animal_name: string | null;
+	estrus_probability: number;
+	status: string;
+	contributing_signals: string[];
+	optimal_window: string | null;
+	model_version: string;
+}
+
+export interface EstrusResponse {
+	predictions: EstrusPrediction[];
+}
+
+export function getEstrusDetection(signal?: AbortSignal) {
+	return api<EstrusResponse>('/analytics/estrus', { signal });
+}
+
+export interface EquipmentAnomalyEntry {
+	animal_id: number;
+	animal_name: string | null;
+	is_anomaly: boolean;
+	anomaly_score: number;
+	severity: string;
+	flags: string[];
+	device_address: number | null;
+	model_version: string;
+}
+
+export interface EquipmentAnomalyResponse {
+	entries: EquipmentAnomalyEntry[];
+}
+
+export function getEquipmentAnomaly(signal?: AbortSignal) {
+	return api<EquipmentAnomalyResponse>('/analytics/equipment-anomaly', { signal });
+}
+
+export interface FeedRecommendationEntry {
+	animal_id: number;
+	animal_name: string | null;
+	current_feed_avg: number;
+	recommended_feed: number;
+	difference_kg: number;
+	suggestion: string;
+	dim_days: number;
+	lactation_number: number;
+	model_version: string;
+}
+
+export interface FeedRecommendationResponse {
+	recommendations: FeedRecommendationEntry[];
+}
+
+export function getFeedRecommendation(signal?: AbortSignal) {
+	return api<FeedRecommendationResponse>('/analytics/feed-recommendation', { signal });
+}
+
+export interface KetosisWarningEntry {
+	animal_id: number;
+	animal_name: string | null;
+	risk_probability: number;
+	risk_type: string;
+	severity: string;
+	fpr_current: number;
+	fpr_trend: number;
+	contributing_factors: string[];
+	model_version: string;
+}
+
+export interface KetosisWarningResponse {
+	predictions: KetosisWarningEntry[];
+}
+
+export function getKetosisWarning(signal?: AbortSignal) {
+	return api<KetosisWarningResponse>('/analytics/ketosis-warning', { signal });
+}
+
+export interface CowFeedEfficiency {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	avg_daily_milk: number | null;
+	avg_daily_feed: number | null;
+	feed_efficiency: number | null;
+	milk_per_feed: number | null;
+	efficiency_rank: number | null;
+}
+
+export interface FeedEfficiencyResponse {
+	cows: CowFeedEfficiency[];
+	herd_avg_efficiency: number | null;
+}
+
+export function getFeedEfficiency(signal?: AbortSignal) {
+	return api<FeedEfficiencyResponse>('/analytics/feed-efficiency', { signal });
+}
+
+export interface DryOffEntry {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	expected_calving_date: string | null;
+	current_daily_milk: number | null;
+	recommended_dry_off_date: string | null;
+	days_until_dry_off: number | null;
+	scc_status: string;
+	readiness: string;
+}
+
+export interface DryOffOptimizerResponse {
+	cows: DryOffEntry[];
+}
+
+export function getDryOffOptimizer(signal?: AbortSignal) {
+	return api<DryOffOptimizerResponse>('/analytics/dry-off-optimizer', { signal });
+}
+
+export interface LifetimeValueEntry {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	age_years: number | null;
+	lactation_count: number;
+	total_milk_produced: number | null;
+	estimated_remaining_lactations: number;
+	projected_milk_value: number | null;
+	projected_feed_cost: number | null;
+	projected_net_value: number | null;
+	recommendation: string;
+}
+
+export interface LifetimeValueResponse {
+	cows: LifetimeValueEntry[];
+}
+
+export function getLifetimeValue(signal?: AbortSignal) {
+	return api<LifetimeValueResponse>('/analytics/lifetime-value', { signal });
+}
