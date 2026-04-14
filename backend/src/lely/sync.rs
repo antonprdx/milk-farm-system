@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use chrono::Datelike;
 use futures::future::BoxFuture;
+use futures::stream::StreamExt;
 
 use crate::lely::client::LelyClient;
 use crate::lely::mapper::AnimalCache;
@@ -398,15 +399,25 @@ async fn sync_bloodlines(
     tracing::info!("Синхронизация: bloodlines");
     let mut total: u64 = 0;
 
-    for ln in cache.by_life.keys() {
-        match client.get_bloodlines(ln).await {
-            Ok(records) => {
-                let count = service::upsert_bloodlines(pool, &records, cache).await?;
-                total += count;
+    let life_numbers: Vec<_> = cache.by_life.keys().cloned().collect();
+    let stream = futures::stream::iter(life_numbers).map(|ln| {
+        let client = client.clone();
+        async move {
+            match client.get_bloodlines(&ln).await {
+                Ok(records) => Ok((ln, records)),
+                Err(e) => {
+                    tracing::warn!(life_number = %ln, error = %e, "Ошибка синхронизации bloodlines");
+                    Err(())
+                }
             }
-            Err(e) => {
-                tracing::warn!(life_number = %ln, error = %e, "Ошибка синхронизации bloodlines");
-            }
+        }
+    });
+    let mut buffered = stream.buffer_unordered(10);
+
+    while let Some(result) = buffered.next().await {
+        if let Ok((_ln, records)) = result {
+            let count = service::upsert_bloodlines(pool, &records, cache).await?;
+            total += count;
         }
     }
 
