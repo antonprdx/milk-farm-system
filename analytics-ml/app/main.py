@@ -13,6 +13,7 @@ import pandas as pd
 
 from app.config import settings
 from app.models import clustering as clustering_model
+from app.schemas import DriftStatusEntry, DriftStatusResponse
 from app.models import culling as culling_model
 from app.models import equipment_anomaly as equipment_model
 from app.models import estrus as estrus_model
@@ -27,6 +28,8 @@ from app.schemas import (
     CullingRiskPrediction,
     CullingRiskRequest,
     CullingRiskResponse,
+    DriftStatusEntry,
+    DriftStatusResponse,
     EquipmentAnomalyEntry,
     EquipmentAnomalyRequest,
     EquipmentAnomalyResponse,
@@ -62,6 +65,7 @@ from app.services.data_loader import (
     load_mastitis_features,
     load_milk_timeseries,
 )
+from app.services.drift_monitor import check_drift, record_predictions
 
 logger = getLogger(__name__)
 
@@ -188,6 +192,7 @@ async def predict_mastitis(
         raise HTTPException(status_code=404, detail=str(e))
 
     predictions = [MastitisRiskPrediction(**r) for r in results]
+    record_predictions("mastitis", results)
     return MastitisRiskResponse(predictions=predictions)
 
 
@@ -215,6 +220,7 @@ async def predict_culling(
         raise HTTPException(status_code=404, detail=str(e))
 
     predictions = [CullingRiskPrediction(**r) for r in results]
+    record_predictions("culling", results)
     return CullingRiskResponse(predictions=predictions)
 
 
@@ -301,7 +307,9 @@ async def predict_estrus(
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return EstrusResponse(predictions=[EstrusPrediction(**r) for r in results])
+    estrus_results = [EstrusPrediction(**r) for r in results]
+    record_predictions("estrus", results)
+    return EstrusResponse(predictions=estrus_results)
 
 
 @app.post("/predict/equipment-anomaly", response_model=EquipmentAnomalyResponse)
@@ -322,7 +330,9 @@ async def predict_equipment(
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return EquipmentAnomalyResponse(entries=[EquipmentAnomalyEntry(**r) for r in results])
+    equip_results = [EquipmentAnomalyEntry(**r) for r in results]
+    record_predictions("equipment_anomaly", results)
+    return EquipmentAnomalyResponse(entries=equip_results)
 
 
 @app.post("/predict/feed-recommendation", response_model=FeedRecommendationResponse)
@@ -348,7 +358,9 @@ async def predict_feed(
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return FeedRecommendationResponse(recommendations=[FeedRecommendationEntry(**r) for r in results])
+    feed_results = [FeedRecommendationEntry(**r) for r in results]
+    record_predictions("feed_recommendation", results)
+    return FeedRecommendationResponse(recommendations=feed_results)
 
 
 @app.post("/predict/ketosis-warning", response_model=KetosisWarningResponse)
@@ -374,7 +386,26 @@ async def predict_ketosis(
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return KetosisWarningResponse(predictions=[KetosisWarningEntry(**r) for r in results])
+    ketosis_results = [KetosisWarningEntry(**r) for r in results]
+    record_predictions("ketosis_warning", results)
+    return KetosisWarningResponse(predictions=ketosis_results)
+
+
+@app.get("/drift-status", response_model=DriftStatusResponse)
+async def drift_status():
+    entries = []
+    for name in MODEL_FILES:
+        info = check_drift(name)
+        entries.append(DriftStatusEntry(
+            model=info["model"],
+            status=info["status"],
+            drift_detected=info["drift_detected"],
+            z_score=info.get("z_score"),
+            recent_mean=info.get("recent_mean"),
+            baseline_mean=info.get("baseline_mean"),
+            samples=info.get("samples"),
+        ))
+    return DriftStatusResponse(models=entries)
 
 
 async def _train_model(name: str, session: AsyncSession) -> dict:

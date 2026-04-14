@@ -1250,3 +1250,443 @@ pub async fn lifetime_value(pool: &PgPool) -> Result<LifetimeValueResponse, AppE
 
     Ok(LifetimeValueResponse { cows })
 }
+
+pub async fn estrus_detection(pool: &PgPool) -> Result<EstrusResponse, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<i64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT a.id, a.name,
+                (CURRENT_DATE - c.calving_date)::int8 as dim,
+                act_ratio.ratio as activity_signal,
+                rum_ratio.ratio as rumination_signal,
+                milk_ratio.ratio as milk_signal
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT calving_date FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1
+         ) c ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.act / NULLIF(baseline.act, 0))::float8 as ratio FROM (
+                 SELECT AVG(activity_counter)::float8 as act FROM activities
+                 WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '2 days'
+             ) recent, (
+                 SELECT AVG(activity_counter)::float8 as act FROM activities
+                 WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '14 days'
+                 AND activity_datetime < CURRENT_DATE - INTERVAL '2 days'
+             ) baseline
+         ) act_ratio ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.rum / NULLIF(baseline.rum, 0))::float8 as ratio FROM (
+                 SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations
+                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days'
+             ) recent, (
+                 SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations
+                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days'
+                 AND date < CURRENT_DATE - INTERVAL '2 days'
+             ) baseline
+         ) rum_ratio ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.milk / NULLIF(baseline.milk, 0))::float8 as ratio FROM (
+                 SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions
+                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days'
+             ) recent, (
+                 SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions
+                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days'
+                 AND date < CURRENT_DATE - INTERVAL '2 days'
+             ) baseline
+         ) milk_ratio ON true
+         WHERE a.active = true AND a.gender = 'female'
+         AND NOT EXISTS (
+             SELECT 1 FROM pregnancies p WHERE p.animal_id = a.id
+             AND p.pregnancy_date >= CURRENT_DATE - INTERVAL '300 days'
+             AND NOT EXISTS (SELECT 1 FROM calvings cc WHERE cc.animal_id = a.id AND cc.calving_date > p.pregnancy_date)
+         )"
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut predictions = Vec::new();
+    for (id, name, dim, act_signal, rum_signal, milk_signal) in rows {
+        let in_window = dim.map_or(false, |d| d >= 30 && d <= 150);
+
+        let mut score = 0.0_f64;
+        let mut signals = Vec::new();
+
+        if let Some(s) = act_signal {
+            if s > 1.4 {
+                score += 0.45;
+                signals.push("high_activity".to_string());
+            } else if s > 1.2 {
+                score += 0.25;
+                signals.push("elevated_activity".to_string());
+            }
+        }
+
+        if let Some(s) = rum_signal {
+            if s < 0.8 {
+                score += 0.35;
+                signals.push("low_rumination".to_string());
+            } else if s < 0.9 {
+                score += 0.15;
+                signals.push("reduced_rumination".to_string());
+            }
+        }
+
+        if let Some(s) = milk_signal {
+            if s < 0.85 {
+                score += 0.2;
+                signals.push("milk_drop".to_string());
+            }
+        }
+
+        if in_window {
+            score += 0.1;
+        } else {
+            score *= 0.5;
+        }
+
+        if score < 0.15 {
+            continue;
+        }
+
+        score = score.min(1.0);
+
+        let status = if score >= 0.7 {
+            "in_estrus"
+        } else if score >= 0.4 {
+            "approaching"
+        } else {
+            "possible"
+        };
+
+        let window = if in_window {
+            Some("within_breeding_window".to_string())
+        } else {
+            None
+        };
+
+        predictions.push(EstrusPrediction {
+            animal_id: id,
+            animal_name: name,
+            estrus_probability: (score * 100.0).round() / 100.0,
+            status: status.to_string(),
+            contributing_signals: signals,
+            optimal_window: window,
+            model_version: "rule-based-v1".to_string(),
+        });
+    }
+
+    predictions.sort_by(|a, b| b.estrus_probability.partial_cmp(&a.estrus_probability).unwrap_or(std::cmp::Ordering::Equal));
+    Ok(EstrusResponse { predictions })
+}
+
+pub async fn equipment_anomaly(pool: &PgPool) -> Result<EquipmentAnomalyResponse, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<i32>)> = sqlx::query_as(
+        "SELECT a.id, a.name,
+                v_avg.cond as avg_conductivity,
+                v_avg.temp as avg_temperature,
+                v_avg.speed as avg_milk_speed,
+                cond_dev.dev as conductivity_deviation,
+                speed_dev.dev as speed_deviation,
+                d.device_address
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT AVG((v.lf_conductivity + v.lr_conductivity + v.rf_conductivity + v.rr_conductivity) / 4.0)::float8 as cond,
+                    AVG(v.milk_temperature)::float8 as temp,
+                    AVG(v.milk_speed)::float8 as speed
+             FROM milk_visit_quality v
+             WHERE v.animal_id = a.id AND v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+         ) v_avg ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.cond / NULLIF(baseline.cond, 0) - 1)::float8 as dev FROM (
+                 SELECT AVG((lf_conductivity + lr_conductivity + rf_conductivity + rr_conductivity) / 4.0)::float8 as cond
+                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= CURRENT_DATE - INTERVAL '3 days'
+             ) recent, (
+                 SELECT AVG((lf_conductivity + lr_conductivity + rf_conductivity + rr_conductivity) / 4.0)::float8 as cond
+                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= CURRENT_DATE - INTERVAL '30 days'
+                 AND visit_datetime < CURRENT_DATE - INTERVAL '3 days'
+             ) baseline
+         ) cond_dev ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.speed / NULLIF(baseline.speed, 0) - 1)::float8 as dev FROM (
+                 SELECT AVG(milk_speed)::float8 as speed
+                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= CURRENT_DATE - INTERVAL '3 days'
+             ) recent, (
+                 SELECT AVG(milk_speed)::float8 as speed
+                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= CURRENT_DATE - INTERVAL '30 days'
+                 AND visit_datetime < CURRENT_DATE - INTERVAL '3 days'
+             ) baseline
+         ) speed_dev ON true
+         LEFT JOIN LATERAL (
+             SELECT device_address FROM devices WHERE animal_id = a.id LIMIT 1
+         ) d ON true
+         WHERE a.active = true AND a.gender = 'female'
+         AND v_avg.cond IS NOT NULL"
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut entries = Vec::new();
+    for (id, name, avg_cond, avg_temp, _avg_speed, cond_dev, speed_dev, device) in rows {
+        let mut score = 0.0_f64;
+        let mut flags = Vec::new();
+
+        if let Some(c) = avg_cond {
+            if c > 60.0 {
+                score += 0.4;
+                flags.push("high_conductivity".to_string());
+            } else if c > 50.0 {
+                score += 0.15;
+                flags.push("elevated_conductivity".to_string());
+            }
+        }
+
+        if let Some(dev) = cond_dev {
+            if dev > 0.2 {
+                score += 0.3;
+                flags.push("conductivity_spike".to_string());
+            } else if dev > 0.1 {
+                score += 0.1;
+                flags.push("conductivity_rising".to_string());
+            }
+        }
+
+        if let Some(t) = avg_temp {
+            if t > 40.0 {
+                score += 0.25;
+                flags.push("high_temperature".to_string());
+            }
+        }
+
+        if let Some(dev) = speed_dev {
+            if dev < -0.3 {
+                score += 0.2;
+                flags.push("slow_milk_speed".to_string());
+            }
+        }
+
+        let is_anomaly = score >= 0.4;
+        let severity = if score >= 0.7 {
+            "critical"
+        } else if score >= 0.4 {
+            "warning"
+        } else {
+            "normal"
+        };
+
+        entries.push(EquipmentAnomalyEntry {
+            animal_id: id,
+            animal_name: name,
+            is_anomaly,
+            anomaly_score: (score * 100.0).round() / 100.0,
+            severity: severity.to_string(),
+            flags,
+            device_address: device,
+            model_version: "rule-based-v1".to_string(),
+        });
+    }
+
+    entries.sort_by(|a, b| b.anomaly_score.partial_cmp(&a.anomaly_score).unwrap_or(std::cmp::Ordering::Equal));
+    Ok(EquipmentAnomalyResponse { entries })
+}
+
+pub async fn feed_recommendation(pool: &PgPool) -> Result<FeedRecommendationResponse, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<f64>, Option<f64>, Option<i64>, Option<i64>)> = sqlx::query_as(
+        "SELECT a.id, a.name,
+                f.feed as current_feed_avg,
+                m.milk as avg_milk_30d,
+                dim.days as dim_days,
+                lac.n as lactation_number
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT AVG(f.total)::float8 as feed FROM feed_day_amounts f
+             WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - INTERVAL '7 days'
+         ) f ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m
+             WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+         ) m ON true
+         LEFT JOIN LATERAL (
+             SELECT (CURRENT_DATE - c.calving_date)::int8 as days
+             FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1
+         ) dim ON true
+         LEFT JOIN LATERAL (
+             SELECT COUNT(*)::int8 as n FROM calvings c WHERE c.animal_id = a.id
+         ) lac ON true
+         WHERE a.active = true AND a.gender = 'female'
+         AND f.feed IS NOT NULL"
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut recommendations = Vec::new();
+    for (id, name, feed_avg, milk_avg, dim_days, lac_count) in rows {
+        let current_feed = feed_avg.unwrap_or(0.0);
+        let milk = milk_avg.unwrap_or(0.0);
+        let dim = dim_days.unwrap_or(150);
+        let lac_n = lac_count.unwrap_or(1);
+
+        let base_feed = 12.0 + milk * 0.4;
+
+        let dim_factor = if dim < 60 {
+            1.15
+        } else if dim < 120 {
+            1.05
+        } else if dim > 250 {
+            0.9
+        } else {
+            1.0
+        };
+
+        let lac_factor = if lac_n <= 1 {
+            1.0
+        } else if lac_n <= 3 {
+            1.05
+        } else {
+            1.1
+        };
+
+        let recommended = base_feed * dim_factor * lac_factor;
+        let diff = recommended - current_feed;
+
+        let suggestion = if diff > 2.0 {
+            "increase_feed".to_string()
+        } else if diff < -2.0 {
+            "reduce_feed".to_string()
+        } else {
+            "maintain".to_string()
+        };
+
+        recommendations.push(FeedRecommendationEntry {
+            animal_id: id,
+            animal_name: name,
+            current_feed_avg: (current_feed * 100.0).round() / 100.0,
+            recommended_feed: (recommended * 100.0).round() / 100.0,
+            difference_kg: (diff * 100.0).round() / 100.0,
+            suggestion,
+            dim_days: dim as i32,
+            lactation_number: lac_n as i32,
+            model_version: "rule-based-v1".to_string(),
+        });
+    }
+
+    Ok(FeedRecommendationResponse { recommendations })
+}
+
+pub async fn ketosis_warning(pool: &PgPool) -> Result<KetosisWarningResponse, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<i64>, Option<f64>)> = sqlx::query_as(
+        "SELECT a.id, a.name,
+                recent.fpr as fpr_7d,
+                baseline.fpr as fpr_30d,
+                fpr_trend.trend as fpr_trend,
+                dim.days as dim_days,
+                rum.rum as rum_7d
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
+             FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+         ) recent ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
+             FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '30 days'
+             AND q.date < CURRENT_DATE - INTERVAL '7 days'
+         ) baseline ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.fpr / NULLIF(baseline.fpr, 0) - 1)::float8 as trend FROM (
+                 SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
+                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+             ) recent, (
+                 SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
+                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '30 days'
+                 AND q.date < CURRENT_DATE - INTERVAL '7 days'
+             ) baseline
+         ) fpr_trend ON true
+         LEFT JOIN LATERAL (
+             SELECT (CURRENT_DATE - c.calving_date)::int8 as days
+             FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1
+         ) dim ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(r.rumination_minutes)::float8 as rum FROM ruminations r
+             WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '7 days'
+         ) rum ON true
+         WHERE a.active = true AND a.gender = 'female'
+         AND recent.fpr IS NOT NULL"
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut predictions = Vec::new();
+    for (id, name, fpr_7d, _fpr_30d, fpr_trend, dim_days, rum_7d) in rows {
+        let fpr = match fpr_7d {
+            Some(f) => f,
+            None => continue,
+        };
+
+        let mut risk = 0.0_f64;
+        let mut factors = Vec::new();
+        let mut risk_type = "subclinical".to_string();
+
+        if fpr < 1.0 {
+            risk += 0.5;
+            factors.push("fpr_below_1.0".to_string());
+            risk_type = "clinical".to_string();
+        } else if fpr < 1.1 {
+            risk += 0.25;
+            factors.push("fpr_low".to_string());
+        }
+
+        if let Some(trend) = fpr_trend {
+            if trend < -0.1 {
+                risk += 0.3;
+                factors.push("fpr_declining".to_string());
+            }
+        }
+
+        if let Some(dim) = dim_days {
+            if dim < 30 {
+                risk += 0.25;
+                factors.push("early_lactation".to_string());
+            } else if dim < 60 {
+                risk += 0.1;
+                factors.push("fresh cow".to_string());
+            }
+        }
+
+        if let Some(rum) = rum_7d {
+            if rum < 400.0 {
+                risk += 0.2;
+                factors.push("low_rumination".to_string());
+            }
+        }
+
+        if risk < 0.1 {
+            continue;
+        }
+
+        risk = risk.min(1.0);
+
+        let severity = if risk >= 0.6 {
+            "high"
+        } else if risk >= 0.3 {
+            "moderate"
+        } else {
+            "low"
+        };
+
+        predictions.push(KetosisWarningEntry {
+            animal_id: id,
+            animal_name: name,
+            risk_probability: (risk * 100.0).round() / 100.0,
+            risk_type,
+            severity: severity.to_string(),
+            fpr_current: (fpr * 100.0).round() / 100.0,
+            fpr_trend: fpr_trend.unwrap_or(0.0),
+            contributing_factors: factors,
+            model_version: "rule-based-v1".to_string(),
+        });
+    }
+
+    predictions.sort_by(|a, b| b.risk_probability.partial_cmp(&a.risk_probability).unwrap_or(std::cmp::Ordering::Equal));
+    Ok(KetosisWarningResponse { predictions })
+}

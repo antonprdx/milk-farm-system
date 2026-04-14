@@ -411,10 +411,13 @@ async fn estrus_detection(
 ) -> Result<Json<EstrusResponse>, AppError> {
     match &state.ml {
         Some(ml) => {
-            let data = ml.estrus_detection().await?;
+            let data = ml.estrus_detection(&state.pool).await?;
             Ok(Json(data))
         }
-        None => Err(AppError::Internal(anyhow::anyhow!("ML service unavailable"))),
+        None => {
+            let data = predictive_service::estrus_detection(&state.pool).await?;
+            Ok(Json(data))
+        }
     }
 }
 
@@ -424,10 +427,13 @@ async fn equipment_anomaly(
 ) -> Result<Json<EquipmentAnomalyResponse>, AppError> {
     match &state.ml {
         Some(ml) => {
-            let data = ml.equipment_anomaly().await?;
+            let data = ml.equipment_anomaly(&state.pool).await?;
             Ok(Json(data))
         }
-        None => Err(AppError::Internal(anyhow::anyhow!("ML service unavailable"))),
+        None => {
+            let data = predictive_service::equipment_anomaly(&state.pool).await?;
+            Ok(Json(data))
+        }
     }
 }
 
@@ -437,10 +443,13 @@ async fn feed_recommendation(
 ) -> Result<Json<FeedRecommendationResponse>, AppError> {
     match &state.ml {
         Some(ml) => {
-            let data = ml.feed_recommendation().await?;
+            let data = ml.feed_recommendation(&state.pool).await?;
             Ok(Json(data))
         }
-        None => Err(AppError::Internal(anyhow::anyhow!("ML service unavailable"))),
+        None => {
+            let data = predictive_service::feed_recommendation(&state.pool).await?;
+            Ok(Json(data))
+        }
     }
 }
 
@@ -450,10 +459,13 @@ async fn ketosis_warning(
 ) -> Result<Json<KetosisWarningResponse>, AppError> {
     match &state.ml {
         Some(ml) => {
-            let data = ml.ketosis_warning().await?;
+            let data = ml.ketosis_warning(&state.pool).await?;
             Ok(Json(data))
         }
-        None => Err(AppError::Internal(anyhow::anyhow!("ML service unavailable"))),
+        None => {
+            let data = predictive_service::ketosis_warning(&state.pool).await?;
+            Ok(Json(data))
+        }
     }
 }
 

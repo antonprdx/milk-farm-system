@@ -5,8 +5,8 @@ DB_USER="milkfarm"
 DB_PASS="milkfarm"
 DB_NAME="milkfarm"
 
-SEED_COWS="${SEED_COWS:-300}"
-SEED_YEARS="${SEED_YEARS:-3}"
+SEED_COWS="${SEED_COWS:-100}"
+SEED_YEARS="${SEED_YEARS:-1}"
 
 echo "Starting PostgreSQL..."
 sudo systemctl start postgresql
