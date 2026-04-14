@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import TabBar from '$lib/components/ui/TabBar.svelte';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import LactationCurveChart from '$lib/components/LactationCurveChart.svelte';
 	import SeasonalChart from '$lib/components/SeasonalChart.svelte';
@@ -63,26 +62,48 @@
 		| 'dryOff'
 		| 'lifetime';
 
-	const tabs: { key: AnalyticsTab; label: string }[] = [
-		{ key: 'lactation', label: 'Кривые лактации' },
-		{ key: 'health', label: 'Индекс здоровья' },
-		{ key: 'fertility', label: 'Окно фертильности' },
-		{ key: 'profit', label: 'Рентабельность' },
-		{ key: 'seasonal', label: 'Сезонность' },
-		{ key: 'mastitis', label: 'Риск мастита' },
-		{ key: 'culling', label: 'Выбраковка' },
-		{ key: 'energy', label: 'Энергобаланс' },
-		{ key: 'udder', label: 'Здоровье вымени' },
-		{ key: 'forecast', label: 'Прогноз 30д' },
-		{ key: 'clusters', label: 'Кластеры' },
-		{ key: 'estrus', label: 'Детекция охоты' },
-		{ key: 'equipment', label: 'Оборудование' },
-		{ key: 'feedRec', label: 'Рекомендация корма' },
-		{ key: 'ketosis', label: 'Кетоз/ацидоз' },
-		{ key: 'feedEff', label: 'Конверсия корма' },
-		{ key: 'dryOff', label: 'Запуск' },
-		{ key: 'lifetime', label: 'Ценность коровы' },
+	const tabGroups: { label: string; tabs: { key: AnalyticsTab; label: string }[] }[] = [
+		{
+			label: 'Здоровье',
+			tabs: [
+				{ key: 'health', label: 'Индекс здоровья' },
+				{ key: 'mastitis', label: 'Риск мастита' },
+				{ key: 'ketosis', label: 'Кетоз/ацидоз' },
+				{ key: 'udder', label: 'Здоровье вымени' },
+				{ key: 'energy', label: 'Энергобаланс' },
+				{ key: 'culling', label: 'Выбраковка' },
+			],
+		},
+		{
+			label: 'Производство',
+			tabs: [
+				{ key: 'lactation', label: 'Кривые лактации' },
+				{ key: 'seasonal', label: 'Сезонность' },
+				{ key: 'forecast', label: 'Прогноз 30д' },
+				{ key: 'clusters', label: 'Кластеры' },
+				{ key: 'equipment', label: 'Оборудование' },
+				{ key: 'feedRec', label: 'Рекомендация корма' },
+			],
+		},
+		{
+			label: 'Репродукция',
+			tabs: [
+				{ key: 'fertility', label: 'Окно фертильности' },
+				{ key: 'estrus', label: 'Детекция охоты' },
+				{ key: 'dryOff', label: 'Запуск' },
+			],
+		},
+		{
+			label: 'Экономика',
+			tabs: [
+				{ key: 'profit', label: 'Рентабельность' },
+				{ key: 'feedEff', label: 'Конверсия корма' },
+				{ key: 'lifetime', label: 'Ценность коровы' },
+			],
+		},
 	];
+
+	const tabs = tabGroups.flatMap((g) => g.tabs);
 
 	let activeTab: AnalyticsTab = $state('lactation');
 	let loading = $state(false);
@@ -220,7 +241,38 @@
 	>Предиктивная аналитика</h1
 >
 
-<TabBar {tabs} bind:active={activeTab} onchange={switchTab} />
+<div class="space-y-2 mb-4">
+	{#each tabGroups as group}
+		<div>
+			<span class="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider"
+				>{group.label}</span
+			>
+			<div
+				class="flex gap-1 border-b border-slate-200 dark:border-slate-700 overflow-x-auto"
+				role="tablist"
+			>
+				{#each group.tabs as tab (tab.key)}
+					<button
+						onclick={() => switchTab(tab.key)}
+						role="tab"
+						aria-selected={activeTab === tab.key}
+						class="px-3 py-2 text-sm font-medium transition-colors cursor-pointer relative whitespace-nowrap {activeTab ===
+						tab.key
+							? 'text-blue-600 dark:text-blue-400'
+							: 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}"
+					>
+						{tab.label}
+						{#if activeTab === tab.key}
+							<span
+								class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full"
+							></span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/each}
+</div>
 
 <ErrorAlert message={error} />
 
