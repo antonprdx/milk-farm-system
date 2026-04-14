@@ -80,26 +80,49 @@ impl LelyClient {
         let token = self.ensure_token().await?;
         let url = format!("{}{}", self.base_url, path);
 
-        let mut req = self
-            .http
-            .get(&url)
-            .header("token", &token)
-            .header("FarmKey", &self.farm_key);
+        let max_retries = 2u32;
+        let backoff = [1, 3];
 
-        for (k, v) in params {
-            req = req.query(&[(k, v)]);
+        for attempt in 0..=max_retries {
+            if attempt > 0 {
+                tokio::time::sleep(Duration::from_secs(backoff[attempt as usize - 1])).await;
+                tracing::warn!(attempt, path, "Retrying Lely request");
+            }
+
+            let mut req = self
+                .http
+                .get(&url)
+                .header("token", &token)
+                .header("FarmKey", &self.farm_key);
+
+            for (k, v) in params {
+                req = req.query(&[(k, v)]);
+            }
+
+            let resp = match req.send().await {
+                Ok(r) => r,
+                Err(e) if attempt < max_retries && e.is_connect() || e.is_timeout() => {
+                    tracing::warn!(error = %e, path, "Lely request failed, will retry");
+                    continue;
+                }
+                Err(e) => return Err(e.into()),
+            };
+
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                if attempt < max_retries && status.is_server_error() {
+                    tracing::warn!(status = %status, path, "Lely server error, will retry");
+                    continue;
+                }
+                anyhow::bail!("Ошибка запроса Lely {} {}: {}", path, status, text);
+            }
+
+            let result: LelyListResponse<T> = resp.json().await?;
+            return Ok(result.data.unwrap_or_default());
         }
 
-        let resp = req.send().await?;
-
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
-            anyhow::bail!("Ошибка запроса Lely {} {}: {}", path, status, text);
-        }
-
-        let result: LelyListResponse<T> = resp.json().await?;
-        Ok(result.data.unwrap_or_default())
+        unreachable!()
     }
 
     pub async fn get_animals(&self) -> Result<Vec<AnimalResponse>, anyhow::Error> {
