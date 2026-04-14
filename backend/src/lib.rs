@@ -25,8 +25,8 @@ pub async fn seed_admin(pool: &sqlx::PgPool) -> anyhow::Result<()> {
             .bind(&hash)
             .execute(pool)
             .await?;
-        tracing::info!("Admin user created. Password: {}", password);
-        tracing::info!("Change this password after first login!");
+        tracing::info!("Admin user created. See password above.");
+        eprintln!("\n=== Admin credentials ===\n  Username: admin\n  Password: {password}\n  Change after first login!\n=========================\n");
     }
     Ok(())
 }
