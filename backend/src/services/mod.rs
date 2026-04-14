@@ -17,6 +17,7 @@ pub mod reproduction_service;
 pub mod retry;
 pub mod stats_service;
 pub mod system_settings_service;
+pub mod task_service;
 pub mod timeline_service;
 pub mod token_revocation_service;
 pub mod user_service;

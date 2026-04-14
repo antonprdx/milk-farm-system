@@ -13,6 +13,7 @@ pub mod preferences;
 pub mod reports;
 pub mod reproduction;
 pub mod system_settings;
+pub mod task;
 pub mod timeline;
 pub mod user;
 pub mod vet;

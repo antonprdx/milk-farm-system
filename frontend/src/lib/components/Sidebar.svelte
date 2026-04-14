@@ -25,6 +25,9 @@
 		PanelLeftOpen,
 		X,
 		Stethoscope,
+		ClipboardList,
+		Wallet,
+		Search,
 	} from 'lucide-svelte';
 
 	let {
@@ -51,6 +54,8 @@
 		{ href: '/reproduction', label: 'Воспроизводство', icon: Heart },
 		{ href: '/feed', label: 'Кормление', icon: Wheat },
 		{ href: '/vet', label: 'Вет. журнал', icon: Stethoscope },
+		{ href: '/tasks', label: 'Задачи', icon: ClipboardList },
+		{ href: '/finance', label: 'Финансы', icon: Wallet },
 		{ href: '/fitness', label: 'Фитнес', icon: Activity },
 		{ href: '/grazing', label: 'Пастьба', icon: TreePine },
 		{ href: '/bulk-tank', label: 'Танк-охладитель', icon: Container },
@@ -58,6 +63,7 @@
 		{ href: '/locations', label: 'Локации', icon: MapPin },
 		{ href: '/reports', label: 'Отчёты', icon: BarChart3 },
 		{ href: '/analytics', label: 'Аналитика', icon: TrendingUp },
+		{ href: '/search', label: 'Поиск', icon: Search },
 		{ href: '/settings', label: 'Настройки', icon: Settings, adminOnly: true },
 	];
 
