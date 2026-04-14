@@ -155,7 +155,7 @@ async def load_milk_timeseries(session: AsyncSession, animal_id: int, days: int 
             SELECT AVG(activity_counter)::float8 as activity_counter
             FROM activities WHERE animal_id = m.animal_id AND activity_datetime::date = m.date
         ) act ON true
-        WHERE m.animal_id = :animal_id AND m.date >= CURRENT_DATE - (:days || ' days')::interval
+        WHERE m.animal_id = :animal_id AND m.date >= CURRENT_DATE - make_interval(days => :days)
         ORDER BY m.date
     """)
     result = await session.execute(query, {"animal_id": animal_id, "days": days})
@@ -180,19 +180,19 @@ async def load_clustering_features(session: AsyncSession, days: int = 90) -> pd.
             SELECT AVG(m.milk_amount)::float8 as avg_milk,
                    STDDEV(m.milk_amount)::float8 as std_milk
             FROM milk_day_productions m
-            WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - (:days || ' days')::interval
+            WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - make_interval(days => :days)
         ) m ON true
         LEFT JOIN LATERAL (
             SELECT AVG(r.rumination_minutes)::float8 as rum
-            FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - (:days || ' days')::interval
+            FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - make_interval(days => :days)
         ) r ON true
         LEFT JOIN LATERAL (
             SELECT AVG(act.activity_counter)::float8 as act
-            FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - (:days || ' days')::interval
+            FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - make_interval(days => :days)
         ) act ON true
         LEFT JOIN LATERAL (
             SELECT SUM(f.total)::float8 / NULLIF(COUNT(DISTINCT f.feed_date)::float8, 0) as feed
-            FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - (:days || ' days')::interval
+            FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - make_interval(days => :days)
         ) f ON true
         WHERE a.active = true AND a.gender = 'female' AND m.avg_milk IS NOT NULL
         ORDER BY a.name
