@@ -291,15 +291,15 @@ async def load_estrus_features(session: AsyncSession) -> pd.DataFrame:
 async def load_equipment_anomaly_features(session: AsyncSession) -> pd.DataFrame:
     query = text("""
         SELECT
-            sub.animal_id,
-            sub.animal_name,
-            sub.device_address,
-            sub.avg_conductivity,
-            sub.max_quarter_asymmetry,
-            sub.avg_milk_temperature,
-            sub.std_milk_temperature,
-            sub.avg_milk_yield_per_visit,
-            sub.avg_milk_speed,
+            agg.animal_id,
+            agg.animal_name,
+            agg.device_address,
+            agg.avg_conductivity,
+            asym.max_quarter_asymmetry,
+            agg.avg_milk_temperature,
+            agg.std_milk_temperature,
+            agg.avg_milk_yield_per_visit,
+            agg.avg_milk_speed,
             COALESCE(anom.rate, 0) as anomaly_rate_7d
         FROM (
             SELECT
@@ -307,31 +307,33 @@ async def load_equipment_anomaly_features(session: AsyncSession) -> pd.DataFrame
                 a.name as animal_name,
                 v.device_address,
                 AVG((v.lf_conductivity + v.lr_conductivity + v.rf_conductivity + v.rr_conductivity)::float8 / 4.0) as avg_conductivity,
-                GREATEST(
-                    ABS(AVG(v.lf_conductivity) - bl.avg4),
-                    ABS(AVG(v.lr_conductivity) - bl.avg4),
-                    ABS(AVG(v.rf_conductivity) - bl.avg4),
-                    ABS(AVG(v.rr_conductivity) - bl.avg4)
-                )::float8 as max_quarter_asymmetry,
+                AVG(v.lf_conductivity)::float8 as avg_lf,
+                AVG(v.lr_conductivity)::float8 as avg_lr,
+                AVG(v.rf_conductivity)::float8 as avg_rf,
+                AVG(v.rr_conductivity)::float8 as avg_rr,
                 AVG(v.milk_temperature)::float8 as avg_milk_temperature,
                 STDDEV(v.milk_temperature)::float8 as std_milk_temperature,
                 AVG(v.milk_yield)::float8 as avg_milk_yield_per_visit,
                 AVG(rmd.milk_speed)::float8 as avg_milk_speed
             FROM milk_visit_quality v
             JOIN animals a ON a.id = v.animal_id
-            LEFT JOIN LATERAL (
-                SELECT (AVG(v2.lf_conductivity) + AVG(v2.lr_conductivity) + AVG(v2.rf_conductivity) + AVG(v2.rr_conductivity))::float8 / 4.0 as avg4
-                FROM milk_visit_quality v2 WHERE v2.animal_id = v.animal_id AND v2.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
-            ) bl ON true
             LEFT JOIN robot_milk_data rmd ON rmd.animal_id = v.animal_id AND rmd.milking_date = v.visit_datetime
             WHERE v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
             GROUP BY v.animal_id, a.name, v.device_address
-        ) sub
+        ) agg
+        LEFT JOIN LATERAL (
+            SELECT GREATEST(
+                ABS(agg.avg_lf - agg.avg_conductivity),
+                ABS(agg.avg_lr - agg.avg_conductivity),
+                ABS(agg.avg_rf - agg.avg_conductivity),
+                ABS(agg.avg_rr - agg.avg_conductivity)
+            )::float8 as max_quarter_asymmetry
+        ) asym ON true
         LEFT JOIN LATERAL (
             SELECT (COUNT(*) FILTER (WHERE v3.success_milking = false OR v3.lf_colour_code IN ('W','Y') OR v3.lr_colour_code IN ('W','Y') OR v3.rf_colour_code IN ('W','Y') OR v3.rr_colour_code IN ('W','Y')))::float8 / NULLIF(COUNT(*)::float8, 0) as rate
-            FROM milk_visit_quality v3 WHERE v3.animal_id = sub.animal_id AND v3.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+            FROM milk_visit_quality v3 WHERE v3.animal_id = agg.animal_id AND v3.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
         ) anom ON true
-        ORDER BY sub.animal_name
+        ORDER BY agg.animal_name
     """)
     result = await session.execute(query)
     rows = result.mappings().all()
