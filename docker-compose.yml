@@ -24,11 +24,31 @@ services:
       JWT_SECRET: change-me-in-production-at-least-32-chars
       SECURE_COOKIES: "false"
       CORS_ORIGINS: "http://localhost:8080"
+      ML_SERVICE_URL: http://analytics-ml:8001
     ports:
       - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
+
+  analytics-ml:
+    build: ./analytics-ml
+    environment:
+      DATABASE_URL: postgresql+asyncpg://milkfarm:milkfarm_secret@postgres:5432/milk_farm
+      MODEL_DIR: /app/models
+    volumes:
+      - ml_models:/app/models
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   frontend:
     build: ./frontend
@@ -39,3 +59,4 @@ services:
 
 volumes:
   pgdata:
+  ml_models:
