@@ -692,7 +692,7 @@
 						</tr>
 					</thead>
 					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-						{#each clusterData.clusters.sort((a, b) => a.cluster_id - b.cluster_id) as c (c.animal_id)}
+						{#each clusterData.clusters.toSorted((a, b) => a.cluster_id - b.cluster_id) as c (c.animal_id)}
 							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 								<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 								<td class={tdCls}>
