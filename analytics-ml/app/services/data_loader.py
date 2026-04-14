@@ -230,22 +230,34 @@ async def load_estrus_features(session: AsyncSession) -> pd.DataFrame:
             COALESCE(rum_14.avg_rum, 0) as avg_rumination_14d
         FROM animals a
         LEFT JOIN LATERAL (
-            SELECT (AVG(act.activity_counter) / NULLIF(bl.bl_act, 0))::float8 as ratio
-            FROM activities act,
-                 (SELECT AVG(a2.activity_counter)::float8 as bl_act FROM activities a2 WHERE a2.animal_id = a.id AND a2.activity_datetime >= CURRENT_DATE - INTERVAL '30 days' AND a2.activity_datetime < CURRENT_DATE - INTERVAL '7 days') bl
-            WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - INTERVAL '7 days'
+            SELECT (recent.act / NULLIF(baseline.act, 0))::float8 as ratio FROM (
+                SELECT AVG(activity_counter)::float8 as act FROM activities
+                WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '7 days'
+            ) recent, (
+                SELECT AVG(activity_counter)::float8 as act FROM activities
+                WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '30 days'
+                AND activity_datetime < CURRENT_DATE - INTERVAL '7 days'
+            ) baseline
         ) act_r ON true
         LEFT JOIN LATERAL (
-            SELECT (AVG(r.rumination_minutes) / NULLIF(bl.bl_rum, 0))::float8 as ratio
-            FROM ruminations r,
-                 (SELECT AVG(r2.rumination_minutes)::float8 as bl_rum FROM ruminations r2 WHERE r2.animal_id = a.id AND r2.date >= CURRENT_DATE - INTERVAL '30 days' AND r2.date < CURRENT_DATE - INTERVAL '7 days') bl
-            WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '7 days'
+            SELECT (recent.rum / NULLIF(baseline.rum, 0))::float8 as ratio FROM (
+                SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations
+                WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '7 days'
+            ) recent, (
+                SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations
+                WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '30 days'
+                AND date < CURRENT_DATE - INTERVAL '7 days'
+            ) baseline
         ) rum_r ON true
         LEFT JOIN LATERAL (
-            SELECT (AVG(m.milk_amount) / NULLIF(bl.bl_milk, 0))::float8 as ratio
-            FROM milk_day_productions m,
-                 (SELECT AVG(m2.milk_amount)::float8 as bl_milk FROM milk_day_productions m2 WHERE m2.animal_id = a.id AND m2.date >= CURRENT_DATE - INTERVAL '30 days' AND m2.date < CURRENT_DATE - INTERVAL '7 days') bl
-            WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days'
+            SELECT (recent.milk / NULLIF(baseline.milk, 0))::float8 as ratio FROM (
+                SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions
+                WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '7 days'
+            ) recent, (
+                SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions
+                WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '30 days'
+                AND date < CURRENT_DATE - INTERVAL '7 days'
+            ) baseline
         ) milk_r ON true
         LEFT JOIN LATERAL (
             SELECT (CURRENT_DATE - c.calving_date)::int8 as days
@@ -279,37 +291,47 @@ async def load_estrus_features(session: AsyncSession) -> pd.DataFrame:
 async def load_equipment_anomaly_features(session: AsyncSession) -> pd.DataFrame:
     query = text("""
         SELECT
-            v.animal_id,
-            a.name as animal_name,
-            v.device_address,
-            AVG((v.lf_conductivity + v.lr_conductivity + v.rf_conductivity + v.rr_conductivity)::float8 / 4.0) as avg_conductivity,
-            MAX(GREATEST(
-                ABS(AVG(v.lf_conductivity) - sub.avg4),
-                ABS(AVG(v.lr_conductivity) - sub.avg4),
-                ABS(AVG(v.rf_conductivity) - sub.avg4),
-                ABS(AVG(v.rr_conductivity) - sub.avg4)
-            ))::float8 as max_quarter_asymmetry,
-            AVG(v.milk_temperature)::float8 as avg_milk_temperature,
-            STDDEV(v.milk_temperature)::float8 as std_milk_temperature,
-            AVG(v.milk_yield)::float8 as avg_milk_yield_per_visit,
-            AVG(mv.duration_seconds)::float8 as avg_duration_seconds,
-            AVG(rmd.milk_speed)::float8 as avg_milk_speed,
+            sub.animal_id,
+            sub.animal_name,
+            sub.device_address,
+            sub.avg_conductivity,
+            sub.max_quarter_asymmetry,
+            sub.avg_milk_temperature,
+            sub.std_milk_temperature,
+            sub.avg_milk_yield_per_visit,
+            sub.avg_milk_speed,
             COALESCE(anom.rate, 0) as anomaly_rate_7d
-        FROM milk_visit_quality v
-        JOIN animals a ON a.id = v.animal_id
-        LEFT JOIN LATERAL (
-            SELECT (AVG(v2.lf_conductivity) + AVG(v2.lr_conductivity) + AVG(v2.rf_conductivity) + AVG(v2.rr_conductivity))::float8 / 4.0 as avg4
-            FROM milk_visit_quality v2 WHERE v2.animal_id = v.animal_id AND v2.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
-        ) sub ON true
-        LEFT JOIN milk_visits mv ON mv.animal_id = v.animal_id AND mv.visit_datetime = v.visit_datetime
-        LEFT JOIN robot_milk_data rmd ON rmd.animal_id = v.animal_id AND rmd.milking_date = v.visit_datetime
+        FROM (
+            SELECT
+                v.animal_id,
+                a.name as animal_name,
+                v.device_address,
+                AVG((v.lf_conductivity + v.lr_conductivity + v.rf_conductivity + v.rr_conductivity)::float8 / 4.0) as avg_conductivity,
+                GREATEST(
+                    ABS(AVG(v.lf_conductivity) - bl.avg4),
+                    ABS(AVG(v.lr_conductivity) - bl.avg4),
+                    ABS(AVG(v.rf_conductivity) - bl.avg4),
+                    ABS(AVG(v.rr_conductivity) - bl.avg4)
+                )::float8 as max_quarter_asymmetry,
+                AVG(v.milk_temperature)::float8 as avg_milk_temperature,
+                STDDEV(v.milk_temperature)::float8 as std_milk_temperature,
+                AVG(v.milk_yield)::float8 as avg_milk_yield_per_visit,
+                AVG(rmd.milk_speed)::float8 as avg_milk_speed
+            FROM milk_visit_quality v
+            JOIN animals a ON a.id = v.animal_id
+            LEFT JOIN LATERAL (
+                SELECT (AVG(v2.lf_conductivity) + AVG(v2.lr_conductivity) + AVG(v2.rf_conductivity) + AVG(v2.rr_conductivity))::float8 / 4.0 as avg4
+                FROM milk_visit_quality v2 WHERE v2.animal_id = v.animal_id AND v2.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+            ) bl ON true
+            LEFT JOIN robot_milk_data rmd ON rmd.animal_id = v.animal_id AND rmd.milking_date = v.visit_datetime
+            WHERE v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+            GROUP BY v.animal_id, a.name, v.device_address
+        ) sub
         LEFT JOIN LATERAL (
             SELECT (COUNT(*) FILTER (WHERE v3.success_milking = false OR v3.lf_colour_code IN ('W','Y') OR v3.lr_colour_code IN ('W','Y') OR v3.rf_colour_code IN ('W','Y') OR v3.rr_colour_code IN ('W','Y')))::float8 / NULLIF(COUNT(*)::float8, 0) as rate
-            FROM milk_visit_quality v3 WHERE v3.animal_id = v.animal_id AND v3.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+            FROM milk_visit_quality v3 WHERE v3.animal_id = sub.animal_id AND v3.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
         ) anom ON true
-        WHERE v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
-        GROUP BY v.animal_id, a.name, v.device_address, anom.rate
-        ORDER BY a.name
+        ORDER BY sub.animal_name
     """)
     result = await session.execute(query)
     rows = result.mappings().all()

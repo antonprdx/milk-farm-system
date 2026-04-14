@@ -19,7 +19,6 @@ FEATURE_COLUMNS = [
     "avg_milk_temperature",
     "std_milk_temperature",
     "avg_milk_yield_per_visit",
-    "avg_duration_seconds",
     "avg_milk_speed",
     "anomaly_rate_7d",
 ]
