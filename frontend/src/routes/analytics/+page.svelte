@@ -110,6 +110,7 @@
 				}
 			} else if (activeTab === 'clusters') {
 				clusterData = await getCowClusters();
+				console.log('clusters loaded:', clusterData?.clusters?.length, clusterData);
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Ошибка загрузки';
@@ -707,6 +708,8 @@
 			</div>
 		{:else if clusterData}
 			<div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Нет данных для кластеризации</div>
+		{:else}
+			<div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Загрузка кластеров...</div>
 		{/if}
 	{/if}
 {/if}
