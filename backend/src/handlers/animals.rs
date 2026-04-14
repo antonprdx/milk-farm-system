@@ -1,4 +1,6 @@
 use axum::extract::{Path, Query, State};
+use axum::http::{StatusCode, header};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
@@ -32,6 +34,7 @@ pub fn routes() -> Router<AppState> {
         .route("/animals/{id}", get(get_by_id).put(update).delete(remove))
         .route("/animals/{id}/timeline", get(timeline))
         .route("/animals/{id}/stats", get(stats))
+        .route("/animals/{id}/export/pdf", get(export_pdf))
 }
 
 #[utoipa::path(
@@ -320,4 +323,36 @@ async fn stats(
     animal_service::ensure_exists(&state.pool, id).await?;
     let stats = animal_stats_service::get_animal_stats(&state.pool, id).await?;
     Ok(Json(stats))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/animals/{id}/export/pdf",
+    responses(
+        (status = 200, description = "Animal card PDF"),
+        (status = 404, description = "Animal not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Animal ID")),
+    security(("cookie_auth" = []))
+)]
+async fn export_pdf(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Path(id): Path<i32>,
+) -> Result<Response, AppError> {
+    let pdf = crate::services::pdf_service::generate_animal_card(&state.pool, id).await?;
+    let filename = format!("animal_{}.pdf", id);
+    Ok((
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "application/pdf".to_string()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{}\"", filename),
+            ),
+        ],
+        pdf,
+    )
+        .into_response())
 }

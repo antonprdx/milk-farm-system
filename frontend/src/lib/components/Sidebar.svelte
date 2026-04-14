@@ -30,6 +30,7 @@
 		Search,
 		Dna,
 		ArrowLeftRight,
+		Package,
 	} from 'lucide-svelte';
 
 	let {
@@ -59,6 +60,7 @@
 		{ href: '/vet', label: 'Вет. журнал', icon: Stethoscope },
 		{ href: '/tasks', label: 'Задачи', icon: ClipboardList },
 		{ href: '/finance', label: 'Финансы', icon: Wallet },
+		{ href: '/inventory', label: 'Склад', icon: Package },
 		{ href: '/fitness', label: 'Фитнес', icon: Activity },
 		{ href: '/grazing', label: 'Пастьба', icon: TreePine },
 		{ href: '/bulk-tank', label: 'Танк-охладитель', icon: Container },
