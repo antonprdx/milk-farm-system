@@ -2262,3 +2262,130 @@ async fn summary_cluster(pool: &PgPool, id: i32) -> Result<Option<ClusterCowEntr
         model_version: "rule-based-v1".to_string(),
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_round2() {
+        assert_eq!(round2(1.234), 1.23);
+        assert_eq!(round2(1.235), 1.24);
+        assert_eq!(round2(0.0), 0.0);
+        assert_eq!(round2(-1.236), -1.24);
+        assert_eq!(round2(99.999), 100.0);
+    }
+
+    #[test]
+    fn test_wood_predict_basic() {
+        let result = wood_predict(20.0, 0.2, 0.003, 60);
+        assert!(result > 0.0);
+        assert!(result < 100.0);
+    }
+
+    #[test]
+    fn test_wood_predict_zero_dim() {
+        assert_eq!(wood_predict(20.0, 0.2, 0.003, 0), 0.0);
+    }
+
+    #[test]
+    fn test_wood_predict_negative_dim() {
+        assert_eq!(wood_predict(20.0, 0.2, 0.003, -1), 0.0);
+    }
+
+    #[test]
+    fn test_wood_predict_peak_then_decline() {
+        let day30 = wood_predict(20.0, 0.2, 0.003, 30);
+        let day60 = wood_predict(20.0, 0.2, 0.003, 60);
+        let day200 = wood_predict(20.0, 0.2, 0.003, 200);
+        assert!(day60 > day30, "Should still be increasing at day 60");
+        assert!(day200 < day60, "Should be declining by day 200");
+    }
+
+    #[test]
+    fn test_solve_3x3_identity() {
+        let a = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+        let b = [1.0, 2.0, 3.0];
+        let result = solve_3x3(a, b).unwrap();
+        assert!((result[0] - 1.0).abs() < 1e-10);
+        assert!((result[1] - 2.0).abs() < 1e-10);
+        assert!((result[2] - 3.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_solve_3x3_singular() {
+        let a = [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]];
+        let b = [1.0, 2.0, 3.0];
+        assert!(solve_3x3(a, b).is_none());
+    }
+
+    #[test]
+    fn test_solve_3x3_known_system() {
+        let a = [[2.0, 1.0, -1.0], [-3.0, -1.0, 2.0], [-2.0, 1.0, 2.0]];
+        let b = [8.0, -11.0, -3.0];
+        let result = solve_3x3(a, b).unwrap();
+        assert!((result[0] - 2.0).abs() < 1e-10);
+        assert!((result[1] - 3.0).abs() < 1e-10);
+        assert!((result[2] + 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_fit_wood_model_typical_lactation() {
+        let mut data = std::collections::HashMap::new();
+        let a = 20.0_f64;
+        let b = 0.2_f64;
+        let c = 0.003_f64;
+        for dim in [10, 20, 30, 40, 50, 60, 80, 100, 150, 200, 250, 300] {
+            let milk = a * (dim as f64).powf(b) * (-c * dim as f64).exp();
+            data.insert(dim, milk);
+        }
+        let (fit_a, fit_b, fit_c) = fit_wood_model(&data);
+        assert!(fit_a > 0.0, "a should be positive, got {fit_a}");
+        assert!(fit_b > 0.0, "b should be positive, got {fit_b}");
+        assert!(fit_c > 0.0, "c should be positive, got {fit_c}");
+
+        let orig_60 = wood_predict(a, b, c, 60);
+        let fit_60 = wood_predict(fit_a, fit_b, fit_c, 60);
+        assert!(
+            (fit_60 - orig_60).abs() / orig_60 < 0.05,
+            "Fitted value at dim=60 should be within 5%: orig={orig_60}, fit={fit_60}"
+        );
+    }
+
+    #[test]
+    fn test_fit_wood_model_too_few_points() {
+        let mut data = std::collections::HashMap::new();
+        data.insert(10, 25.0);
+        data.insert(20, 28.0);
+        let (a, _b, _c) = fit_wood_model(&data);
+        assert!(
+            a == 25.0 || a == 28.0,
+            "Should fall back to one of the data values, got {a}"
+        );
+    }
+
+    #[test]
+    fn test_zscore_normal() {
+        let z = zscore(Some(110.0), Some(100.0), Some(10.0));
+        assert_eq!(z, Some(1.0));
+    }
+
+    #[test]
+    fn test_zscore_zero_std() {
+        let z = zscore(Some(110.0), Some(100.0), Some(0.0));
+        assert_eq!(z, None);
+    }
+
+    #[test]
+    fn test_zscore_tiny_std() {
+        let z = zscore(Some(110.0), Some(100.0), Some(0.005));
+        assert_eq!(z, None);
+    }
+
+    #[test]
+    fn test_zscore_missing_values() {
+        assert_eq!(zscore(None, Some(100.0), Some(10.0)), None);
+        assert_eq!(zscore(Some(110.0), None, Some(10.0)), None);
+        assert_eq!(zscore(Some(110.0), Some(100.0), None), None);
+    }
+}
