@@ -27,7 +27,8 @@ echo "Starting ML service..."
 if [ ! -d "$ML_VENV" ]; then
     echo "  Creating Python venv for analytics-ml..."
     python3 -m venv "$ML_VENV"
-    "$ML_VENV/bin/pip" install -q -r analytics-ml/requirements.txt
+    "$ML_VENV/bin/pip" install -q --upgrade pip
+    PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 "$ML_VENV/bin/pip" install -q -r analytics-ml/requirements.txt
 fi
 DATABASE_URL="postgresql+asyncpg://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME" \
     "$ML_VENV/bin/uvicorn" app.main:app --host 0.0.0.0 --port $ML_PORT --app-dir analytics-ml &
