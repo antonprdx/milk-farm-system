@@ -260,8 +260,13 @@ async fn mastitis_risk(
     _claims: Claims,
     State(state): State<AppState>,
 ) -> Result<Json<MastitisRiskResponse>, AppError> {
-    let data = predictive_service::mastitis_risk(&state.pool).await?;
-    Ok(Json(data))
+    if let Some(ref ml) = state.ml {
+        let data = ml.mastitis_risk(None, &state.pool).await?;
+        Ok(Json(data))
+    } else {
+        let data = predictive_service::mastitis_risk(&state.pool).await?;
+        Ok(Json(data))
+    }
 }
 
 #[utoipa::path(
@@ -277,6 +282,11 @@ async fn culling_survival(
     _claims: Claims,
     State(state): State<AppState>,
 ) -> Result<Json<CullingSurvivalResponse>, AppError> {
-    let data = predictive_service::culling_survival(&state.pool).await?;
-    Ok(Json(data))
+    if let Some(ref ml) = state.ml {
+        let data = ml.culling_survival(None, &state.pool).await?;
+        Ok(Json(data))
+    } else {
+        let data = predictive_service::culling_survival(&state.pool).await?;
+        Ok(Json(data))
+    }
 }

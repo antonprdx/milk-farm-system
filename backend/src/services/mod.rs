@@ -7,6 +7,7 @@ pub mod feed_service;
 pub mod fitness_service;
 pub mod grazing_service;
 pub mod location_service;
+pub mod ml_client;
 pub mod milk_service;
 pub mod pdf_service;
 pub mod preferences_service;
