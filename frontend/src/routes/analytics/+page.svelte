@@ -667,42 +667,46 @@
 		{/if}
 
 	<!-- COW CLUSTERS -->
-	{:else if activeTab === 'clusters' && clusterData}
-		{#if Object.keys(clusterData.cluster_names).length > 0}
-			<div class="mb-4 flex flex-wrap gap-2">
-				{#each Object.entries(clusterData.cluster_names) as [id, name] (id)}
-					<span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
-						{name} (#{id})
-					</span>
-				{/each}
-			</div>
-		{/if}
-
-		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-			<table class={tblCls}>
-				<thead class="bg-slate-50 dark:bg-slate-900">
-					<tr>
-						<th class={thCls}>Корова</th>
-						<th class={thCls}>Кластер</th>
-						<th class={thCls}>Средний надой</th>
-						<th class={thCls}>Средняя жвачка</th>
-						<th class={thCls}>Расст. до центра</th>
-					</tr>
-				</thead>
-				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each clusterData.clusters.sort((a, b) => a.cluster_id - b.cluster_id) as c (c.animal_id)}
-						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
-							<td class={tdCls}>
-								<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">{c.cluster_name}</span>
-							</td>
-							<td class={`${tdCls} font-semibold`}>{c.avg_milk.toFixed(1)} л</td>
-							<td class={tdCls}>{c.avg_rumination.toFixed(0)} мин</td>
-							<td class={tdCls}>{c.distance_to_center.toFixed(2)}</td>
-						</tr>
+	{:else if activeTab === 'clusters'}
+		{#if clusterData && clusterData.clusters.length > 0}
+			{#if Object.keys(clusterData.cluster_names).length > 0}
+				<div class="mb-4 flex flex-wrap gap-2">
+					{#each Object.entries(clusterData.cluster_names) as [id, name] (id)}
+						<span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
+							{name} (#{id})
+						</span>
 					{/each}
-				</tbody>
-			</table>
-		</div>
+				</div>
+			{/if}
+
+			<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+				<table class={tblCls}>
+					<thead class="bg-slate-50 dark:bg-slate-900">
+						<tr>
+							<th class={thCls}>Корова</th>
+							<th class={thCls}>Кластер</th>
+							<th class={thCls}>Средний надой</th>
+							<th class={thCls}>Средняя жвачка</th>
+							<th class={thCls}>Расст. до центра</th>
+						</tr>
+					</thead>
+					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+						{#each clusterData.clusters.sort((a, b) => a.cluster_id - b.cluster_id) as c (c.animal_id)}
+							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+								<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+								<td class={tdCls}>
+									<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">{c.cluster_name}</span>
+								</td>
+								<td class={`${tdCls} font-semibold`}>{c.avg_milk.toFixed(1)} л</td>
+								<td class={tdCls}>{c.avg_rumination.toFixed(0)} мин</td>
+								<td class={tdCls}>{c.distance_to_center.toFixed(2)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{:else if clusterData}
+			<div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Нет данных для кластеризации</div>
+		{/if}
 	{/if}
 {/if}
