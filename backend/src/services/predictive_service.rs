@@ -4,56 +4,98 @@ use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::models::analytics::*;
 
+fn round2(v: f64) -> f64 {
+    (v * 100.0).round() / 100.0
+}
+
 pub async fn lactation_curves(
     pool: &PgPool,
     animal_id: Option<i32>,
 ) -> Result<Vec<LactationCurveResponse>, AppError> {
-    let filter = if let Some(id) = animal_id {
-        format!("AND a.id = {}", id)
+    let rows: Vec<(i32, Option<String>, Option<String>, i32, String)> = if let Some(id) = animal_id {
+        sqlx::query_as(
+            "SELECT a.id, a.name, a.life_number, c.lac_number, c.calving_date::text
+             FROM calvings c
+             JOIN animals a ON a.id = c.animal_id
+             WHERE a.active = true AND a.gender = 'female' AND a.id = $1
+             AND NOT EXISTS (
+                 SELECT 1 FROM calvings c2 WHERE c2.animal_id = c.animal_id
+                 AND c2.calving_date > c.calving_date
+             )
+             ORDER BY a.name",
+        )
+        .bind(id)
+        .fetch_all(pool)
+        .await
     } else {
-        String::new()
-    };
+        sqlx::query_as(
+            "SELECT a.id, a.name, a.life_number, c.lac_number, c.calving_date::text
+             FROM calvings c
+             JOIN animals a ON a.id = c.animal_id
+             WHERE a.active = true AND a.gender = 'female'
+             AND NOT EXISTS (
+                 SELECT 1 FROM calvings c2 WHERE c2.animal_id = c.animal_id
+                 AND c2.calving_date > c.calving_date
+             )
+             ORDER BY a.name",
+        )
+        .fetch_all(pool)
+        .await
+    }
+    .map_err(AppError::Database)?;
 
-    let rows: Vec<(i32, Option<String>, Option<String>, i32, String)> = sqlx::query_as(&format!(
-        "SELECT a.id, a.name, a.life_number, c.lac_number, c.calving_date::text
-         FROM calvings c
-         JOIN animals a ON a.id = c.animal_id
-         WHERE a.active = true AND a.gender = 'female'
-         AND NOT EXISTS (
-             SELECT 1 FROM calvings c2 WHERE c2.animal_id = c.animal_id
-             AND c2.calving_date > c.calving_date
-         )
-         {filter}
-         ORDER BY a.name"
-    ))
+    if rows.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let animal_ids: Vec<i32> = rows.iter().map(|(id, _, _, _, _)| *id).collect();
+    let calving_map: std::collections::HashMap<i32, chrono::NaiveDate> = rows
+        .iter()
+        .filter_map(|(id, _, _, _, calving_str)| {
+            chrono::NaiveDate::parse_from_str(calving_str, "%Y-%m-%d")
+                .ok()
+                .map(|d| (*id, d))
+        })
+        .collect();
+
+    let earliest = calving_map
+        .values()
+        .min()
+        .copied()
+        .unwrap_or(chrono::Utc::now().date_naive());
+
+    let all_milk: Vec<(i32, i32, Option<f64>)> = sqlx::query_as(
+        "SELECT m.animal_id, (m.date - $1::date)::int as dim, m.milk_amount
+         FROM milk_day_productions m
+         WHERE m.animal_id = ANY($2) AND m.date >= $1 AND m.date < $1 + INTERVAL '400 days'
+         ORDER BY m.animal_id, dim",
+    )
+    .bind(earliest)
+    .bind(&animal_ids)
     .fetch_all(pool)
     .await
     .map_err(AppError::Database)?;
+
+    let mut milk_by_animal: std::collections::HashMap<i32, Vec<(i32, Option<f64>)>> =
+        std::collections::HashMap::new();
+    for (aid, dim, milk) in all_milk {
+        milk_by_animal.entry(aid).or_default().push((dim, milk));
+    }
 
     let today = chrono::Utc::now().date_naive();
     let mut results = Vec::new();
 
     for (aid, name, ln, lac, calving_str) in rows {
-        let calving = match chrono::NaiveDate::parse_from_str(&calving_str, "%Y-%m-%d") {
-            Ok(d) => d,
-            Err(_) => continue,
+        let calving = match calving_map.get(&aid) {
+            Some(&d) => d,
+            None => continue,
         };
         let current_dim = (today - calving).num_days() as i32;
         if current_dim < 5 {
             continue;
         }
 
-        let milk_rows: Vec<(i32, Option<f64>)> = sqlx::query_as(
-            "SELECT (m.date - $1::date)::int as dim, m.milk_amount
-             FROM milk_day_productions m
-             WHERE m.animal_id = $2 AND m.date >= $1 AND m.date < $1 + INTERVAL '400 days'
-             ORDER BY dim",
-        )
-        .bind(calving)
-        .bind(aid)
-        .fetch_all(pool)
-        .await
-        .map_err(AppError::Database)?;
+        let milk_rows = milk_by_animal.remove(&aid).unwrap_or_default();
 
         if milk_rows.len() < 3 {
             continue;
@@ -93,7 +135,7 @@ pub async fn lactation_curves(
                 }
                 let pt = LactationPoint {
                     dim,
-                    milk: Some((val * 100.0).round() / 100.0),
+                    milk: Some(round2(val)),
                 };
                 if dim <= current_dim {
                     fitted_curve.push(pt);
@@ -127,17 +169,16 @@ pub async fn lactation_curves(
             calving_date: calving_str,
             current_dim,
             peak_milk: if has_enough_for_fit || peak_milk > 0.0 {
-                Some((peak_milk * 100.0).round() / 100.0)
+                Some(round2(peak_milk))
             } else {
                 None
             },
             peak_dim: if peak_dim > 0 { Some(peak_dim) } else { None },
-            predicted_total_305d: predicted_305.map(|v| (v * 100.0).round() / 100.0),
+            predicted_total_305d: predicted_305.map(round2),
             actual_points,
             fitted_curve,
             forecast,
         });
-
     }
 
     Ok(results)
@@ -368,10 +409,10 @@ pub async fn health_index(pool: &PgPool) -> Result<HealthIndexResponse, AppError
             animal_name: name,
             life_number: ln,
             health_score: (score * 10.0).round() / 10.0,
-            milk_deviation_zscore: milk_z.map(|z| (z * 100.0).round() / 100.0),
-            rumination_deviation_zscore: rum_z.map(|z| (z * 100.0).round() / 100.0),
-            activity_deviation_zscore: act_z.map(|z| (z * 100.0).round() / 100.0),
-            scc_deviation_zscore: scc_z.map(|z| (z * 100.0).round() / 100.0),
+            milk_deviation_zscore: milk_z.map(|z| round2(z)),
+            rumination_deviation_zscore: rum_z.map(|z| round2(z)),
+            activity_deviation_zscore: act_z.map(|z| round2(z)),
+            scc_deviation_zscore: scc_z.map(|z| round2(z)),
             risk_level: risk_level.to_string(),
             top_concern: concerns.first().map(|c| c.0.clone()),
         });
@@ -480,9 +521,9 @@ pub async fn fertility_window(pool: &PgPool) -> Result<FertilityWindowResponse, 
             animal_name: name,
             life_number: ln,
             days_since_calving: dim,
-            activity_signal: act_signal.map(|v| (v * 100.0).round() / 100.0),
-            rumination_signal: rum_signal.map(|v| (v * 100.0).round() / 100.0),
-            milk_signal: milk_signal.map(|v| (v * 100.0).round() / 100.0),
+            activity_signal: act_signal.map(|v| round2(v)),
+            rumination_signal: rum_signal.map(|v| round2(v)),
+            milk_signal: milk_signal.map(|v| round2(v)),
             combined_score: (score * 10.0).round() / 10.0,
             window_status: status.to_string(),
         });
@@ -546,18 +587,18 @@ pub async fn profitability(
             animal_id: id,
             animal_name: name,
             life_number: ln,
-            avg_daily_milk: avg_milk.map(|v| (v * 100.0).round() / 100.0),
-            avg_daily_feed: avg_feed.map(|v| (v * 100.0).round() / 100.0),
-            estimated_milk_revenue_day: milk_rev.map(|v| (v * 100.0).round() / 100.0),
-            estimated_feed_cost_day: feed_cost.map(|v| (v * 100.0).round() / 100.0),
-            estimated_margin_day: margin_day.map(|v| (v * 100.0).round() / 100.0),
-            margin_30d: margin_30d.map(|v| (v * 100.0).round() / 100.0),
-            feed_cost_ratio: feed_ratio.map(|v| (v * 100.0).round() / 100.0),
+            avg_daily_milk: avg_milk.map(|v| round2(v)),
+            avg_daily_feed: avg_feed.map(|v| round2(v)),
+            estimated_milk_revenue_day: milk_rev.map(|v| round2(v)),
+            estimated_feed_cost_day: feed_cost.map(|v| round2(v)),
+            estimated_margin_day: margin_day.map(|v| round2(v)),
+            margin_30d: margin_30d.map(|v| round2(v)),
+            feed_cost_ratio: feed_ratio.map(|v| round2(v)),
         });
     }
 
     let herd_avg = if margin_count > 0 {
-        Some((total_margin / margin_count as f64 * 100.0).round() / 100.0)
+        Some(round2(total_margin / margin_count as f64))
     } else {
         None
     };
@@ -615,7 +656,7 @@ pub async fn seasonal_decomposition(pool: &PgPool) -> Result<SeasonalResponse, A
                 month_name: month_names[m as usize].to_string(),
                 avg_daily_milk: found.and_then(|(_, avg)| *avg),
                 seasonal_index: match (found.and_then(|(_, avg)| *avg), overall) {
-                    (Some(avg), Some(oa)) if oa > 0.0 => Some((avg / oa * 100.0).round() / 100.0 as f64),
+                    (Some(avg), Some(oa)) if oa > 0.0 => Some(round2(avg / oa)),
                     _ => None,
                 },
             }
@@ -649,8 +690,8 @@ pub async fn seasonal_decomposition(pool: &PgPool) -> Result<SeasonalResponse, A
 
     Ok(SeasonalResponse {
         monthly_indices,
-        trend_7d: trend_7d.map(|v: f64| (v * 100.0).round() / 100.0),
-        trend_30d: trend_30d.map(|v: f64| (v * 100.0).round() / 100.0),
+        trend_7d: trend_7d.map(|v: f64| round2(v)),
+        trend_30d: trend_30d.map(|v: f64| round2(v)),
         current_seasonal_factor: current_factor,
     })
 }
@@ -769,7 +810,7 @@ pub async fn mastitis_risk(pool: &PgPool) -> Result<MastitisRiskResponse, AppErr
             animal_id: id,
             animal_name: name,
             life_number: ln,
-            risk_score: (score * 100.0).round() / 100.0,
+            risk_score: round2(score),
             risk_level: risk_level.to_string(),
             contributing_factors: factors,
         });
@@ -891,7 +932,7 @@ pub async fn culling_survival(pool: &PgPool) -> Result<CullingSurvivalResponse, 
             animal_name: name,
             life_number: ln,
             expected_days_remaining: Some(expected_days),
-            risk_score: (risk * 100.0).round() / 100.0,
+            risk_score: round2(risk),
             risk_factors: factors,
         });
     }
@@ -939,7 +980,7 @@ pub async fn energy_balance(pool: &PgPool) -> Result<EnergyBalanceResponse, AppE
         .into_iter()
         .filter_map(|(id, name, ln, fat, protein, trend_30d)| {
             let fpr = match (fat, protein) {
-                (Some(f), Some(p)) if p > 0.0 => Some((f / p * 100.0).round() / 100.0),
+                (Some(f), Some(p)) if p > 0.0 => Some(round2(f / p)),
                 _ => None,
             };
             if fpr.is_none() && trend_30d.is_none() {
@@ -960,12 +1001,12 @@ pub async fn energy_balance(pool: &PgPool) -> Result<EnergyBalanceResponse, AppE
                 animal_id: id,
                 animal_name: name,
                 life_number: ln,
-                avg_fat_pct: fat.map(|v| (v * 100.0).round() / 100.0),
-                avg_protein_pct: protein.map(|v| (v * 100.0).round() / 100.0),
+                avg_fat_pct: fat.map(|v| round2(v)),
+                avg_protein_pct: protein.map(|v| round2(v)),
                 fat_protein_ratio: fpr,
                 status: status.to_string(),
                 trend_7d,
-                trend_30d: trend_30d.map(|v| (v * 100.0).round() / 100.0),
+                trend_30d: trend_30d.map(|v| round2(v)),
             })
         })
         .collect();
@@ -1027,12 +1068,12 @@ pub async fn quarter_health(pool: &PgPool) -> Result<QuarterHealthResponse, AppE
                 animal_id: id,
                 animal_name: name,
                 life_number: ln,
-                lf_conductivity: Some((values[0] * 100.0).round() / 100.0),
-                lr_conductivity: Some((values[1] * 100.0).round() / 100.0),
-                rf_conductivity: Some((values[2] * 100.0).round() / 100.0),
-                rr_conductivity: Some((values[3] * 100.0).round() / 100.0),
-                avg_conductivity: Some((avg * 100.0).round() / 100.0),
-                max_asymmetry: Some((max_asym * 100.0).round() / 100.0),
+                lf_conductivity: Some(round2(values[0])),
+                lr_conductivity: Some(round2(values[1])),
+                rf_conductivity: Some(round2(values[2])),
+                rr_conductivity: Some(round2(values[3])),
+                avg_conductivity: Some(round2(avg)),
+                max_asymmetry: Some(round2(max_asym)),
                 worst_quarter: Some(names[worst].to_string()),
                 risk_level: risk_level.to_string(),
             })
@@ -1240,9 +1281,9 @@ pub async fn lifetime_value(pool: &PgPool) -> Result<LifetimeValueResponse, AppE
                 lactation_count: lac_count,
                 total_milk_produced: total_milk,
                 estimated_remaining_lactations: remaining,
-                projected_milk_value: Some((proj_milk_val * 100.0).round() / 100.0),
-                projected_feed_cost: Some((proj_feed * 100.0).round() / 100.0),
-                projected_net_value: Some((net * 100.0).round() / 100.0),
+                projected_milk_value: Some(round2(proj_milk_val)),
+                projected_feed_cost: Some(round2(proj_feed)),
+                projected_net_value: Some(round2(net)),
                 recommendation: recommendation.to_string(),
             }
         })
@@ -1366,7 +1407,7 @@ pub async fn estrus_detection(pool: &PgPool) -> Result<EstrusResponse, AppError>
         predictions.push(EstrusPrediction {
             animal_id: id,
             animal_name: name,
-            estrus_probability: (score * 100.0).round() / 100.0,
+            estrus_probability: round2(score),
             status: status.to_string(),
             contributing_signals: signals,
             optimal_window: window,
@@ -1477,7 +1518,7 @@ pub async fn equipment_anomaly(pool: &PgPool) -> Result<EquipmentAnomalyResponse
             animal_id: id,
             animal_name: name,
             is_anomaly,
-            anomaly_score: (score * 100.0).round() / 100.0,
+            anomaly_score: round2(score),
             severity: severity.to_string(),
             flags,
             device_address: device,
@@ -1560,9 +1601,9 @@ pub async fn feed_recommendation(pool: &PgPool) -> Result<FeedRecommendationResp
         recommendations.push(FeedRecommendationEntry {
             animal_id: id,
             animal_name: name,
-            current_feed_avg: (current_feed * 100.0).round() / 100.0,
-            recommended_feed: (recommended * 100.0).round() / 100.0,
-            difference_kg: (diff * 100.0).round() / 100.0,
+            current_feed_avg: round2(current_feed),
+            recommended_feed: round2(recommended),
+            difference_kg: round2(diff),
             suggestion,
             dim_days: dim as i32,
             lactation_number: lac_n as i32,
@@ -1677,10 +1718,10 @@ pub async fn ketosis_warning(pool: &PgPool) -> Result<KetosisWarningResponse, Ap
         predictions.push(KetosisWarningEntry {
             animal_id: id,
             animal_name: name,
-            risk_probability: (risk * 100.0).round() / 100.0,
+            risk_probability: round2(risk),
             risk_type,
             severity: severity.to_string(),
-            fpr_current: (fpr * 100.0).round() / 100.0,
+            fpr_current: round2(fpr),
             fpr_trend: fpr_trend.unwrap_or(0.0),
             contributing_factors: factors,
             model_version: "rule-based-v1".to_string(),
