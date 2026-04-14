@@ -1,5 +1,14 @@
 import { api, buildQuery } from './client';
 
+export interface CowBase {
+	animal_id: number;
+	animal_name: string | null;
+}
+
+export interface CowWithLife extends CowBase {
+	life_number: string | null;
+}
+
 export interface LactationAvg {
 	lac: number;
 	avg_milk: number | null;
@@ -162,10 +171,7 @@ export function getLactationCurves(animalId?: number, signal?: AbortSignal) {
 	);
 }
 
-export interface CowHealthIndex {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface CowHealthIndex extends CowWithLife {
 	health_score: number;
 	milk_deviation_zscore: number | null;
 	rumination_deviation_zscore: number | null;
@@ -183,10 +189,7 @@ export function getHealthIndex(signal?: AbortSignal) {
 	return api<HealthIndexResponse>('/analytics/health-index', { signal });
 }
 
-export interface CowFertilityWindow {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface CowFertilityWindow extends CowWithLife {
 	days_since_calving: number | null;
 	activity_signal: number | null;
 	rumination_signal: number | null;
@@ -203,10 +206,7 @@ export function getFertilityWindow(signal?: AbortSignal) {
 	return api<FertilityWindowResponse>('/analytics/fertility-window', { signal });
 }
 
-export interface CowProfitability {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface CowProfitability extends CowWithLife {
 	avg_daily_milk: number | null;
 	avg_daily_feed: number | null;
 	estimated_milk_revenue_day: number | null;
@@ -253,10 +253,7 @@ export function getSeasonal(signal?: AbortSignal) {
 	return api<SeasonalResponse>('/analytics/seasonal', { signal });
 }
 
-export interface MastitisRiskEntry {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface MastitisRiskEntry extends CowWithLife {
 	risk_score: number;
 	risk_level: string;
 	contributing_factors: string[];
@@ -271,10 +268,7 @@ export function getMastitisRisk(signal?: AbortSignal) {
 	return api<MastitisRiskResponse>('/analytics/mastitis-risk', { signal });
 }
 
-export interface CullingSurvivalEntry {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface CullingSurvivalEntry extends CowWithLife {
 	expected_days_remaining: number | null;
 	risk_score: number;
 	risk_factors: string[];
@@ -289,10 +283,7 @@ export function getCullingSurvival(signal?: AbortSignal) {
 	return api<CullingSurvivalResponse>('/analytics/culling-survival', { signal });
 }
 
-export interface CowEnergyBalance {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface CowEnergyBalance extends CowWithLife {
 	avg_fat_pct: number | null;
 	avg_protein_pct: number | null;
 	fat_protein_ratio: number | null;
@@ -309,10 +300,7 @@ export function getEnergyBalance(signal?: AbortSignal) {
 	return api<EnergyBalanceResponse>('/analytics/energy-balance', { signal });
 }
 
-export interface CowQuarterHealth {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface CowQuarterHealth extends CowWithLife {
 	lf_conductivity: number | null;
 	lr_conductivity: number | null;
 	rf_conductivity: number | null;
@@ -355,9 +343,7 @@ export function getMilkForecast(animalId: number, days?: number, signal?: AbortS
 	);
 }
 
-export interface ClusterEntry {
-	animal_id: number;
-	animal_name: string | null;
+export interface ClusterEntry extends CowBase {
 	cluster_id: number;
 	cluster_name: string;
 	avg_milk: number;
@@ -380,9 +366,7 @@ export function getCowClusters(days?: number, signal?: AbortSignal) {
 	);
 }
 
-export interface EstrusPrediction {
-	animal_id: number;
-	animal_name: string | null;
+export interface EstrusPrediction extends CowBase {
 	estrus_probability: number;
 	status: string;
 	contributing_signals: string[];
@@ -398,9 +382,7 @@ export function getEstrusDetection(signal?: AbortSignal) {
 	return api<EstrusResponse>('/analytics/estrus', { signal });
 }
 
-export interface EquipmentAnomalyEntry {
-	animal_id: number;
-	animal_name: string | null;
+export interface EquipmentAnomalyEntry extends CowBase {
 	is_anomaly: boolean;
 	anomaly_score: number;
 	severity: string;
@@ -417,9 +399,7 @@ export function getEquipmentAnomaly(signal?: AbortSignal) {
 	return api<EquipmentAnomalyResponse>('/analytics/equipment-anomaly', { signal });
 }
 
-export interface FeedRecommendationEntry {
-	animal_id: number;
-	animal_name: string | null;
+export interface FeedRecommendationEntry extends CowBase {
 	current_feed_avg: number;
 	recommended_feed: number;
 	difference_kg: number;
@@ -437,9 +417,7 @@ export function getFeedRecommendation(signal?: AbortSignal) {
 	return api<FeedRecommendationResponse>('/analytics/feed-recommendation', { signal });
 }
 
-export interface KetosisWarningEntry {
-	animal_id: number;
-	animal_name: string | null;
+export interface KetosisWarningEntry extends CowBase {
 	risk_probability: number;
 	risk_type: string;
 	severity: string;
@@ -457,10 +435,7 @@ export function getKetosisWarning(signal?: AbortSignal) {
 	return api<KetosisWarningResponse>('/analytics/ketosis-warning', { signal });
 }
 
-export interface CowFeedEfficiency {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface CowFeedEfficiency extends CowWithLife {
 	avg_daily_milk: number | null;
 	avg_daily_feed: number | null;
 	feed_efficiency: number | null;
@@ -477,10 +452,7 @@ export function getFeedEfficiency(signal?: AbortSignal) {
 	return api<FeedEfficiencyResponse>('/analytics/feed-efficiency', { signal });
 }
 
-export interface DryOffEntry {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface DryOffEntry extends CowWithLife {
 	expected_calving_date: string | null;
 	current_daily_milk: number | null;
 	recommended_dry_off_date: string | null;
@@ -497,10 +469,7 @@ export function getDryOffOptimizer(signal?: AbortSignal) {
 	return api<DryOffOptimizerResponse>('/analytics/dry-off-optimizer', { signal });
 }
 
-export interface LifetimeValueEntry {
-	animal_id: number;
-	animal_name: string | null;
-	life_number: string | null;
+export interface LifetimeValueEntry extends CowWithLife {
 	age_years: number | null;
 	lactation_count: number;
 	total_milk_produced: number | null;

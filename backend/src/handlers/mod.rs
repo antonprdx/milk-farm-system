@@ -12,6 +12,7 @@ pub(crate) mod milk;
 pub(crate) mod reports;
 pub(crate) mod reproduction;
 pub(crate) mod settings;
+pub(crate) mod vet;
 
 use axum::Router;
 
@@ -37,4 +38,5 @@ pub fn routes() -> Router<AppState> {
         .merge(bulk_tank::routes())
         .merge(analytics::routes())
         .merge(lely::routes())
+        .merge(vet::routes())
 }

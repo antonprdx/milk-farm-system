@@ -24,6 +24,7 @@
 		PanelLeftClose,
 		PanelLeftOpen,
 		X,
+		Stethoscope,
 	} from 'lucide-svelte';
 
 	let {
@@ -49,6 +50,7 @@
 		{ href: '/milk', label: 'Удои', icon: Milk },
 		{ href: '/reproduction', label: 'Воспроизводство', icon: Heart },
 		{ href: '/feed', label: 'Кормление', icon: Wheat },
+		{ href: '/vet', label: 'Вет. журнал', icon: Stethoscope },
 		{ href: '/fitness', label: 'Фитнес', icon: Activity },
 		{ href: '/grazing', label: 'Пастьба', icon: TreePine },
 		{ href: '/bulk-tank', label: 'Танк-охладитель', icon: Container },
