@@ -31,6 +31,6 @@ export const load: PageLoad = async ({ fetch }) => {
 			},
 		};
 	} catch {
-		return { initialData: null };
+		return { initialData: null, error: 'Не удалось подключиться к серверу' };
 	}
 };

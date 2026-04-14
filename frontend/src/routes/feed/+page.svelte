@@ -34,6 +34,8 @@
 	import { rules } from '$lib/utils/validators';
 	import { Pencil, Trash2 } from 'lucide-svelte';
 
+	let { data } = $props();
+
 	type Tab = 'amounts' | 'visits' | 'types' | 'groups';
 
 	let tab = $state<Tab>('amounts');
@@ -52,6 +54,13 @@
 	const crudGroup = useCrudModal();
 	const vType = useFormValidation();
 	const vGroup = useFormValidation();
+
+	let _skipLoad = !!data.initialData;
+	let _hasInitial = $state(!!data.initialData);
+
+	if (data.initialData) {
+		amounts = data.initialData.data;
+	}
 
 	let formType = $state<CreateFeedType>({
 		number_of_feed_type: 1,
@@ -255,6 +264,11 @@
 	}
 
 	$effect(() => {
+		if (_skipLoad) {
+			_skipLoad = false;
+			return;
+		}
+		_hasInitial = false;
 		list.page;
 		load();
 	});
@@ -286,6 +300,7 @@
 	/>
 {/if}
 
+<ErrorAlert message={data.error} />
 <ErrorAlert message={list.error} />
 
 {#if tab === 'amounts'}
@@ -297,7 +312,8 @@
 			{ key: 'total', label: 'Всего, кг', align: 'right' },
 			{ key: 'rest_feed', label: 'Остаток', align: 'right' },
 		]}
-		loading={list.loading}
+		loading={list.loading && !_hasInitial}
+		initialRows={!!data.initialData && data.initialData.data.length > 0}
 		bind:this={dtAmounts}
 		emptyText="Нет данных"
 	>
@@ -320,8 +336,7 @@
 			</tr>
 		{/each}
 	</DataTable>
-	<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />
-{:else if tab === 'visits'}
+	<Pagination bind:page={list.page} total={_hasInitial && data.initialData ? data.initialData.total : list.total} perPage={list.perPage} />
 	<DataTable
 		columns={[
 			{ key: 'animal_id', label: 'Животное' },
