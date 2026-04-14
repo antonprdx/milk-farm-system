@@ -6,9 +6,10 @@ use serde::Deserialize;
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
 use crate::models::analytics::{
-    AlertsResponse, CullingSurvivalResponse, FeedForecastResponse, FertilityWindowResponse,
-    HealthIndexResponse, KpiResponse, LactationCurveResponse, MastitisRiskResponse,
-    MilkTrendResponse, ProfitabilityResponse, ReproductionForecastResponse, SeasonalResponse,
+    AlertsResponse, CullingSurvivalResponse, EnergyBalanceResponse, FeedForecastResponse,
+    FertilityWindowResponse, HealthIndexResponse, KpiResponse, LactationCurveResponse,
+    MastitisRiskResponse, MilkTrendResponse, ProfitabilityResponse, QuarterHealthResponse,
+    ReproductionForecastResponse, SeasonalResponse,
 };
 use crate::services::{analytics_service, predictive_service};
 use crate::state::AppState;
@@ -48,6 +49,8 @@ pub fn routes() -> Router<AppState> {
         .route("/analytics/seasonal", get(seasonal))
         .route("/analytics/mastitis-risk", get(mastitis_risk))
         .route("/analytics/culling-survival", get(culling_survival))
+        .route("/analytics/energy-balance", get(energy_balance))
+        .route("/analytics/quarter-health", get(quarter_health))
 }
 
 #[utoipa::path(
@@ -289,4 +292,38 @@ async fn culling_survival(
         let data = predictive_service::culling_survival(&state.pool).await?;
         Ok(Json(data))
     }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/energy-balance",
+    responses(
+        (status = 200, description = "Energy balance via fat/protein ratio", body = EnergyBalanceResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn energy_balance(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<EnergyBalanceResponse>, AppError> {
+    let data = predictive_service::energy_balance(&state.pool).await?;
+    Ok(Json(data))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/quarter-health",
+    responses(
+        (status = 200, description = "Per-quarter udder health analysis", body = QuarterHealthResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn quarter_health(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<QuarterHealthResponse>, AppError> {
+    let data = predictive_service::quarter_health(&state.pool).await?;
+    Ok(Json(data))
 }

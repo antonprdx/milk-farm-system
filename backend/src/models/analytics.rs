@@ -246,3 +246,41 @@ pub struct CullingSurvivalEntry {
     pub risk_score: f64,
     pub risk_factors: Vec<String>,
 }
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct EnergyBalanceResponse {
+    pub cows: Vec<CowEnergyBalance>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct CowEnergyBalance {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub avg_fat_pct: Option<f64>,
+    pub avg_protein_pct: Option<f64>,
+    pub fat_protein_ratio: Option<f64>,
+    pub status: String,
+    pub trend_7d: Option<f64>,
+    pub trend_30d: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct QuarterHealthResponse {
+    pub cows: Vec<CowQuarterHealth>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct CowQuarterHealth {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub life_number: Option<String>,
+    pub lf_conductivity: Option<f64>,
+    pub lr_conductivity: Option<f64>,
+    pub rf_conductivity: Option<f64>,
+    pub rr_conductivity: Option<f64>,
+    pub avg_conductivity: Option<f64>,
+    pub max_asymmetry: Option<f64>,
+    pub worst_quarter: Option<String>,
+    pub risk_level: String,
+}

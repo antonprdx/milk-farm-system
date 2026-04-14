@@ -902,3 +902,142 @@ pub async fn culling_survival(pool: &PgPool) -> Result<CullingSurvivalResponse, 
         model_version: "rule-based-v1".to_string(),
     })
 }
+
+pub async fn energy_balance(pool: &PgPool) -> Result<EnergyBalanceResponse, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.life_number,
+                recent_7d.fat as fat_7d,
+                recent_7d.protein as protein_7d,
+                recent_30d.fpr_trend as trend_30d
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT AVG(q.fat_percentage)::float8 as fat,
+                    AVG(q.protein_percentage)::float8 as protein
+             FROM milk_quality q
+             WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+         ) recent_7d ON true
+         LEFT JOIN LATERAL (
+             SELECT (recent.fpr / NULLIF(baseline.fpr, 0) - 1)::float8 as fpr_trend
+             FROM (
+                 SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
+                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+             ) recent,
+             (
+                 SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
+                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '30 days'
+                 AND q.date < CURRENT_DATE - INTERVAL '7 days'
+             ) baseline
+         ) recent_30d ON true
+         WHERE a.active = true AND a.gender = 'female'
+         ORDER BY a.name"
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let cows: Vec<CowEnergyBalance> = rows
+        .into_iter()
+        .filter_map(|(id, name, ln, fat, protein, trend_30d)| {
+            let fpr = match (fat, protein) {
+                (Some(f), Some(p)) if p > 0.0 => Some((f / p * 100.0).round() / 100.0),
+                _ => None,
+            };
+            if fpr.is_none() && trend_30d.is_none() {
+                return None;
+            }
+
+            let status = match fpr {
+                Some(r) if r < 1.0 => "ketosis_risk",
+                Some(r) if r > 1.5 => "acidosis_risk",
+                Some(r) if r >= 1.2 && r <= 1.4 => "optimal",
+                Some(_) => "normal",
+                None => "unknown",
+            };
+
+            let trend_7d = fpr;
+
+            Some(CowEnergyBalance {
+                animal_id: id,
+                animal_name: name,
+                life_number: ln,
+                avg_fat_pct: fat.map(|v| (v * 100.0).round() / 100.0),
+                avg_protein_pct: protein.map(|v| (v * 100.0).round() / 100.0),
+                fat_protein_ratio: fpr,
+                status: status.to_string(),
+                trend_7d,
+                trend_30d: trend_30d.map(|v| (v * 100.0).round() / 100.0),
+            })
+        })
+        .collect();
+
+    Ok(EnergyBalanceResponse { cows })
+}
+
+pub async fn quarter_health(pool: &PgPool) -> Result<QuarterHealthResponse, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.life_number,
+                q_avg.lf as lf_cond,
+                q_avg.lr as lr_cond,
+                q_avg.rf as rf_cond,
+                q_avg.rr as rr_cond
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT AVG(v.lf_conductivity)::float8 as lf,
+                    AVG(v.lr_conductivity)::float8 as lr,
+                    AVG(v.rf_conductivity)::float8 as rf,
+                    AVG(v.rr_conductivity)::float8 as rr
+             FROM milk_visit_quality v
+             WHERE v.animal_id = a.id AND v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+         ) q_avg ON true
+         WHERE a.active = true AND a.gender = 'female'
+         ORDER BY a.name"
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let cows: Vec<CowQuarterHealth> = rows
+        .into_iter()
+        .filter_map(|(id, name, ln, lf, lr, rf, rr)| {
+            let values = [lf?, lr?, rf?, rr?];
+            let names = ["LF", "LR", "RF", "RR"];
+            let avg = (values[0] + values[1] + values[2] + values[3]) / 4.0;
+
+            let mut max_asym = 0.0_f64;
+            let mut worst = 0;
+            for i in 0..4 {
+                let asym = (values[i] - avg).abs();
+                if asym > max_asym {
+                    max_asym = asym;
+                    worst = i;
+                }
+            }
+
+            let risk_level = if max_asym > 10.0 {
+                "high"
+            } else if max_asym > 5.0 {
+                "medium"
+            } else if avg > 55.0 {
+                "elevated"
+            } else {
+                "low"
+            };
+
+            Some(CowQuarterHealth {
+                animal_id: id,
+                animal_name: name,
+                life_number: ln,
+                lf_conductivity: Some((values[0] * 100.0).round() / 100.0),
+                lr_conductivity: Some((values[1] * 100.0).round() / 100.0),
+                rf_conductivity: Some((values[2] * 100.0).round() / 100.0),
+                rr_conductivity: Some((values[3] * 100.0).round() / 100.0),
+                avg_conductivity: Some((avg * 100.0).round() / 100.0),
+                max_asymmetry: Some((max_asym * 100.0).round() / 100.0),
+                worst_quarter: Some(names[worst].to_string()),
+                risk_level: risk_level.to_string(),
+            })
+        })
+        .collect();
+
+    Ok(QuarterHealthResponse { cows })
+}
