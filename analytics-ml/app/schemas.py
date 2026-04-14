@@ -62,6 +62,26 @@ class HealthReport(BaseModel):
     database_connected: bool
 
 
+class ClusterRequest(BaseModel):
+    days: int = 90
+
+
+class ClusterEntry(BaseModel):
+    animal_id: int
+    animal_name: str | None
+    cluster_id: int
+    cluster_name: str
+    avg_milk: float
+    avg_rumination: float
+    distance_to_center: float
+    model_version: str
+
+
+class ClusterResponse(BaseModel):
+    clusters: list[ClusterEntry]
+    cluster_names: dict[str, str]
+
+
 class TrainRequest(BaseModel):
     model_name: str
 
@@ -69,5 +89,5 @@ class TrainRequest(BaseModel):
 class TrainResponse(BaseModel):
     model_name: str
     samples: int
-    metrics: dict[str, float]
+    metrics: dict[str, float | dict[str, int]]
     duration_seconds: float
