@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 use crate::errors::AppError;
 use crate::state::AppState;
 
+const ISSUER: &str = "milk-farm";
+const AUDIENCE: &str = "milk-farm-api";
+
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Claims {
     pub sub: String,
@@ -16,6 +19,8 @@ pub struct Claims {
     pub jti: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_type: Option<String>,
+    pub iss: String,
+    pub aud: String,
 }
 
 #[derive(Debug, Clone)]
@@ -25,10 +30,13 @@ pub struct AdminGuard;
 pub struct ClaimsAllowMustChange(pub Claims);
 
 fn decode_token(token: &str, secret: &str) -> Result<Claims, AppError> {
+    let mut validation = Validation::default();
+    validation.set_issuer(&[ISSUER]);
+    validation.set_audience(&[AUDIENCE]);
     decode::<Claims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
-        &Validation::default(),
+        &validation,
     )
     .map(|data| data.claims)
     .map_err(|e| match e.kind() {
@@ -95,6 +103,8 @@ pub fn create_access_token(
         token_type: Some("access".to_string()),
         exp,
         jti: uuid::Uuid::new_v4().to_string(),
+        iss: ISSUER.to_string(),
+        aud: AUDIENCE.to_string(),
     };
     encode(
         &Header::default(),
@@ -118,6 +128,8 @@ pub fn create_refresh_token(
         token_type: Some("refresh".to_string()),
         exp,
         jti: uuid::Uuid::new_v4().to_string(),
+        iss: ISSUER.to_string(),
+        aud: AUDIENCE.to_string(),
     };
     encode(
         &Header::default(),
