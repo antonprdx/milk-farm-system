@@ -12,20 +12,13 @@
 		type AnimalStats,
 	} from '$lib/api/animals';
 	import {
-		getHealthIndex,
-		getMastitisRisk,
-		getEstrusDetection,
+		getAnimalSummary,
 		getMilkForecast,
-		getEnergyBalance,
-		getFeedRecommendation,
-		getKetosisWarning,
-		getLifetimeValue,
-		getCullingSurvival,
-		getCowClusters,
+		type AnimalSummary as AnimalSummaryData,
+		type MilkForecastResponse,
 		type CowHealthIndex,
 		type MastitisRiskEntry,
 		type EstrusPrediction,
-		type MilkForecastResponse,
 		type CowEnergyBalance,
 		type FeedRecommendationEntry,
 		type KetosisWarningEntry,
@@ -103,6 +96,7 @@
 	let lifetimeVal = $state<LifetimeValueEntry | null>(null);
 	let cullingRisk = $state<CullingSurvivalEntry | null>(null);
 	let cowCluster = $state<ClusterEntry | null>(null);
+	let analyticsLoading = $state(true);
 
 	let id = $derived(Number($page.params.id));
 
@@ -319,41 +313,29 @@
 	});
 
 	async function loadAnalytics() {
-		const results = await Promise.allSettled([
-			getHealthIndex(),
-			getMastitisRisk(),
-			getEstrusDetection(),
-			getMilkForecast(id, 30),
-			getEnergyBalance(),
-			getFeedRecommendation(),
-			getKetosisWarning(),
-			getLifetimeValue(),
-			getCullingSurvival(),
-			getCowClusters(),
-		]);
-
-		const [health, mastitis, estrus, forecast, energy, feed, ketosis, lifetime, culling, clusters] = results;
-
-		if (health.status === 'fulfilled')
-			healthIndex = health.value.cows.find((c) => c.animal_id === id) ?? null;
-		if (mastitis.status === 'fulfilled')
-			mastitisRisk = mastitis.value.cows.find((c) => c.animal_id === id) ?? null;
-		if (estrus.status === 'fulfilled')
-			estrusPred = estrus.value.predictions.find((p) => p.animal_id === id) ?? null;
-		if (forecast.status === 'fulfilled' && forecast.value.forecast.length > 0)
-			milkForecast = forecast.value;
-		if (energy.status === 'fulfilled')
-			energyBalance = energy.value.cows.find((c) => c.animal_id === id) ?? null;
-		if (feed.status === 'fulfilled')
-			feedRec = feed.value.recommendations.find((r) => r.animal_id === id) ?? null;
-		if (ketosis.status === 'fulfilled')
-			ketosisWarn = ketosis.value.predictions.find((p) => p.animal_id === id) ?? null;
-		if (lifetime.status === 'fulfilled')
-			lifetimeVal = lifetime.value.cows.find((c) => c.animal_id === id) ?? null;
-		if (culling.status === 'fulfilled')
-			cullingRisk = culling.value.cows.find((c) => c.animal_id === id) ?? null;
-		if (clusters.status === 'fulfilled')
-			cowCluster = clusters.value.clusters.find((c) => c.animal_id === id) ?? null;
+		try {
+			analyticsLoading = true;
+			const [summary, forecast] = await Promise.all([
+				getAnimalSummary(id),
+				getMilkForecast(id, 30).catch(() => null),
+			]);
+			healthIndex = summary.health_index;
+			mastitisRisk = summary.mastitis_risk;
+			estrusPred = summary.estrus;
+			energyBalance = summary.energy_balance;
+			feedRec = summary.feed_recommendation;
+			ketosisWarn = summary.ketosis_warning;
+			lifetimeVal = summary.lifetime_value;
+			cullingRisk = summary.culling_risk;
+			cowCluster = summary.cluster;
+			if (forecast && forecast.forecast.length > 0) {
+				milkForecast = forecast;
+			}
+		} catch (e) {
+			console.warn('Failed to load analytics summary', e);
+		} finally {
+			analyticsLoading = false;
+		}
 	}
 
 	function buildForecastChart() {
@@ -657,7 +639,29 @@
 	{/if}
 
 	<!-- Predictive Analytics -->
-	{#if healthIndex || mastitisRisk || estrusPred || ketosisWarn || cullingRisk || energyBalance || feedRec || lifetimeVal || cowCluster || milkForecast}
+	{#if analyticsLoading}
+		<div class="mb-6">
+			<h2
+				class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2"
+			>
+				<TrendingUp size={20} class="text-indigo-500" />
+				Предиктивная аналитика
+			</h2>
+			<div
+				class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+			>
+				{#each Array(5) as _, i (i)}
+					<div
+						class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 animate-pulse"
+					>
+						<div class="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/2 mb-2"></div>
+						<div class="h-6 bg-slate-200 dark:bg-slate-700 rounded w-2/3 mb-1"></div>
+						<div class="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/3"></div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{:else if healthIndex || mastitisRisk || estrusPred || ketosisWarn || cullingRisk || energyBalance || feedRec || lifetimeVal || cowCluster || milkForecast}
 		<div class="mb-6">
 			<h2
 				class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2"

@@ -518,3 +518,20 @@ export interface LifetimeValueResponse {
 export function getLifetimeValue(signal?: AbortSignal) {
 	return api<LifetimeValueResponse>('/analytics/lifetime-value', { signal });
 }
+
+export interface AnimalSummary {
+	animal_id: number;
+	health_index: CowHealthIndex | null;
+	mastitis_risk: MastitisRiskEntry | null;
+	estrus: EstrusPrediction | null;
+	energy_balance: CowEnergyBalance | null;
+	feed_recommendation: FeedRecommendationEntry | null;
+	ketosis_warning: KetosisWarningEntry | null;
+	lifetime_value: LifetimeValueEntry | null;
+	culling_risk: CullingSurvivalEntry | null;
+	cluster: ClusterEntry | null;
+}
+
+export function getAnimalSummary(animalId: number, signal?: AbortSignal) {
+	return api<AnimalSummary>(`/analytics/animal-summary?animal_id=${animalId}`, { signal });
+}
