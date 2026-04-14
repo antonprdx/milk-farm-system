@@ -1,5 +1,5 @@
 use axum::extract::{Path, Query, State};
-use axum::routing::{get, put};
+use axum::routing::get;
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
@@ -13,7 +13,27 @@ use crate::state::AppState;
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/contacts", get(list).post(create))
-        .route("/contacts/{id}", put(update).delete(remove))
+        .route("/contacts/{id}", get(get_by_id).put(update).delete(remove))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/contacts/{id}",
+    responses(
+        (status = 200, description = "Contact details", body = serde_json::Value),
+        (status = 404, description = "Not found"),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(("id" = i32, Path, description = "Contact ID")),
+    security(("cookie_auth" = []))
+)]
+async fn get_by_id(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Path(id): Path<i32>,
+) -> Result<Json<Value>, AppError> {
+    let item = contact_service::get_by_id(&state.pool, id).await?;
+    Ok(Json(json!({ "data": item })))
 }
 
 #[utoipa::path(

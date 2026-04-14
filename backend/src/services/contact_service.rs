@@ -21,6 +21,15 @@ pub async fn count(pool: &PgPool) -> Result<i64, AppError> {
     Ok(row.0)
 }
 
+pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Contact, AppError> {
+    sqlx::query_as::<_, Contact>("SELECT * FROM contacts WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(AppError::Database)?
+        .ok_or_else(|| AppError::NotFound("Контакт не найден".into()))
+}
+
 pub async fn create(pool: &PgPool, req: &CreateContact) -> Result<Contact, AppError> {
     sqlx::query_as::<_, Contact>(
         "INSERT INTO contacts (name, contact_type_id, farm_number, active, phone_cell,
