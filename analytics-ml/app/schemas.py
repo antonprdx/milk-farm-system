@@ -91,3 +91,80 @@ class TrainResponse(BaseModel):
     samples: int
     metrics: dict[str, float | dict[str, int]]
     duration_seconds: float
+
+
+class EstrusRequest(BaseModel):
+    animal_id: int | None = None
+
+
+class EstrusPrediction(BaseModel):
+    animal_id: int
+    animal_name: str | None
+    estrus_probability: float
+    status: str
+    contributing_signals: list[str]
+    optimal_window: str | None
+    model_version: str
+
+
+class EstrusResponse(BaseModel):
+    predictions: list[EstrusPrediction]
+
+
+class EquipmentAnomalyRequest(BaseModel):
+    pass
+
+
+class EquipmentAnomalyEntry(BaseModel):
+    animal_id: int
+    animal_name: str | None
+    is_anomaly: bool
+    anomaly_score: float
+    severity: str
+    flags: list[str]
+    device_address: int | None
+    model_version: str
+
+
+class EquipmentAnomalyResponse(BaseModel):
+    entries: list[EquipmentAnomalyEntry]
+
+
+class FeedRecommendationRequest(BaseModel):
+    animal_id: int | None = None
+
+
+class FeedRecommendationEntry(BaseModel):
+    animal_id: int
+    animal_name: str | None
+    current_feed_avg: float
+    recommended_feed: float
+    difference_kg: float
+    suggestion: str
+    dim_days: int
+    lactation_number: int
+    model_version: str
+
+
+class FeedRecommendationResponse(BaseModel):
+    recommendations: list[FeedRecommendationEntry]
+
+
+class KetosisWarningRequest(BaseModel):
+    animal_id: int | None = None
+
+
+class KetosisWarningEntry(BaseModel):
+    animal_id: int
+    animal_name: str | None
+    risk_probability: float
+    risk_type: str
+    severity: str
+    fpr_current: float
+    fpr_trend: float
+    contributing_factors: list[str]
+    model_version: str
+
+
+class KetosisWarningResponse(BaseModel):
+    predictions: list[KetosisWarningEntry]
