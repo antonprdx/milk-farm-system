@@ -259,16 +259,24 @@
 	}
 
 	function trendLabel(dir: string): string {
+		if (dir === 'significant_up') return 'Значительный рост';
 		if (dir === 'up') return 'Рост';
+		if (dir === 'significant_down') return 'Значительное снижение';
 		if (dir === 'down') return 'Снижение';
 		if (dir === 'stable') return 'Стабильно';
 		return 'Мало данных';
 	}
 
 	function trendColor(dir: string): string {
-		if (dir === 'up') return 'text-green-600 dark:text-green-400';
-		if (dir === 'down') return 'text-red-600 dark:text-red-400';
+		if (dir === 'significant_up' || dir === 'up') return 'text-green-600 dark:text-green-400';
+		if (dir === 'significant_down' || dir === 'down') return 'text-red-600 dark:text-red-400';
 		return 'text-slate-600 dark:text-slate-400';
+	}
+
+	function mapeColor(mape: number): string {
+		if (mape < 10) return 'text-green-500';
+		if (mape < 20) return 'text-yellow-500';
+		return 'text-red-500';
 	}
 
 	function riskBadge(score: number): string {
@@ -326,6 +334,41 @@
 
 		trendChart = new Chart(trendCanvas, {
 			type: 'line',
+			plugins: [
+				{
+					id: 'structuralBreaks',
+					afterDraw(chart) {
+						if (!trend?.structural_breaks?.length) return;
+						const ctx = chart.ctx;
+						const yAxis = chart.scales.y;
+						const labels = chart.data.labels;
+						for (const bp of trend.structural_breaks) {
+							if (bp.index >= labels.length) continue;
+							const x = chart.scales.x.getPixelForValue(bp.index);
+							ctx.save();
+							ctx.beginPath();
+							ctx.moveTo(x, yAxis.top);
+							ctx.lineTo(x, yAxis.bottom);
+							ctx.lineWidth = 2;
+							ctx.strokeStyle = isDark
+								? 'rgba(251, 146, 60, 0.7)'
+								: 'rgba(234, 88, 12, 0.7)';
+							ctx.setLineDash([4, 4]);
+							ctx.stroke();
+							ctx.fillStyle = isDark
+								? 'rgba(251, 146, 60, 0.9)'
+								: 'rgba(234, 88, 12, 0.9)';
+							ctx.font = '10px sans-serif';
+							ctx.fillText(
+								bp.direction === 'increase' ? '↑' : '↓',
+								x + 3,
+								yAxis.top + 12,
+							);
+							ctx.restore();
+						}
+					},
+				},
+			],
 			data: {
 				labels,
 				datasets: [
@@ -708,11 +751,32 @@
 			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700 mb-6"
 		>
 			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-base font-semibold text-slate-700 dark:text-slate-300">Тренд надоя</h2>
+				<div class="flex items-center gap-2">
+					<h2 class="text-base font-semibold text-slate-700 dark:text-slate-300">
+						Тренд надоя
+					</h2>
+					{#if trend && trend.model_type !== 'insufficient'}
+						<span
+							class="text-xs px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+						>
+							{trend.model_type === 'holt_winters' ? 'Хольт-Винтерс' : 'Хольт'}
+						</span>
+					{/if}
+				</div>
 				{#if trend}
-					<span class="text-sm font-medium {trendColor(trend.trend_direction)}"
-						>{trendLabel(trend.trend_direction)}</span
-					>
+					<div class="flex items-center gap-2">
+						<span class="text-sm font-medium {trendColor(trend.trend_direction)}">
+							{trendLabel(trend.trend_direction)}
+							{#if trend.trend_percent !== 0}
+								({trend.trend_percent > 0 ? '+' : ''}{trend.trend_percent.toFixed(1)}%)
+							{/if}
+						</span>
+						{#if trend.model_type !== 'insufficient'}
+							<span class="text-xs {mapeColor(trend.mape)}" title="MAPE — средняя абсолютная ошибка в %">
+								MAPE: {trend.mape.toFixed(1)}%
+							</span>
+						{/if}
+					</div>
 				{/if}
 			</div>
 			<div class="relative h-72">

@@ -59,10 +59,22 @@ export interface ForecastPoint {
 	upper: number;
 }
 
+export interface BreakPoint {
+	date: string;
+	index: number;
+	direction: string;
+	magnitude: number;
+}
+
 export interface MilkTrendResponse {
 	daily: DailyMilkPoint[];
 	forecast: ForecastPoint[];
 	trend_direction: string;
+	trend_percent: number;
+	confidence: number;
+	mape: number;
+	model_type: string;
+	structural_breaks: BreakPoint[];
 }
 
 export interface ExpectedCalving {

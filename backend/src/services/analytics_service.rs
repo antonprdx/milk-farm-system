@@ -404,6 +404,268 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
     })
 }
 
+fn r2(v: f64) -> f64 {
+    (v * 100.0).round() / 100.0
+}
+
+fn interpolate_nans(data: &mut [f64]) {
+    for i in 0..data.len() {
+        if data[i].is_nan() {
+            let left = (0..i).rev().find(|&j| !data[j].is_nan());
+            let right = (i + 1..data.len()).find(|&j| !data[j].is_nan());
+            match (left, right) {
+                (Some(l), Some(r)) => {
+                    let t = (i - l) as f64 / (r - l) as f64;
+                    data[i] = data[l] * (1.0 - t) + data[r] * t;
+                }
+                (Some(l), None) => data[i] = data[l],
+                (None, Some(r)) => data[i] = data[r],
+                (None, None) => data[i] = 0.0,
+            }
+        }
+    }
+}
+
+fn clean_outliers(values: &[f64]) -> Vec<f64> {
+    if values.len() < 5 {
+        return values.to_vec();
+    }
+    let mut cleaned: Vec<f64> = values.to_vec();
+    for v in &mut cleaned {
+        if *v <= 0.0 {
+            *v = f64::NAN;
+        }
+    }
+    interpolate_nans(&mut cleaned);
+
+    let mut sorted: Vec<f64> = cleaned.iter().copied().filter(|v| !v.is_nan()).collect();
+    if sorted.len() < 5 {
+        return cleaned;
+    }
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let q1 = sorted[sorted.len() / 4];
+    let q3 = sorted[3 * sorted.len() / 4];
+    let iqr = q3 - q1;
+    if iqr < 1e-10 {
+        return cleaned;
+    }
+    let lo = q1 - 1.5 * iqr;
+    let hi = q3 + 1.5 * iqr;
+    for v in &mut cleaned {
+        if *v < lo || *v > hi {
+            *v = f64::NAN;
+        }
+    }
+    interpolate_nans(&mut cleaned);
+    cleaned
+}
+
+fn holt_fit(values: &[f64], alpha: f64, beta: f64) -> (f64, f64, Vec<f64>) {
+    let n = values.len();
+    if n == 0 {
+        return (0.0, 0.0, vec![]);
+    }
+    let mut level = values[0];
+    let mut trend = if n > 1 { values[1] - values[0] } else { 0.0 };
+    let mut fitted = vec![level];
+    for t in 1..n {
+        fitted.push(level + trend);
+        let new_level = alpha * values[t] + (1.0 - alpha) * (level + trend);
+        let new_trend = beta * (new_level - level) + (1.0 - beta) * trend;
+        level = new_level;
+        trend = new_trend;
+    }
+    (level, trend, fitted)
+}
+
+struct HWResult {
+    level: f64,
+    trend: f64,
+    seasonal: Vec<f64>,
+    fitted: Vec<f64>,
+}
+
+fn holt_winters_fit(
+    values: &[f64],
+    alpha: f64,
+    beta: f64,
+    gamma: f64,
+    period: usize,
+) -> HWResult {
+    let n = values.len();
+    let cycle_avg: f64 = values[0..period].iter().sum::<f64>() / period as f64;
+    let mut level = cycle_avg;
+    let mut trend = if n >= 2 * period {
+        let avg2: f64 = values[period..2 * period].iter().sum::<f64>() / period as f64;
+        (avg2 - cycle_avg) / period as f64
+    } else {
+        0.0
+    };
+    let mut seasonal: Vec<f64> = (0..period).map(|i| values[i] - cycle_avg).collect();
+    let mut fitted = Vec::with_capacity(n);
+    for t in 0..n {
+        let s_idx = t % period;
+        let s_val = seasonal[s_idx];
+        fitted.push(level + trend + s_val);
+        let new_level = alpha * (values[t] - s_val) + (1.0 - alpha) * (level + trend);
+        let new_trend = beta * (new_level - level) + (1.0 - beta) * trend;
+        let new_seasonal = gamma * (values[t] - new_level) + (1.0 - gamma) * s_val;
+        level = new_level;
+        trend = new_trend;
+        seasonal[s_idx] = new_seasonal;
+    }
+    HWResult {
+        level,
+        trend,
+        seasonal,
+        fitted,
+    }
+}
+
+fn optimize_holt(values: &[f64]) -> (f64, f64) {
+    let n = values.len();
+    let train_len = ((n as f64) * 0.75) as usize;
+    if train_len < 3 {
+        return (0.3, 0.1);
+    }
+    let train = &values[..train_len];
+    let val = &values[train_len..];
+    let mut best_sse = f64::INFINITY;
+    let mut best = (0.3, 0.1);
+    for ai in 1..10u32 {
+        let alpha = ai as f64 * 0.1;
+        for bi in 1..6u32 {
+            let beta = bi as f64 * 0.05;
+            let (level, trend, _) = holt_fit(train, alpha, beta);
+            let mut sse = 0.0;
+            for h in 0..val.len() {
+                let pred = level + (h + 1) as f64 * trend;
+                let err = val[h] - pred;
+                sse += err * err;
+            }
+            if sse < best_sse {
+                best_sse = sse;
+                best = (alpha, beta);
+            }
+        }
+    }
+    best
+}
+
+fn optimize_hw(values: &[f64], period: usize) -> (f64, f64, f64) {
+    let n = values.len();
+    let train_len = ((n as f64) * 0.8) as usize;
+    if train_len < 2 * period {
+        return (0.3, 0.1, 0.1);
+    }
+    let train = &values[..train_len];
+    let val = &values[train_len..];
+    let mut best_sse = f64::INFINITY;
+    let mut best = (0.3, 0.1, 0.1);
+    for ai in 1..10u32 {
+        let alpha = ai as f64 * 0.1;
+        for bi in 1..6u32 {
+            let beta = bi as f64 * 0.05;
+            for gi in 1..6u32 {
+                let gamma = gi as f64 * 0.05;
+                let model = holt_winters_fit(train, alpha, beta, gamma, period);
+                let mut sse = 0.0;
+                for h in 0..val.len() {
+                    let s_idx = (train_len + h) % period;
+                    let pred =
+                        model.level + (h + 1) as f64 * model.trend + model.seasonal[s_idx];
+                    let err = val[h] - pred;
+                    sse += err * err;
+                }
+                if sse < best_sse {
+                    best_sse = sse;
+                    best = (alpha, beta, gamma);
+                }
+            }
+        }
+    }
+    best
+}
+
+fn compute_rmse(residuals: &[f64]) -> f64 {
+    let skip = 2.min(residuals.len().saturating_sub(1));
+    if residuals.len() <= skip {
+        return 0.0;
+    }
+    let sse: f64 = residuals[skip..].iter().map(|r| r * r).sum();
+    (sse / (residuals.len() - skip) as f64).sqrt()
+}
+
+fn compute_mape(actual: &[f64], fitted: &[f64]) -> f64 {
+    let skip = 2.min(actual.len().saturating_sub(1));
+    if actual.len() <= skip {
+        return 100.0;
+    }
+    let n = actual.len() - skip;
+    let sum: f64 = actual[skip..]
+        .iter()
+        .zip(fitted[skip..].iter())
+        .map(|(a, f)| {
+            if a.abs() > 1e-10 {
+                (a - f).abs() / a.abs()
+            } else {
+                0.0
+            }
+        })
+        .sum();
+    (sum / n as f64) * 100.0
+}
+
+fn detect_structural_breaks(values: &[f64], dates: &[String]) -> Vec<BreakPoint> {
+    let n = values.len();
+    if n < 14 {
+        return vec![];
+    }
+    let window = 7.min(n / 3);
+    let mut breaks = Vec::new();
+    let mut last_idx = 0;
+    for i in window..(n - window) {
+        let before: f64 = values[(i - window)..i].iter().sum::<f64>() / window as f64;
+        let after: f64 = values[i..(i + window)].iter().sum::<f64>() / window as f64;
+        let b_var: f64 = values[(i - window)..i]
+            .iter()
+            .map(|v| (v - before).powi(2))
+            .sum::<f64>()
+            / window as f64;
+        let a_var: f64 = values[i..(i + window)]
+            .iter()
+            .map(|v| (v - after).powi(2))
+            .sum::<f64>()
+            / window as f64;
+        let pooled = ((b_var + a_var) / 2.0).sqrt();
+        if pooled < 1e-10 {
+            continue;
+        }
+        let diff = after - before;
+        let t_stat = diff.abs() / (pooled * (2.0 / window as f64).sqrt());
+        if t_stat > 3.0 && i > last_idx + window {
+            let direction = if diff > 0.0 {
+                "increase"
+            } else {
+                "decrease"
+            };
+            let mag = if before.abs() > 1e-10 {
+                (diff / before * 100.0).abs()
+            } else {
+                0.0
+            };
+            breaks.push(BreakPoint {
+                date: dates.get(i).cloned().unwrap_or_default(),
+                index: i as i32,
+                direction: direction.to_string(),
+                magnitude: r2(mag),
+            });
+            last_idx = i;
+        }
+    }
+    breaks
+}
+
 pub async fn milk_trend(
     pool: &PgPool,
     days: i64,
@@ -429,65 +691,107 @@ pub async fn milk_trend(
         })
         .collect();
 
-    let values: Vec<f64> = daily_pts.iter().filter_map(|p| p.total_milk).collect();
+    let (dates, raw_values): (Vec<String>, Vec<f64>) = daily_pts
+        .iter()
+        .filter_map(|p| p.total_milk.map(|v| (p.date.clone(), v)))
+        .unzip();
 
-    let (forecast, direction) = if values.len() >= 7 {
-        let (level, trend) = holt_forecast(&values, 0.3, 0.1);
-        let mut fc = Vec::new();
-        let last_date = daily_pts
-            .last()
-            .and_then(|p| chrono::NaiveDate::parse_from_str(&p.date, "%Y-%m-%d").ok());
-        if let Some(ld) = last_date {
-            for h in 1..=forecast_days {
-                let pred = level + h as f64 * trend;
-                let d = ld + chrono::Duration::days(h);
-                let err_margin = pred * 0.1 * (1.0 + h as f64 * 0.05);
-                fc.push(ForecastPoint {
-                    date: d.format("%Y-%m-%d").to_string(),
-                    predicted: (pred * 100.0).round() / 100.0,
-                    lower: ((pred - err_margin) * 100.0).round() / 100.0,
-                    upper: ((pred + err_margin) * 100.0).round() / 100.0,
-                });
-            }
-        }
-        let dir = if trend > 1.0 {
-            "up"
-        } else if trend < -1.0 {
-            "down"
-        } else {
-            "stable"
-        };
-        (fc, dir.to_string())
+    if raw_values.len() < 7 {
+        return Ok(MilkTrendResponse {
+            daily: daily_pts,
+            forecast: vec![],
+            trend_direction: "insufficient_data".to_string(),
+            trend_percent: 0.0,
+            confidence: 0.0,
+            mape: 100.0,
+            model_type: "insufficient".to_string(),
+            structural_breaks: vec![],
+        });
+    }
+
+    let cleaned = clean_outliers(&raw_values);
+    let period = 7;
+
+    let (level, trend, seasonal, fitted, model_type) = if cleaned.len() >= 2 * period {
+        let (alpha, beta, gamma) = optimize_hw(&cleaned, period);
+        let model = holt_winters_fit(&cleaned, alpha, beta, gamma, period);
+        (
+            model.level,
+            model.trend,
+            model.seasonal,
+            model.fitted,
+            "holt_winters",
+        )
     } else {
-        (Vec::new(), "insufficient_data".to_string())
+        let (alpha, beta) = optimize_holt(&cleaned);
+        let (level, trend, fitted) = holt_fit(&cleaned, alpha, beta);
+        (level, trend, vec![], fitted, "holt")
     };
 
-    Ok(MilkTrendResponse {
-        daily: daily_pts,
-        forecast,
-        trend_direction: direction,
-    })
-}
+    let residuals: Vec<f64> = cleaned
+        .iter()
+        .zip(fitted.iter())
+        .map(|(a, f)| a - f)
+        .collect();
+    let rmse = compute_rmse(&residuals);
+    let mape_val = compute_mape(&cleaned, &fitted);
 
-fn holt_forecast(values: &[f64], alpha: f64, beta: f64) -> (f64, f64) {
-    if values.is_empty() {
-        return (0.0, 0.0);
+    let last_date = daily_pts
+        .last()
+        .and_then(|p| chrono::NaiveDate::parse_from_str(&p.date, "%Y-%m-%d").ok());
+
+    let z = 1.96;
+    let mut fc = Vec::new();
+    if let Some(ld) = last_date {
+        for h in 1..=forecast_days {
+            let t_idx = cleaned.len() + h as usize - 1;
+            let s_comp = if !seasonal.is_empty() {
+                seasonal[t_idx % period]
+            } else {
+                0.0
+            };
+            let pred = level + h as f64 * trend + s_comp;
+            let err = z * rmse * (1.0 + h as f64 * 0.1).sqrt();
+            fc.push(ForecastPoint {
+                date: (ld + chrono::Duration::days(h))
+                    .format("%Y-%m-%d")
+                    .to_string(),
+                predicted: r2(pred),
+                lower: r2(pred - err),
+                upper: r2(pred + err),
+            });
+        }
     }
-    let mut level = values[0];
-    let mut trend = if values.len() > 1 {
-        values[1] - values[0]
+
+    let trend_pct = if level.abs() > 1e-10 {
+        (trend / level * 100.0).clamp(-100.0, 100.0)
     } else {
         0.0
     };
+    let direction = if trend_pct > 5.0 {
+        "significant_up"
+    } else if trend_pct > 2.0 {
+        "up"
+    } else if trend_pct < -5.0 {
+        "significant_down"
+    } else if trend_pct < -2.0 {
+        "down"
+    } else {
+        "stable"
+    };
 
-    for val in values.iter().skip(1) {
-        let new_level = alpha * val + (1.0 - alpha) * (level + trend);
-        let new_trend = beta * (new_level - level) + (1.0 - beta) * trend;
-        level = new_level;
-        trend = new_trend;
-    }
+    let structural_breaks = detect_structural_breaks(&cleaned, &dates);
 
-    (level, trend)
+    Ok(MilkTrendResponse {
+        daily: daily_pts,
+        forecast: fc,
+        trend_direction: direction.to_string(),
+        trend_percent: r2(trend_pct),
+        confidence: r2(rmse),
+        mape: r2(mape_val),
+        model_type: model_type.to_string(),
+        structural_breaks,
+    })
 }
 
 #[allow(clippy::type_complexity)]
@@ -768,6 +1072,8 @@ mod tests {
         assert!(res.daily.is_empty());
         assert!(res.forecast.is_empty());
         assert_eq!(res.trend_direction, "insufficient_data");
+        assert_eq!(res.model_type, "insufficient");
+        assert!(res.structural_breaks.is_empty());
     }
 
     #[sqlx::test(migrations = "./migrations")]
