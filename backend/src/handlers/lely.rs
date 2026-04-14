@@ -243,6 +243,7 @@ async fn trigger_sync(
         pool: state.pool.clone(),
         config: state.config.clone(),
         lely: state.lely.clone(),
+        ml: state.ml.clone(),
     });
 
     tokio::spawn(async move {

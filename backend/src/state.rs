@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use tokio_util::sync::CancellationToken;
 
 use crate::config::{Config, LelyConfig};
+use crate::services::ml_client::MlClient;
 
 pub type AppState = Arc<AppStateInner>;
 
@@ -72,4 +73,5 @@ pub struct AppStateInner {
     pub pool: PgPool,
     pub config: Config,
     pub lely: Arc<LelyRuntime>,
+    pub ml: Option<MlClient>,
 }

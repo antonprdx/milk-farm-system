@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use milk_farm_backend::{
-    config, create_app, seed_admin, services::system_settings_service, state::AppStateInner,
+    config, create_app, seed_admin, services::{ml_client::MlClient, system_settings_service}, state::AppStateInner,
 };
 
 use tracing_subscriber::EnvFilter;
@@ -61,6 +61,7 @@ async fn main() -> anyhow::Result<()> {
         pool,
         config: cfg.clone(),
         lely: Arc::new(lely_runtime),
+        ml: MlClient::from_env(),
     });
 
     {
