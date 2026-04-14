@@ -224,7 +224,7 @@ pub async fn health_index(pool: &PgPool) -> Result<HealthIndexResponse, AppError
     .await
     .map_err(AppError::Database)?;
 
-    let scc_rows: Vec<(i32, f64, f64)> = sqlx::query_as(
+    let scc_rows: Vec<(i32, f64, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, recent.scc, baseline.avg_scc
          FROM animals a
          JOIN LATERAL (
@@ -244,8 +244,8 @@ pub async fn health_index(pool: &PgPool) -> Result<HealthIndexResponse, AppError
 
     let scc_map: std::collections::HashMap<i32, (f64, f64)> = scc_rows
         .into_iter()
-        .filter(|(_, scc, avg)| *scc > 0.0 && *avg > 0.0)
-        .map(|(id, scc, avg)| (id, (scc, avg)))
+        .filter(|(_, scc, avg)| *scc > 0.0 && avg.is_some())
+        .map(|(id, scc, avg)| (id, (scc, avg.unwrap())))
         .collect();
 
     let mut cows = Vec::new();

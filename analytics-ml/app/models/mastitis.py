@@ -51,7 +51,6 @@ def train(df: pd.DataFrame) -> dict:
         colsample_bytree=0.8,
         random_state=42,
         eval_metric="logloss",
-        use_label_encoder=False,
     )
 
     cv_scores = cross_val_score(model, X, y, cv=min(5, max(2, len(np.unique(y)))), scoring="roc_auc")
