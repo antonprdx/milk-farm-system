@@ -1054,26 +1054,6 @@
 				</div>
 			{/if}
 
-			<div class="flex justify-end mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-				<button
-					onclick={async () => {
-						try {
-							lelySyncing = true;
-							await triggerLelySync();
-							toasts.success('Синхронизация запущена');
-						} catch (e) {
-							toasts.error(e instanceof Error ? e.message : 'Ошибка');
-						} finally {
-							lelySyncing = false;
-						}
-					}}
-					disabled={lelySyncing || !lelyConfig?.enabled}
-					class="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-				>
-					<RefreshCw size={14} />
-					{lelySyncing ? 'Запуск...' : 'Синхронизировать'}
-				</button>
-			</div>
 		</div>
 
 		<div
