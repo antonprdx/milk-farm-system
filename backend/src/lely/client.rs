@@ -1,5 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use tokio::sync::Mutex;
 
 use crate::config::LelyConfig;
 use crate::lely::models::*;
@@ -58,7 +60,7 @@ impl LelyClient {
 
     async fn ensure_token(&self) -> Result<String, anyhow::Error> {
         {
-            let lock = self.token.lock().map_err(|e| anyhow::anyhow!("{}", e))?;
+            let lock = self.token.lock().await;
             if let Some((t, created)) = lock.as_ref()
                 && created.elapsed() < Duration::from_secs(3500)
             {
@@ -67,7 +69,7 @@ impl LelyClient {
         }
 
         let new_token = self.authenticate().await?;
-        let mut lock = self.token.lock().map_err(|e| anyhow::anyhow!("{}", e))?;
+        let mut lock = self.token.lock().await;
         *lock = Some((new_token.clone(), Instant::now()));
         Ok(new_token)
     }
