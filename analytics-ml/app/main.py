@@ -21,6 +21,7 @@ from app.schemas import (
     TrainResponse,
 )
 from app.services.data_loader import (
+    async_session,
     check_connection,
     get_session,
     load_culling_features,
@@ -47,7 +48,23 @@ def _check_model(name: str) -> str | None:
 async def lifespan(app: FastAPI):
     _model_timestamps["mastitis"] = _check_model("mastitis")
     _model_timestamps["culling"] = _check_model("culling")
-    logger.info("Analytics ML service started. Model timestamps: %s", _model_timestamps)
+
+    missing = [m for m in ("mastitis", "culling") if _model_timestamps[m] is None]
+    if missing:
+        logger.info("Auto-training missing models: %s", missing)
+        try:
+            async with async_session() as session:
+                for name in missing:
+                    try:
+                        result = await _train_model(name, session)
+                        _model_timestamps[name] = _check_model(name)
+                        logger.info("Auto-trained %s: %s", name, result)
+                    except Exception as e:
+                        logger.warning("Auto-train %s failed: %s", name, e)
+        except Exception as e:
+            logger.warning("Auto-train DB connection failed: %s", e)
+
+    logger.info("Analytics ML service started. Models: %s", _model_timestamps)
     yield
 
 
@@ -122,30 +139,32 @@ async def predict_culling(
     return CullingRiskResponse(predictions=predictions)
 
 
+async def _train_model(name: str, session: AsyncSession) -> dict:
+    if name == "mastitis":
+        df = await load_mastitis_features(session)
+        if df.empty:
+            raise ValueError("No data for mastitis training")
+        return mastitis_model.train(df)
+    elif name == "culling":
+        df = await load_culling_features(session)
+        if df.empty:
+            raise ValueError("No data for culling training")
+        return culling_model.train(df)
+    else:
+        raise ValueError(f"Unknown model: {name}")
+
+
 @app.post("/train", response_model=TrainResponse)
 async def train_model(
     req: TrainRequest,
     session: AsyncSession = Depends(get_session),
 ):
-    if req.model_name == "mastitis":
-        try:
-            df = await load_mastitis_features(session)
-        except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Database error: {e}")
-        if df.empty:
-            raise HTTPException(status_code=422, detail="No data available for training")
-        result = mastitis_model.train(df)
-        _model_timestamps["mastitis"] = _check_model("mastitis")
-    elif req.model_name == "culling":
-        try:
-            df = await load_culling_features(session)
-        except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Database error: {e}")
-        if df.empty:
-            raise HTTPException(status_code=422, detail="No data available for training")
-        result = culling_model.train(df)
-        _model_timestamps["culling"] = _check_model("culling")
-    else:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {req.model_name}")
+    try:
+        result = await _train_model(req.model_name, session)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
 
+    _model_timestamps[req.model_name] = _check_model(req.model_name)
     return TrainResponse(**result)
