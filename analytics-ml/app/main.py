@@ -14,6 +14,10 @@ import pandas as pd
 from app.config import settings
 from app.models import clustering as clustering_model
 from app.models import culling as culling_model
+from app.models import equipment_anomaly as equipment_model
+from app.models import estrus as estrus_model
+from app.models import feed_recommendation as feed_rec_model
+from app.models import ketosis_warning as ketosis_model
 from app.models import mastitis as mastitis_model
 from app.models import milk_forecast as forecast_model
 from app.schemas import (
@@ -23,7 +27,19 @@ from app.schemas import (
     CullingRiskPrediction,
     CullingRiskRequest,
     CullingRiskResponse,
+    EquipmentAnomalyEntry,
+    EquipmentAnomalyRequest,
+    EquipmentAnomalyResponse,
+    EstrusPrediction,
+    EstrusRequest,
+    EstrusResponse,
+    FeedRecommendationEntry,
+    FeedRecommendationRequest,
+    FeedRecommendationResponse,
     HealthReport,
+    KetosisWarningEntry,
+    KetosisWarningRequest,
+    KetosisWarningResponse,
     MastitisRiskPrediction,
     MastitisRiskRequest,
     MastitisRiskResponse,
@@ -39,6 +55,10 @@ from app.services.data_loader import (
     get_session,
     load_clustering_features,
     load_culling_features,
+    load_equipment_anomaly_features,
+    load_estrus_features,
+    load_feed_recommendation_features,
+    load_ketosis_features,
     load_mastitis_features,
     load_milk_timeseries,
 )
@@ -53,6 +73,10 @@ MODEL_FILES = {
     "culling": "culling_xgb.pkl",
     "milk_forecast": "milk_forecast_xgb.pkl",
     "cow_clusters": "cow_clusters.pkl",
+    "estrus": "estrus_xgb.pkl",
+    "equipment_anomaly": "equipment_anomaly.pkl",
+    "feed_recommendation": "feed_recommendation_xgb.pkl",
+    "ketosis_warning": "ketosis_warning_xgb.pkl",
 }
 
 
@@ -71,7 +95,7 @@ async def _scheduled_retrain():
     logger.info("Scheduled retraining started")
     try:
         async with async_session() as session:
-            for name in ("mastitis", "culling", "cow_clusters", "milk_forecast"):
+            for name in ("mastitis", "culling", "cow_clusters", "milk_forecast", "estrus", "ketosis_warning", "feed_recommendation", "equipment_anomaly"):
                 try:
                     result = await _train_model(name, session)
                     _model_timestamps[name] = _check_model(name)
@@ -89,7 +113,7 @@ async def lifespan(app: FastAPI):
     for name in MODEL_FILES:
         _model_timestamps[name] = _check_model(name)
 
-    missing = [m for m in ("mastitis", "culling", "milk_forecast", "cow_clusters") if _model_timestamps.get(m) is None]
+    missing = [m for m in ("mastitis", "culling", "milk_forecast", "cow_clusters", "estrus", "ketosis_warning", "feed_recommendation", "equipment_anomaly") if _model_timestamps.get(m) is None]
     if missing:
         logger.info("Auto-training missing models: %s", missing)
         try:
@@ -254,6 +278,105 @@ async def predict_clusters(
     )
 
 
+@app.post("/predict/estrus", response_model=EstrusResponse)
+async def predict_estrus(
+    req: EstrusRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        df = await load_estrus_features(session)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+
+    if df.empty:
+        return EstrusResponse(predictions=[])
+
+    if req.animal_id is not None:
+        df = df[df["animal_id"] == req.animal_id]
+        if df.empty:
+            return EstrusResponse(predictions=[])
+
+    try:
+        results = estrus_model.predict(df)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return EstrusResponse(predictions=[EstrusPrediction(**r) for r in results])
+
+
+@app.post("/predict/equipment-anomaly", response_model=EquipmentAnomalyResponse)
+async def predict_equipment(
+    req: EquipmentAnomalyRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        df = await load_equipment_anomaly_features(session)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+
+    if df.empty:
+        return EquipmentAnomalyResponse(entries=[])
+
+    try:
+        results = equipment_model.predict(df)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return EquipmentAnomalyResponse(entries=[EquipmentAnomalyEntry(**r) for r in results])
+
+
+@app.post("/predict/feed-recommendation", response_model=FeedRecommendationResponse)
+async def predict_feed(
+    req: FeedRecommendationRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        df = await load_feed_recommendation_features(session)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+
+    if df.empty:
+        return FeedRecommendationResponse(recommendations=[])
+
+    if req.animal_id is not None:
+        df = df[df["animal_id"] == req.animal_id]
+        if df.empty:
+            return FeedRecommendationResponse(recommendations=[])
+
+    try:
+        results = feed_rec_model.predict(df)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return FeedRecommendationResponse(recommendations=[FeedRecommendationEntry(**r) for r in results])
+
+
+@app.post("/predict/ketosis-warning", response_model=KetosisWarningResponse)
+async def predict_ketosis(
+    req: KetosisWarningRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        df = await load_ketosis_features(session)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+
+    if df.empty:
+        return KetosisWarningResponse(predictions=[])
+
+    if req.animal_id is not None:
+        df = df[df["animal_id"] == req.animal_id]
+        if df.empty:
+            return KetosisWarningResponse(predictions=[])
+
+    try:
+        results = ketosis_model.predict(df)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return KetosisWarningResponse(predictions=[KetosisWarningEntry(**r) for r in results])
+
+
 async def _train_model(name: str, session: AsyncSession) -> dict:
     if name == "mastitis":
         df = await load_mastitis_features(session)
@@ -286,6 +409,26 @@ async def _train_model(name: str, session: AsyncSession) -> dict:
             raise ValueError("Not enough timeseries data for forecast training")
         combined = pd.concat(frames, ignore_index=True)
         return forecast_model.train(combined)
+    elif name == "estrus":
+        df = await load_estrus_features(session)
+        if df.empty:
+            raise ValueError("No data for estrus training")
+        return estrus_model.train(df)
+    elif name == "ketosis_warning":
+        df = await load_ketosis_features(session)
+        if df.empty:
+            raise ValueError("No data for ketosis training")
+        return ketosis_model.train(df)
+    elif name == "feed_recommendation":
+        df = await load_feed_recommendation_features(session)
+        if df.empty:
+            raise ValueError("No data for feed recommendation training")
+        return feed_rec_model.train(df)
+    elif name == "equipment_anomaly":
+        df = await load_equipment_anomaly_features(session)
+        if df.empty:
+            raise ValueError("No data for equipment anomaly training")
+        return equipment_model.train(df)
     else:
         raise ValueError(f"Unknown model: {name}")
 
