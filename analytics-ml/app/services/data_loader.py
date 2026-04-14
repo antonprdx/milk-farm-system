@@ -35,7 +35,9 @@ async def load_mastitis_features(session: AsyncSession) -> pd.DataFrame:
             COALESCE(milk_dev.dev, 0) as milk_deviation,
             COALESCE(dim.days, 0) as dim_days,
             COALESCE(rum_7d.rum, 0) as avg_rumination_7d,
-            COALESCE(act_7d.act, 0) as avg_activity_7d
+            COALESCE(act_7d.act, 0) as avg_activity_7d,
+            COALESCE(fpr.ratio, 0) as fat_protein_ratio,
+            COALESCE(cond_asym.asym, 0) as cond_asymmetry
         FROM animals a
         LEFT JOIN LATERAL (
             SELECT AVG(q.scc)::float8 as scc FROM milk_quality q
@@ -67,6 +69,29 @@ async def load_mastitis_features(session: AsyncSession) -> pd.DataFrame:
             SELECT AVG(act.activity_counter)::float8 as act FROM activities act
             WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - INTERVAL '7 days'
         ) act_7d ON true
+        LEFT JOIN LATERAL (
+            SELECT (AVG(q.fat_percentage) / NULLIF(AVG(q.protein_percentage), 0))::float8 as ratio
+            FROM milk_quality q
+            WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+        ) fpr ON true
+        LEFT JOIN LATERAL (
+            SELECT GREATEST(
+                ABS(sub.lf - sub.avg4),
+                ABS(sub.lr - sub.avg4),
+                ABS(sub.rf - sub.avg4),
+                ABS(sub.rr - sub.avg4)
+            )::float8 as asym
+            FROM (
+                SELECT
+                    AVG(v.lf_conductivity)::float8 as lf,
+                    AVG(v.lr_conductivity)::float8 as lr,
+                    AVG(v.rf_conductivity)::float8 as rf,
+                    AVG(v.rr_conductivity)::float8 as rr,
+                    (AVG(v.lf_conductivity) + AVG(v.lr_conductivity) + AVG(v.rf_conductivity) + AVG(v.rr_conductivity))::float8 / 4.0 as avg4
+                FROM milk_visit_quality v
+                WHERE v.animal_id = a.id AND v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+            ) sub
+        ) cond_asym ON true
         WHERE a.active = true AND a.gender = 'female'
     """)
     result = await session.execute(query)
@@ -116,12 +141,14 @@ async def load_culling_features(session: AsyncSession) -> pd.DataFrame:
 async def load_milk_timeseries(session: AsyncSession, animal_id: int, days: int = 365) -> pd.DataFrame:
     query = text("""
         SELECT
+            a.name as animal_name,
             m.date,
             m.milk_amount,
             COALESCE(f.total, 0) as feed_amount,
             COALESCE(r.rumination_minutes, 0) as rumination_minutes,
             COALESCE(act.activity_counter, 0) as activity_counter
         FROM milk_day_productions m
+        JOIN animals a ON a.id = m.animal_id
         LEFT JOIN feed_day_amounts f ON f.animal_id = m.animal_id AND f.feed_date = m.date
         LEFT JOIN ruminations r ON r.animal_id = m.animal_id AND r.date = m.date
         LEFT JOIN LATERAL (
@@ -136,3 +163,44 @@ async def load_milk_timeseries(session: AsyncSession, animal_id: int, days: int 
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(rows)
+
+
+async def load_clustering_features(session: AsyncSession, days: int = 90) -> pd.DataFrame:
+    query = text("""
+        SELECT
+            a.id as animal_id,
+            a.name as animal_name,
+            m.avg_milk,
+            COALESCE(m.std_milk, 0) as std_milk,
+            COALESCE(r.rum, 0) as rumination_minutes,
+            COALESCE(act.act, 0) as activity_counter,
+            COALESCE(f.feed, 0) as feed_amount
+        FROM animals a
+        JOIN LATERAL (
+            SELECT AVG(m.milk_amount)::float8 as avg_milk,
+                   STDDEV(m.milk_amount)::float8 as std_milk
+            FROM milk_day_productions m
+            WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - (:days || ' days')::interval
+        ) m ON true
+        LEFT JOIN LATERAL (
+            SELECT AVG(r.rumination_minutes)::float8 as rum
+            FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - (:days || ' days')::interval
+        ) r ON true
+        LEFT JOIN LATERAL (
+            SELECT AVG(act.activity_counter)::float8 as act
+            FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - (:days || ' days')::interval
+        ) act ON true
+        LEFT JOIN LATERAL (
+            SELECT SUM(f.total)::float8 / NULLIF(COUNT(DISTINCT f.feed_date)::float8, 0) as feed
+            FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - (:days || ' days')::interval
+        ) f ON true
+        WHERE a.active = true AND a.gender = 'female' AND m.avg_milk IS NOT NULL
+        ORDER BY a.name
+    """)
+    result = await session.execute(query, {"days": days})
+    rows = result.mappings().all()
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows)
+    df["animal_name"] = df["animal_name"].fillna("")
+    return df

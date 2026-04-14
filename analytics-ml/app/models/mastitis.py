@@ -22,6 +22,8 @@ FEATURE_COLUMNS = [
     "dim_days",
     "avg_rumination_7d",
     "avg_activity_7d",
+    "fat_protein_ratio",
+    "cond_asymmetry",
 ]
 
 
@@ -31,6 +33,8 @@ def _create_labels(df: pd.DataFrame) -> pd.Series:
     labels[(df["recent_scc"] > 200000) & (df["scc_trend_ratio"] > 1.5)] = 1
     labels[(df["recent_scc"] > 150000) & (df["avg_conductivity"] > 55)] = 1
     labels[(df["milk_deviation"] < -0.15) & (df["recent_scc"] > 100000)] = 1
+    labels[(df["cond_asymmetry"] > 5) & (df["recent_scc"] > 100000)] = 1
+    labels[(df["fat_protein_ratio"] > 0) & (df["fat_protein_ratio"] < 1.0) & (df["recent_scc"] > 100000)] = 1
     return labels
 
 
@@ -59,7 +63,7 @@ def train(df: pd.DataFrame) -> dict:
 
     path = os.path.join(settings.model_dir, MODEL_FILENAME)
     os.makedirs(settings.model_dir, exist_ok=True)
-    joblib.dump({"model": model, "features": FEATURE_COLUMNS, "version": "xgboost-v1"}, path)
+    joblib.dump({"model": model, "features": FEATURE_COLUMNS, "version": "xgboost-v2"}, path)
 
     duration = time.time() - start
     return {
@@ -100,6 +104,10 @@ def predict(df: pd.DataFrame, model_data: dict | None = None) -> list[dict]:
             contributing.append("milk↓")
         if row.get("dim_days", 0) < 30:
             contributing.append("early_lactation")
+        if row.get("cond_asymmetry", 0) > 5:
+            contributing.append("quarter_asymmetry↑")
+        if 0 < row.get("fat_protein_ratio", 1.5) < 1.0:
+            contributing.append("FPR↓(ketosis_risk)")
 
         risk_level = "high" if prob >= 0.6 else "medium" if prob >= 0.3 else "low"
 

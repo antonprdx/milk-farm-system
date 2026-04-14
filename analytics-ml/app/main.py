@@ -9,9 +9,14 @@ from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.models import clustering as clustering_model
 from app.models import culling as culling_model
 from app.models import mastitis as mastitis_model
+from app.models import milk_forecast as forecast_model
 from app.schemas import (
+    ClusterEntry,
+    ClusterRequest,
+    ClusterResponse,
     CullingRiskPrediction,
     CullingRiskRequest,
     CullingRiskResponse,
@@ -19,6 +24,9 @@ from app.schemas import (
     MastitisRiskPrediction,
     MastitisRiskRequest,
     MastitisRiskResponse,
+    MilkForecastDay,
+    MilkForecastRequest,
+    MilkForecastResponse,
     TrainRequest,
     TrainResponse,
 )
@@ -26,8 +34,10 @@ from app.services.data_loader import (
     async_session,
     check_connection,
     get_session,
+    load_clustering_features,
     load_culling_features,
     load_mastitis_features,
+    load_milk_timeseries,
 )
 
 logger = getLogger(__name__)
@@ -35,11 +45,18 @@ logger = getLogger(__name__)
 _model_timestamps: dict[str, str | None] = {}
 _scheduler: AsyncIOScheduler | None = None
 
+MODEL_FILES = {
+    "mastitis": "mastitis_xgb.pkl",
+    "culling": "culling_xgb.pkl",
+    "milk_forecast": "milk_forecast_xgb.pkl",
+    "cow_clusters": "cow_clusters.pkl",
+}
+
 
 def _check_model(name: str) -> str | None:
     import os
 
-    filename = f"{name}_xgb.pkl"
+    filename = MODEL_FILES.get(name, f"{name}_xgb.pkl")
     path = os.path.join(settings.model_dir, filename)
     if os.path.exists(path):
         mtime = os.path.getmtime(path)
@@ -66,8 +83,8 @@ async def _scheduled_retrain():
 async def lifespan(app: FastAPI):
     global _scheduler
 
-    _model_timestamps["mastitis"] = _check_model("mastitis")
-    _model_timestamps["culling"] = _check_model("culling")
+    for name in MODEL_FILES:
+        _model_timestamps[name] = _check_model(name)
 
     missing = [m for m in ("mastitis", "culling") if _model_timestamps[m] is None]
     if missing:
@@ -106,7 +123,7 @@ async def lifespan(app: FastAPI):
         _scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="Milk Farm Analytics ML", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Milk Farm Analytics ML", version="1.1.0", lifespan=lifespan)
 
 
 @app.get("/health")
@@ -115,10 +132,7 @@ async def health():
     return HealthReport(
         status="ok" if db_ok else "degraded",
         model_dir=settings.model_dir,
-        models={
-            "mastitis": _model_timestamps.get("mastitis"),
-            "culling": _model_timestamps.get("culling"),
-        },
+        models=_model_timestamps.copy(),
         database_connected=db_ok,
     )
 
@@ -177,6 +191,66 @@ async def predict_culling(
     return CullingRiskResponse(predictions=predictions)
 
 
+@app.post("/predict/milk-forecast", response_model=MilkForecastResponse)
+async def predict_milk_forecast(
+    req: MilkForecastRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        df = await load_milk_timeseries(session, req.animal_id, days=365)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+
+    if df.empty:
+        return MilkForecastResponse(
+            animal_id=req.animal_id,
+            animal_name=None,
+            current_daily_avg=None,
+            forecast=[],
+            model_version="no-data",
+        )
+
+    animal_name = str(df.iloc[0].get("animal_name", "")) or None
+
+    try:
+        result = forecast_model.predict(df, req.days)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return MilkForecastResponse(
+        animal_id=req.animal_id,
+        animal_name=animal_name,
+        current_daily_avg=result["current_daily_avg"],
+        forecast=[MilkForecastDay(**d) for d in result["forecast"]],
+        model_version=result["model_version"],
+    )
+
+
+@app.post("/predict/clusters", response_model=ClusterResponse)
+async def predict_clusters(
+    req: ClusterRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        df = await load_clustering_features(session, days=req.days)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+
+    if df.empty:
+        return ClusterResponse(clusters=[], cluster_names={})
+
+    try:
+        results = clustering_model.predict(df)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    cluster_names = {str(r["cluster_id"]): r["cluster_name"] for r in results}
+    return ClusterResponse(
+        clusters=[ClusterEntry(**r) for r in results],
+        cluster_names=cluster_names,
+    )
+
+
 async def _train_model(name: str, session: AsyncSession) -> dict:
     if name == "mastitis":
         df = await load_mastitis_features(session)
@@ -188,6 +262,11 @@ async def _train_model(name: str, session: AsyncSession) -> dict:
         if df.empty:
             raise ValueError("No data for culling training")
         return culling_model.train(df)
+    elif name == "cow_clusters":
+        df = await load_clustering_features(session)
+        if df.empty:
+            raise ValueError("No data for clustering training")
+        return clustering_model.train(df)
     else:
         raise ValueError(f"Unknown model: {name}")
 
