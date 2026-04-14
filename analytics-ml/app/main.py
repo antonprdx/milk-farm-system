@@ -3,6 +3,8 @@ from datetime import datetime
 from logging import getLogger
 
 import joblib
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +33,7 @@ from app.services.data_loader import (
 logger = getLogger(__name__)
 
 _model_timestamps: dict[str, str | None] = {}
+_scheduler: AsyncIOScheduler | None = None
 
 
 def _check_model(name: str) -> str | None:
@@ -44,8 +47,25 @@ def _check_model(name: str) -> str | None:
     return None
 
 
+async def _scheduled_retrain():
+    logger.info("Scheduled retraining started")
+    try:
+        async with async_session() as session:
+            for name in ("mastitis", "culling"):
+                try:
+                    result = await _train_model(name, session)
+                    _model_timestamps[name] = _check_model(name)
+                    logger.info("Retrained %s: %s", name, result)
+                except Exception as e:
+                    logger.warning("Retrain %s failed: %s", name, e)
+    except Exception as e:
+        logger.warning("Scheduled retrain DB error: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _scheduler
+
     _model_timestamps["mastitis"] = _check_model("mastitis")
     _model_timestamps["culling"] = _check_model("culling")
 
@@ -64,8 +84,26 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning("Auto-train DB connection failed: %s", e)
 
-    logger.info("Analytics ML service started. Models: %s", _model_timestamps)
+    day_map = {
+        "mon": "mon", "tue": "tue", "wed": "wed", "thu": "thu",
+        "fri": "fri", "sat": "sat", "sun": "sun",
+    }
+    dow = day_map.get(settings.retrain_day_of_week.lower()[:3], "mon")
+    _scheduler = AsyncIOScheduler()
+    _scheduler.add_job(
+        _scheduled_retrain,
+        CronTrigger(day_of_week=dow, hour=settings.retrain_hour, minute=0),
+        id="retrain_models",
+        replace_existing=True,
+    )
+    _scheduler.start()
+    logger.info(
+        "Scheduler started. Retrain: every %s at %02d:00. Models: %s",
+        dow, settings.retrain_hour, _model_timestamps,
+    )
     yield
+    if _scheduler:
+        _scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="Milk Farm Analytics ML", version="1.0.0", lifespan=lifespan)
