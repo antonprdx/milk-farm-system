@@ -6,7 +6,7 @@ use serde::Deserialize;
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
 use crate::models::analytics::{
-    AlertsResponse, CowClusterResponse, CullingSurvivalResponse,
+    AlertsResponse, AnimalSummaryResponse, CowClusterResponse, CullingSurvivalResponse,
     DryOffOptimizerResponse, EnergyBalanceResponse, EquipmentAnomalyResponse,
     EstrusResponse, FeedEfficiencyResponse, FeedForecastResponse, FeedRecommendationResponse,
     FertilityWindowResponse, HealthIndexResponse, KetosisWarningResponse, KpiResponse,
@@ -74,6 +74,7 @@ pub fn routes() -> Router<AppState> {
         .route("/analytics/feed-efficiency", get(feed_efficiency))
         .route("/analytics/dry-off-optimizer", get(dry_off_optimizer))
         .route("/analytics/lifetime-value", get(lifetime_value))
+        .route("/analytics/animal-summary", get(animal_summary))
 }
 
 #[utoipa::path(
@@ -490,5 +491,19 @@ async fn lifetime_value(
     State(state): State<AppState>,
 ) -> Result<Json<LifetimeValueResponse>, AppError> {
     let data = predictive_service::lifetime_value(&state.pool).await?;
+    Ok(Json(data))
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
+pub struct AnimalSummaryQuery {
+    pub animal_id: i32,
+}
+
+async fn animal_summary(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Query(params): Query<AnimalSummaryQuery>,
+) -> Result<Json<AnimalSummaryResponse>, AppError> {
+    let data = predictive_service::animal_summary(&state.pool, params.animal_id).await?;
     Ok(Json(data))
 }

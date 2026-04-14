@@ -444,3 +444,17 @@ pub struct LifetimeValueEntry {
 pub struct LifetimeValueResponse {
     pub cows: Vec<LifetimeValueEntry>,
 }
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct AnimalSummaryResponse {
+    pub animal_id: i32,
+    pub health_index: Option<CowHealthIndex>,
+    pub mastitis_risk: Option<MastitisRiskEntry>,
+    pub estrus: Option<EstrusPrediction>,
+    pub energy_balance: Option<CowEnergyBalance>,
+    pub feed_recommendation: Option<FeedRecommendationEntry>,
+    pub ketosis_warning: Option<KetosisWarningEntry>,
+    pub lifetime_value: Option<LifetimeValueEntry>,
+    pub culling_risk: Option<CullingSurvivalEntry>,
+    pub cluster: Option<ClusterCowEntry>,
+}
