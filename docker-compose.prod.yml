@@ -36,6 +36,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-https://milkfarm.example.com}
       RUST_LOG: ${RUST_LOG:-info,milk_farm_backend=debug}
       TRUST_PROXY: ${TRUST_PROXY:-true}
+      ML_SERVICE_URL: ${ML_SERVICE_URL:-http://analytics-ml:8001}
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,6 +69,28 @@ services:
         limits:
           memory: 256M
 
+  analytics-ml:
+    build: ./analytics-ml
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-milkfarm}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-milk_farm}
+      MODEL_DIR: /app/models
+    volumes:
+      - ml_models:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
   nginx:
     image: nginx:alpine
     ports:
@@ -88,3 +111,4 @@ services:
 
 volumes:
   pgdata:
+  ml_models:
