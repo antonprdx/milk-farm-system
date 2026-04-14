@@ -445,7 +445,67 @@ impl MlClient {
         })
     }
 
-    pub async fn estrus_detection(&self) -> Result<EstrusResponse, AppError> {
+    pub async fn estrus_detection(
+        &self,
+        fallback_pool: &PgPool,
+    ) -> Result<EstrusResponse, AppError> {
+        if self.is_healthy().await {
+            match self.try_ml_estrus().await {
+                Ok(resp) => return Ok(resp),
+                Err(e) => {
+                    tracing::warn!("ML estrus failed, falling back to rule-based: {}", e);
+                }
+            }
+        }
+        super::predictive_service::estrus_detection(fallback_pool).await
+    }
+
+    pub async fn equipment_anomaly(
+        &self,
+        fallback_pool: &PgPool,
+    ) -> Result<EquipmentAnomalyResponse, AppError> {
+        if self.is_healthy().await {
+            match self.try_ml_equipment().await {
+                Ok(resp) => return Ok(resp),
+                Err(e) => {
+                    tracing::warn!("ML equipment anomaly failed, falling back to rule-based: {}", e);
+                }
+            }
+        }
+        super::predictive_service::equipment_anomaly(fallback_pool).await
+    }
+
+    pub async fn feed_recommendation(
+        &self,
+        fallback_pool: &PgPool,
+    ) -> Result<FeedRecommendationResponse, AppError> {
+        if self.is_healthy().await {
+            match self.try_ml_feed_rec().await {
+                Ok(resp) => return Ok(resp),
+                Err(e) => {
+                    tracing::warn!("ML feed recommendation failed, falling back to rule-based: {}", e);
+                }
+            }
+        }
+        super::predictive_service::feed_recommendation(fallback_pool).await
+    }
+
+    pub async fn ketosis_warning(
+        &self,
+        fallback_pool: &PgPool,
+    ) -> Result<KetosisWarningResponse, AppError> {
+        if self.is_healthy().await {
+            match self.try_ml_ketosis().await {
+                Ok(resp) => return Ok(resp),
+                Err(e) => {
+                    tracing::warn!("ML ketosis warning failed, falling back to rule-based: {}", e);
+                }
+            }
+        }
+        super::predictive_service::ketosis_warning(fallback_pool).await
+    }
+
+    async fn try_ml_estrus(&self) -> Result<EstrusResponse, AppError> {
         let resp = self
             .client
             .post(format!("{}/predict/estrus", self.base_url))
@@ -472,7 +532,7 @@ impl MlClient {
         })
     }
 
-    pub async fn equipment_anomaly(&self) -> Result<EquipmentAnomalyResponse, AppError> {
+    async fn try_ml_equipment(&self) -> Result<EquipmentAnomalyResponse, AppError> {
         let resp = self
             .client
             .post(format!("{}/predict/equipment-anomaly", self.base_url))
@@ -500,7 +560,7 @@ impl MlClient {
         })
     }
 
-    pub async fn feed_recommendation(&self) -> Result<FeedRecommendationResponse, AppError> {
+    async fn try_ml_feed_rec(&self) -> Result<FeedRecommendationResponse, AppError> {
         let resp = self
             .client
             .post(format!("{}/predict/feed-recommendation", self.base_url))
@@ -529,7 +589,7 @@ impl MlClient {
         })
     }
 
-    pub async fn ketosis_warning(&self) -> Result<KetosisWarningResponse, AppError> {
+    async fn try_ml_ketosis(&self) -> Result<KetosisWarningResponse, AppError> {
         let resp = self
             .client
             .post(format!("{}/predict/ketosis-warning", self.base_url))

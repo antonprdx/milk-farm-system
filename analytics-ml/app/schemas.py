@@ -168,3 +168,17 @@ class KetosisWarningEntry(BaseModel):
 
 class KetosisWarningResponse(BaseModel):
     predictions: list[KetosisWarningEntry]
+
+
+class DriftStatusEntry(BaseModel):
+    model: str
+    status: str
+    drift_detected: bool
+    z_score: float | None = None
+    recent_mean: float | None = None
+    baseline_mean: float | None = None
+    samples: int | None = None
+
+
+class DriftStatusResponse(BaseModel):
+    models: list[DriftStatusEntry]
