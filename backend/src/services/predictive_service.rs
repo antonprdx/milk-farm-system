@@ -136,45 +136,72 @@ fn fit_wood_model(data: &std::collections::HashMap<i32, f64>) -> (f64, f64, f64)
         return (data.values().next().copied().unwrap_or(20.0), 0.2, 0.003);
     }
 
-    let n = log_data.len() as f64;
-    let sum_t: f64 = log_data.iter().map(|(t, _)| *t).sum();
-    let sum_y: f64 = log_data.iter().map(|(_, y)| *y).sum();
-    let sum_tt: f64 = log_data.iter().map(|(t, _)| t * t).sum();
-    let sum_ty: f64 = log_data.iter().map(|(t, y)| t * y).sum();
-    let sum_lnt: f64 = log_data.iter().map(|(t, _)| t.ln()).sum();
-    let sum_lnty: f64 = log_data.iter().map(|(t, y)| t.ln() * y).sum();
-    let sum_lnt2: f64 = log_data.iter().map(|(t, _)| t.ln().powi(2)).sum();
-    let sum_tlnt: f64 = log_data.iter().map(|(t, _)| t * t.ln()).sum();
+    let mut xtx = [[0.0_f64; 3]; 3];
+    let mut xty = [0.0_f64; 3];
 
-    let denom = n * (sum_tt * sum_lnt2 + sum_t * sum_tlnt + sum_lnt * sum_tlnt)
-        - sum_t * (sum_t * sum_lnt2 + sum_lnt * sum_tlnt)
-        - sum_lnt * (sum_tt * sum_lnt + sum_t * sum_tlnt)
-        - sum_tt * sum_lnt * sum_lnt;
-
-    if denom.abs() < 1e-10 {
-        return (data.values().next().copied().unwrap_or(20.0), 0.2, 0.003);
+    for (t, y) in &log_data {
+        let row = [1.0_f64, t.ln(), *t];
+        for i in 0..3 {
+            xty[i] += row[i] * y;
+            for j in 0..3 {
+                xtx[i][j] += row[i] * row[j];
+            }
+        }
     }
 
-    let ln_a = (sum_y * (sum_tt * sum_lnt2 + sum_t * sum_tlnt + sum_lnt * sum_tlnt)
-        - sum_t * (sum_ty * sum_lnt2 + sum_lnty * sum_tt + sum_y * sum_tlnt)
-        + sum_lnt * (sum_ty * sum_tlnt + sum_t * sum_lnty + sum_tt * sum_y)
-        - sum_tt * (sum_y * sum_lnt + sum_t * sum_lnty + sum_ty * sum_lnt))
-        / denom;
+    let Some(beta) = solve_3x3(xtx, xty) else {
+        return (data.values().next().copied().unwrap_or(20.0), 0.2, 0.003);
+    };
 
-    let b_val = (n * (sum_ty * sum_lnt2 + sum_lnty * sum_tlnt + sum_y * sum_tlnt)
-        - sum_y * (sum_t * sum_lnt2 + sum_lnt * sum_tlnt + sum_tlnt * sum_t)
-        + sum_lnt * (sum_t * sum_y + sum_tt * sum_lnty + sum_ty * sum_lnt)
-        - sum_tt * (sum_y * sum_lnt + sum_t * sum_lnty + sum_ty * sum_lnt))
-        / denom;
-
-    let c_val = (n * (sum_tt * sum_lnty + sum_t * sum_lnty + sum_ty * sum_lnt)
-        - sum_t * (sum_tt * sum_lnty + sum_t * sum_lnty + sum_ty * sum_lnt)
-        - sum_y * (sum_tt * sum_lnt + sum_t * sum_lnt + sum_tlnt * sum_t)
-        + sum_tt * (sum_y * sum_lnt + sum_t * sum_lnty + sum_ty * sum_lnt))
-        / denom;
+    let ln_a = beta[0];
+    let b_val = beta[1];
+    let c_val = -beta[2];
 
     let a = ln_a.exp();
-    (a, b_val, c_val.abs().max(0.001).min(0.1))
+    (a, b_val, c_val.max(0.001).min(0.1))
+}
+
+fn solve_3x3(a: [[f64; 3]; 3], mut b: [f64; 3]) -> Option<[f64; 3]> {
+    let n = 3;
+    let mut m = a;
+    for col in 0..n {
+        let mut max_row = col;
+        let mut max_val = m[col][col].abs();
+        for row in (col + 1)..n {
+            let v = m[row][col].abs();
+            if v > max_val {
+                max_val = v;
+                max_row = row;
+            }
+        }
+        if max_val < 1e-12 {
+            return None;
+        }
+        if max_row != col {
+            m.swap(col, max_row);
+            b.swap(col, max_row);
+        }
+        let pivot = m[col][col];
+        for row in (col + 1)..n {
+            let factor = m[row][col] / pivot;
+            for j in col..n {
+                m[row][j] -= factor * m[col][j];
+            }
+            b[row] -= factor * b[col];
+        }
+    }
+    let mut x = [0.0; 3];
+    for i in (0..n).rev() {
+        let mut s = b[i];
+        for j in (i + 1)..n {
+            s -= m[i][j] * x[j];
+        }
+        if m[i][i].abs() < 1e-12 {
+            return None;
+        }
+        x[i] = s / m[i][i];
+    }
+    Some(x)
 }
 
 fn wood_predict(a: f64, b: f64, c: f64, dim: i32) -> f64 {
