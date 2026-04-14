@@ -20,11 +20,24 @@ sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw $DB_NAME || \
 echo "Seeding mock data (${SEED_COWS} cows, ${SEED_YEARS} years)..."
 (cd backend && cargo run --bin seed -- --cows "$SEED_COWS" --years "$SEED_YEARS")
 
+ML_PORT=8001
+ML_VENV="analytics-ml/.venv"
+
+echo "Starting ML service..."
+if [ ! -d "$ML_VENV" ]; then
+    echo "  Creating Python venv for analytics-ml..."
+    python3 -m venv "$ML_VENV"
+    "$ML_VENV/bin/pip" install -q -r analytics-ml/requirements.txt
+fi
+DATABASE_URL="postgresql+asyncpg://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME" \
+    "$ML_VENV/bin/uvicorn" app.main:app --host 0.0.0.0 --port $ML_PORT --app-dir analytics-ml &
+ML_PID=$!
+
 cleanup() {
     echo ""
     echo "Stopping..."
-    kill $BACKEND_PID $FRONTEND_PID 2>/dev/null
-    wait $BACKEND_PID $FRONTEND_PID 2>/dev/null
+    kill $BACKEND_PID $FRONTEND_PID $ML_PID 2>/dev/null
+    wait $BACKEND_PID $FRONTEND_PID $ML_PID 2>/dev/null
     exit 0
 }
 trap cleanup INT TERM
@@ -45,8 +58,9 @@ FRONTEND_PID=$!
 
 echo ""
 echo "    Running!"
-echo "    Frontend: http://localhost:5173"
-echo "    Backend:  http://localhost:3000"
+echo "    Frontend:  http://localhost:5173"
+echo "    Backend:   http://localhost:3000"
+echo "    ML service: http://localhost:$ML_PORT"
 echo "    Login: admin / admin"
 echo ""
 
