@@ -21,6 +21,10 @@ frontend/vite.config.ts.timestamp-*
 # Docker volumes
 pgdata/
 
+# Python
+analytics-ml/.venv/
+analytics-ml/models/*.pkl
+
 # OS
 .DS_Store
 Thumbs.db
