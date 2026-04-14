@@ -132,3 +132,159 @@ export function getFeedForecast(signal?: AbortSignal) {
 export function getLatestMilk(signal?: AbortSignal) {
 	return api<LatestMilkEntry[]>('/analytics/latest-milk', { signal });
 }
+
+export interface LactationPoint {
+	dim: number;
+	milk: number | null;
+}
+
+export interface LactationCurveResponse {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	lac_number: number;
+	calving_date: string;
+	current_dim: number;
+	peak_milk: number | null;
+	peak_dim: number | null;
+	predicted_total_305d: number | null;
+	actual_points: LactationPoint[];
+	fitted_curve: LactationPoint[];
+	forecast: LactationPoint[];
+}
+
+export function getLactationCurves(animalId?: number, signal?: AbortSignal) {
+	const params: Record<string, string> = {};
+	if (animalId) params.animal_id = String(animalId);
+	return api<LactationCurveResponse[]>(
+		`/analytics/lactation-curves${buildQuery(params)}`,
+		{ signal },
+	);
+}
+
+export interface CowHealthIndex {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	health_score: number;
+	milk_deviation_zscore: number | null;
+	rumination_deviation_zscore: number | null;
+	activity_deviation_zscore: number | null;
+	scc_deviation_zscore: number | null;
+	risk_level: string;
+	top_concern: string | null;
+}
+
+export interface HealthIndexResponse {
+	cows: CowHealthIndex[];
+}
+
+export function getHealthIndex(signal?: AbortSignal) {
+	return api<HealthIndexResponse>('/analytics/health-index', { signal });
+}
+
+export interface CowFertilityWindow {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	days_since_calving: number | null;
+	activity_signal: number | null;
+	rumination_signal: number | null;
+	milk_signal: number | null;
+	combined_score: number;
+	window_status: string;
+}
+
+export interface FertilityWindowResponse {
+	cows: CowFertilityWindow[];
+}
+
+export function getFertilityWindow(signal?: AbortSignal) {
+	return api<FertilityWindowResponse>('/analytics/fertility-window', { signal });
+}
+
+export interface CowProfitability {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	avg_daily_milk: number | null;
+	avg_daily_feed: number | null;
+	estimated_milk_revenue_day: number | null;
+	estimated_feed_cost_day: number | null;
+	estimated_margin_day: number | null;
+	margin_30d: number | null;
+	feed_cost_ratio: number | null;
+}
+
+export interface ProfitabilityResponse {
+	cows: CowProfitability[];
+	herd_avg_margin_day: number | null;
+}
+
+export function getProfitability(
+	milkPrice?: number,
+	feedPrice?: number,
+	signal?: AbortSignal,
+) {
+	const params: Record<string, string> = {};
+	if (milkPrice) params.milk_price = String(milkPrice);
+	if (feedPrice) params.feed_price = String(feedPrice);
+	return api<ProfitabilityResponse>(
+		`/analytics/profitability${buildQuery(params)}`,
+		{ signal },
+	);
+}
+
+export interface MonthlyIndex {
+	month: number;
+	month_name: string;
+	avg_daily_milk: number | null;
+	seasonal_index: number | null;
+}
+
+export interface SeasonalResponse {
+	monthly_indices: MonthlyIndex[];
+	trend_7d: number | null;
+	trend_30d: number | null;
+	current_seasonal_factor: number | null;
+}
+
+export function getSeasonal(signal?: AbortSignal) {
+	return api<SeasonalResponse>('/analytics/seasonal', { signal });
+}
+
+export interface MastitisRiskEntry {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	risk_score: number;
+	risk_level: string;
+	contributing_factors: string[];
+}
+
+export interface MastitisRiskResponse {
+	cows: MastitisRiskEntry[];
+	model_version: string;
+}
+
+export function getMastitisRisk(signal?: AbortSignal) {
+	return api<MastitisRiskResponse>('/analytics/mastitis-risk', { signal });
+}
+
+export interface CullingSurvivalEntry {
+	animal_id: number;
+	animal_name: string | null;
+	life_number: string | null;
+	expected_days_remaining: number | null;
+	risk_score: number;
+	risk_factors: string[];
+}
+
+export interface CullingSurvivalResponse {
+	cows: CullingSurvivalEntry[];
+	model_version: string;
+}
+
+export function getCullingSurvival(signal?: AbortSignal) {
+	return api<CullingSurvivalResponse>('/analytics/culling-survival', { signal });
+}
