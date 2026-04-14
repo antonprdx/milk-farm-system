@@ -120,6 +120,7 @@
 	</button>
 </div>
 
+<ErrorAlert message={data.error} />
 <ErrorAlert message={list.error} />
 
 <DataTable

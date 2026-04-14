@@ -153,6 +153,7 @@
 	showAnimal={false}
 	onsearch={load}
 />
+<ErrorAlert message={data.error} />
 <ErrorAlert message={list.error} />
 
 <DataTable

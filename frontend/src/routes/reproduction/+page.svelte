@@ -43,6 +43,8 @@
 
 	type Tab = 'calvings' | 'inseminations' | 'pregnancies' | 'heats' | 'dryoffs';
 
+	let { data } = $props();
+
 	let tab = $state<Tab>('calvings');
 
 	let dtCalvings: DataTable | undefined = $state();
@@ -58,6 +60,13 @@
 
 	const list = usePaginatedList();
 	const crud = useCrudModal();
+
+	let _skipLoad = !!data.initialData;
+	let _hasInitial = $state(!!data.initialData);
+
+	if (data.initialData) {
+		calvings = data.initialData.data;
+	}
 
 	let today = new Date().toISOString().slice(0, 10);
 
@@ -422,6 +431,11 @@
 	}
 
 	$effect(() => {
+		if (_skipLoad) {
+			_skipLoad = false;
+			return;
+		}
+		_hasInitial = false;
 		list.page;
 		tab;
 		load();
@@ -449,6 +463,7 @@
 	bind:animalId={list.animalId}
 	onsearch={load}
 />
+<ErrorAlert message={data.error} />
 <ErrorAlert message={list.error} />
 
 {#if tab === 'calvings'}
@@ -461,7 +476,8 @@
 			{ key: 'lac_number', label: 'Лактация', align: 'right' },
 			{ key: 'actions', label: '', align: 'right' },
 		]}
-		loading={list.loading}
+		loading={list.loading && !_hasInitial}
+		initialRows={!!data.initialData && data.initialData.data.length > 0}
 		bind:this={dtCalvings}
 		emptyText="Нет данных"
 	>
@@ -888,4 +904,4 @@
 	oncancel={crud.closeDelete}
 />
 
-<Pagination bind:page={list.page} total={list.total} perPage={list.perPage} />
+<Pagination bind:page={list.page} total={_hasInitial && data.initialData ? data.initialData.total : list.total} perPage={list.perPage} />

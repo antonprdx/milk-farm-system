@@ -14,10 +14,10 @@ export const load: PageLoad = async ({ fetch, url }) => {
 
 	try {
 		const res = await fetch(`/api/v1/animals?${params}`, { credentials: 'include' });
-		if (!res.ok) return { initialData: null };
+		if (!res.ok) return { initialData: null, error: `Ошибка загрузки (${res.status})` };
 		const data = await res.json();
 		return { initialData: data };
 	} catch {
-		return { initialData: null };
+		return { initialData: null, error: 'Не удалось подключиться к серверу' };
 	}
 };

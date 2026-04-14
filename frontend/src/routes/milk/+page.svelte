@@ -215,6 +215,7 @@
 	<MilkChart {productions} />
 {/if}
 
+<ErrorAlert message={data.error} />
 <ErrorAlert message={list.error} />
 
 {#if tab === 'productions'}

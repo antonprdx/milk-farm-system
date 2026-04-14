@@ -96,6 +96,7 @@
 	bind:animalId={list.animalId}
 	onsearch={load}
 />
+<ErrorAlert message={pageData.error} />
 <ErrorAlert message={list.error} />
 
 {#if tab === 'activities'}
@@ -106,7 +107,8 @@
 			{ key: 'activity_counter', label: 'Счётчик активности', align: 'right' },
 			{ key: 'heat_attention', label: 'Внимание (охота)', align: 'center' },
 		]}
-		loading={list.loading}
+		loading={list.loading && !_hasInitial}
+		initialRows={!!pageData.initialData && pageData.initialData.data.length > 0}
 		bind:this={dtActivities}
 		emptyText="Нет данных"
 	>

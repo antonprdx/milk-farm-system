@@ -83,6 +83,8 @@
 
 	let _skipLoad = !!data.initialData;
 
+	if (data.error) error = data.error;
+
 	if (data.initialData) {
 		animals = data.initialData.data;
 		total = data.initialData.total;

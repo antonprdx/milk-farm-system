@@ -60,6 +60,7 @@
 	showAnimal={false}
 	onsearch={load}
 />
+<ErrorAlert message={pageData.error} />
 <ErrorAlert message={list.error} />
 
 <DataTable
@@ -69,7 +70,8 @@
 		{ key: 'pasture_time', label: 'Время на пастбище, мин', align: 'right' },
 		{ key: 'lactation_period', label: 'Период лактации' },
 	]}
-	loading={list.loading}
+	loading={list.loading && !_hasInitial}
+	initialRows={!!pageData.initialData && pageData.initialData.data.length > 0}
 	bind:this={dataTable}
 	emptyText="Нет данных"
 >
