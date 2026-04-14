@@ -37,6 +37,7 @@ services:
       RUST_LOG: ${RUST_LOG:-info,milk_farm_backend=debug}
       TRUST_PROXY: ${TRUST_PROXY:-true}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://analytics-ml:8001}
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
     depends_on:
       postgres:
         condition: service_healthy

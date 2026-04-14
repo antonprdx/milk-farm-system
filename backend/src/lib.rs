@@ -63,18 +63,23 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
     let api_routes = handlers::routes();
 
     let api_doc = crate::openapi::ApiDoc::openapi();
-    let swagger =
-        utoipa_swagger_ui::SwaggerUi::new("/api/v1/docs").url("/api/v1/docs/openapi.json", api_doc);
+
+    let mut router = axum::Router::new()
+        .nest("/api/v1", api_routes)
+        .route("/metrics", axum::routing::get(metrics_endpoint));
+
+    if state.config.swagger_enabled {
+        let swagger =
+            utoipa_swagger_ui::SwaggerUi::new("/api/v1/docs").url("/api/v1/docs/openapi.json", api_doc);
+        router = router.merge(swagger);
+    }
 
     let rate_limit =
         crate::middleware::rate_limit::RateLimitLayer::new(state.config.rate_limit_max, state.config.rate_limit_window_secs, state.config.trust_proxy);
     let request_id = crate::middleware::request_id::RequestIdLayer;
     let metrics_layer = crate::middleware::metrics::MetricsLayer;
 
-    axum::Router::new()
-        .merge(swagger)
-        .nest("/api/v1", api_routes)
-        .route("/metrics", axum::routing::get(metrics_endpoint))
+    router
         .layer(metrics_layer)
         .layer(request_id)
         .layer(rate_limit)
