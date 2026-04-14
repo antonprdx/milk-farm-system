@@ -157,53 +157,97 @@ pub async fn release_lock(pool: &PgPool) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+const BATCH_SIZE: usize = 500;
+
 pub async fn upsert_animals(
     pool: &PgPool,
     records: &[AnimalResponse],
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(ln) = &r.life_number else { continue };
-        let birth = parse_lely_date(&r.birth_date);
-        let Some(birth_date) = birth else {
-            tracing::warn!(life_number = %ln, "Животное без даты рождения, пропущено");
-            continue;
-        };
-        let gender = match r.gender.as_deref() {
-            Some("Male") => "male",
-            Some("Female") => "female",
-            _ => "female",
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut life_numbers = Vec::with_capacity(chunk.len());
+        let mut names = Vec::with_capacity(chunk.len());
+        let mut user_numbers = Vec::with_capacity(chunk.len());
+        let mut genders = Vec::with_capacity(chunk.len());
+        let mut birth_dates = Vec::with_capacity(chunk.len());
+        let mut hair_colors = Vec::with_capacity(chunk.len());
+        let mut father_lns = Vec::with_capacity(chunk.len());
+        let mut mother_lns = Vec::with_capacity(chunk.len());
+        let mut descriptions = Vec::with_capacity(chunk.len());
+        let mut ucn_numbers = Vec::with_capacity(chunk.len());
+        let mut use_as_sires = Vec::with_capacity(chunk.len());
+        let mut locations = Vec::with_capacity(chunk.len());
+        let mut group_numbers = Vec::with_capacity(chunk.len());
+        let mut keeps = Vec::with_capacity(chunk.len());
+        let mut gestations = Vec::with_capacity(chunk.len());
+        let mut responder_numbers = Vec::with_capacity(chunk.len());
+
+        for r in chunk {
+            let Some(ln) = &r.life_number else { continue };
+            let Some(bd) = parse_lely_date(&r.birth_date) else {
+                tracing::warn!(life_number = %ln, "Животное без даты рождения, пропущено");
+                continue;
+            };
+            let g = match r.gender.as_deref() {
+                Some("Male") => "male",
+                Some("Female") => "female",
+                _ => "female",
+            };
+            life_numbers.push(ln.clone());
+            names.push(r.name.clone());
+            user_numbers.push(r.user_number);
+            genders.push(g.to_string());
+            birth_dates.push(bd);
+            hair_colors.push(r.hair_color_code.clone());
+            father_lns.push(r.father_life_number.clone());
+            mother_lns.push(r.mother_life_number.clone());
+            descriptions.push(r.description.clone());
+            ucn_numbers.push(r.ucn_number.clone());
+            use_as_sires.push(r.use_as_sire);
+            locations.push(r.location.clone());
+            group_numbers.push(r.group_number);
+            keeps.push(r.keep);
+            gestations.push(r.gestation);
+            responder_numbers.push(r.responder_number.clone());
+        }
+
+        if life_numbers.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO animals (life_number, name, user_number, gender, birth_date, hair_color_code, \
              father_life_number, mother_life_number, description, ucn_number, use_as_sire, location, \
              group_number, keep, gestation, responder_number, active, updated_at) \
-             VALUES ($1, $2, $3, $4::gender_type, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, true, NOW()) \
+             SELECT * FROM unnest(
+               $1::text[], $2::text[], $3::bigint[], $4::gender_type[], $5::date[], $6::text[],
+               $7::text[], $8::text[], $9::text[], $10::text[], $11::boolean[], $12::text[],
+               $13::int[], $14::boolean[], $15::int[], $16::text[],
+               array_fill(true, array[array_length($1::text[], 1)]),
+               array_fill(NOW(), array[array_length($1::text[], 1)])
+             ) \
              ON CONFLICT DO NOTHING"
         )
-        .bind(ln)
-        .bind(&r.name)
-        .bind(r.user_number)
-        .bind(gender)
-        .bind(birth_date)
-        .bind(&r.hair_color_code)
-        .bind(&r.father_life_number)
-        .bind(&r.mother_life_number)
-        .bind(&r.description)
-        .bind(&r.ucn_number)
-        .bind(r.use_as_sire)
-        .bind(&r.location)
-        .bind(r.group_number)
-        .bind(r.keep)
-        .bind(r.gestation)
-        .bind(&r.responder_number)
+        .bind(&life_numbers)
+        .bind(&names)
+        .bind(&user_numbers)
+        .bind(&genders)
+        .bind(&birth_dates)
+        .bind(&hair_colors)
+        .bind(&father_lns)
+        .bind(&mother_lns)
+        .bind(&descriptions)
+        .bind(&ucn_numbers)
+        .bind(&use_as_sires)
+        .bind(&locations)
+        .bind(&group_numbers)
+        .bind(&keeps)
+        .bind(&gestations)
+        .bind(&responder_numbers)
         .execute(pool)
         .await?;
 
-        count += result.rows_affected();
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_milk_day_productions(
@@ -211,36 +255,41 @@ pub async fn upsert_milk_day_productions(
     records: &[DayProduction],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "milk_day_productions") else {
-            continue;
-        };
-        let Some(date) = parse_lely_date(&r.date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dates = Vec::new();
+        let mut milk_amounts = Vec::new();
+        let mut avg_amounts = Vec::new();
+        let mut avg_weights = Vec::new();
+        let mut isks = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "milk_day_productions") else { continue };
+            let Some(d) = parse_lely_date(&r.date) else { continue };
+            animal_ids.push(aid);
+            dates.push(d);
+            milk_amounts.push(r.milk_day_production);
+            avg_amounts.push(r.milk_day_production_average);
+            avg_weights.push(r.average_weight);
+            isks.push(r.isk);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO milk_day_productions (animal_id, date, milk_amount, avg_amount, avg_weight, isk) \
-             VALUES ($1, $2, $3, $4, $5, $6) \
+             SELECT * FROM unnest($1::int[], $2::date[], $3::float8[], $4::float8[], $5::float8[], $6::float8[]) \
              ON CONFLICT (animal_id, date) DO UPDATE SET \
              milk_amount = COALESCE(EXCLUDED.milk_amount, milk_day_productions.milk_amount), \
              avg_amount = COALESCE(EXCLUDED.avg_amount, milk_day_productions.avg_amount), \
              avg_weight = COALESCE(EXCLUDED.avg_weight, milk_day_productions.avg_weight), \
              isk = COALESCE(EXCLUDED.isk, milk_day_productions.isk)"
         )
-        .bind(animal_id)
-        .bind(date)
-        .bind(r.milk_day_production)
-        .bind(r.milk_day_production_average)
-        .bind(r.average_weight)
-        .bind(r.isk)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dates).bind(&milk_amounts).bind(&avg_amounts).bind(&avg_weights).bind(&isks)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_milk_visits(
@@ -248,32 +297,35 @@ pub async fn upsert_milk_visits(
     records: &[MilkVisit],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "milk_visits") else {
-            continue;
-        };
-        let Some(dt) = parse_lely_datetime(&r.milking_date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dts = Vec::new();
+        let mut yields = Vec::new();
+        let mut bottles = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "milk_visits") else { continue };
+            let Some(dt) = parse_lely_datetime(&r.milking_date) else { continue };
+            animal_ids.push(aid);
+            dts.push(dt);
+            yields.push(r.milk_yield);
+            bottles.push(r.bottle_number);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO milk_visits (animal_id, visit_datetime, milk_amount, duration_seconds, milk_destination) \
-             VALUES ($1, $2, $3, NULL, $4) \
+             SELECT * FROM unnest($1::int[], $2::timestamptz[], $3::float8[], array_fill(null::int, array[array_length($1::int[], 1)]), $4::int[]) \
              ON CONFLICT (animal_id, visit_datetime) DO UPDATE SET \
              milk_amount = COALESCE(EXCLUDED.milk_amount, milk_visits.milk_amount), \
              milk_destination = COALESCE(EXCLUDED.milk_destination, milk_visits.milk_destination)"
         )
-        .bind(animal_id)
-        .bind(dt)
-        .bind(r.milk_yield)
-        .bind(r.bottle_number)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dts).bind(&yields).bind(&bottles)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_milk_visit_quality(
@@ -281,22 +333,60 @@ pub async fn upsert_milk_visit_quality(
     records: &[MilkVisitQuality],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "milk_visit_quality") else {
-            continue;
-        };
-        let Some(dt) = parse_lely_datetime(&r.milking_date) else {
-            continue;
-        };
-        let start_dt = parse_lely_datetime(&r.milking_start_date);
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dts = Vec::new();
+        let mut start_dts = Vec::new();
+        let mut devices = Vec::new();
+        let mut successes = Vec::new();
+        let mut yields = Vec::new();
+        let mut bottles = Vec::new();
+        let mut temps = Vec::new();
+        let mut weights = Vec::new();
+        let mut destinations = Vec::new();
+        let mut lf_col = Vec::new();
+        let mut lr_col = Vec::new();
+        let mut rf_col = Vec::new();
+        let mut rr_col = Vec::new();
+        let mut lf_cond = Vec::new();
+        let mut lr_cond = Vec::new();
+        let mut rf_cond = Vec::new();
+        let mut rr_cond = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "milk_visit_quality") else { continue };
+            let Some(dt) = parse_lely_datetime(&r.milking_date) else { continue };
+            animal_ids.push(aid);
+            dts.push(dt);
+            start_dts.push(parse_lely_datetime(&r.milking_start_date));
+            devices.push(r.device_address);
+            successes.push(r.success_milking);
+            yields.push(r.milk_yield);
+            bottles.push(r.bottle_number);
+            temps.push(r.milk_temperature);
+            weights.push(r.weight);
+            destinations.push(r.milk_destination);
+            lf_col.push(r.lf_colour_code.clone());
+            lr_col.push(r.lr_colour_code.clone());
+            rf_col.push(r.rf_colour_code.clone());
+            rr_col.push(r.rr_colour_code.clone());
+            lf_cond.push(r.lf_conductivity);
+            lr_cond.push(r.lr_conductivity);
+            rf_cond.push(r.rf_conductivity);
+            rr_cond.push(r.rr_conductivity);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO milk_visit_quality (animal_id, visit_datetime, milking_start_date, device_address, \
              success_milking, milk_yield, bottle_number, milk_temperature, weight, milk_destination, \
              lf_colour_code, lr_colour_code, rf_colour_code, rr_colour_code, \
              lf_conductivity, lr_conductivity, rf_conductivity, rr_conductivity) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) \
+             SELECT * FROM unnest($1::int[], $2::timestamptz[], $3::timestamptz[], $4::int[], \
+             $5::boolean[], $6::float8[], $7::int[], $8::float8[], $9::int[], $10::int[], \
+             $11::text[], $12::text[], $13::text[], $14::text[], \
+             $15::int[], $16::int[], $17::int[], $18::int[]) \
              ON CONFLICT (animal_id, visit_datetime) DO UPDATE SET \
              milk_temperature = COALESCE(EXCLUDED.milk_temperature, milk_visit_quality.milk_temperature), \
              lf_conductivity = COALESCE(EXCLUDED.lf_conductivity, milk_visit_quality.lf_conductivity), \
@@ -304,30 +394,14 @@ pub async fn upsert_milk_visit_quality(
              rf_conductivity = COALESCE(EXCLUDED.rf_conductivity, milk_visit_quality.rf_conductivity), \
              rr_conductivity = COALESCE(EXCLUDED.rr_conductivity, milk_visit_quality.rr_conductivity)"
         )
-        .bind(animal_id)
-        .bind(dt)
-        .bind(start_dt)
-        .bind(r.device_address)
-        .bind(r.success_milking)
-        .bind(r.milk_yield)
-        .bind(r.bottle_number)
-        .bind(r.milk_temperature)
-        .bind(r.weight)
-        .bind(r.milk_destination)
-        .bind(&r.lf_colour_code)
-        .bind(&r.lr_colour_code)
-        .bind(&r.rf_colour_code)
-        .bind(&r.rr_colour_code)
-        .bind(r.lf_conductivity)
-        .bind(r.lr_conductivity)
-        .bind(r.rf_conductivity)
-        .bind(r.rr_conductivity)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dts).bind(&start_dts).bind(&devices)
+        .bind(&successes).bind(&yields).bind(&bottles).bind(&temps).bind(&weights).bind(&destinations)
+        .bind(&lf_col).bind(&lr_col).bind(&rf_col).bind(&rr_col)
+        .bind(&lf_cond).bind(&lr_cond).bind(&rf_cond).bind(&rr_cond)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_milk_day_quality(
@@ -335,19 +409,46 @@ pub async fn upsert_milk_day_quality(
     records: &[DayProductionQuality],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "milk_day_quality") else {
-            continue;
-        };
-        let Some(date) = parse_lely_date(&r.date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dates = Vec::new();
+        let mut milk_amounts = Vec::new();
+        let mut avg_amounts = Vec::new();
+        let mut avg_weights = Vec::new();
+        let mut isks = Vec::new();
+        let mut fats = Vec::new();
+        let mut proteins = Vec::new();
+        let mut lactoses = Vec::new();
+        let mut sccs = Vec::new();
+        let mut milkings = Vec::new();
+        let mut refusals = Vec::new();
+        let mut failures = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "milk_day_quality") else { continue };
+            let Some(d) = parse_lely_date(&r.date) else { continue };
+            animal_ids.push(aid);
+            dates.push(d);
+            milk_amounts.push(r.milk_day_production);
+            avg_amounts.push(r.milk_day_production_average);
+            avg_weights.push(r.average_weight);
+            isks.push(r.isk);
+            fats.push(r.fat_percentage);
+            proteins.push(r.protein_percentage);
+            lactoses.push(r.lactose_percentage);
+            sccs.push(r.scc);
+            milkings.push(r.mdp_milkings);
+            refusals.push(r.mdp_refusals);
+            failures.push(r.mdp_failures);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO milk_quality (animal_id, date, milk_amount, avg_amount, avg_weight, isk, \
              fat_percentage, protein_percentage, lactose_percentage, scc, milkings, refusals, failures) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) \
+             SELECT * FROM unnest($1::int[], $2::date[], $3::float8[], $4::float8[], $5::float8[], $6::float8[], \
+             $7::float8[], $8::float8[], $9::float8[], $10::int[], $11::int[], $12::int[], $13::int[]) \
              ON CONFLICT (animal_id, date) DO UPDATE SET \
              fat_percentage = COALESCE(EXCLUDED.fat_percentage, milk_quality.fat_percentage), \
              protein_percentage = COALESCE(EXCLUDED.protein_percentage, milk_quality.protein_percentage), \
@@ -357,25 +458,12 @@ pub async fn upsert_milk_day_quality(
              refusals = COALESCE(EXCLUDED.refusals, milk_quality.refusals), \
              failures = COALESCE(EXCLUDED.failures, milk_quality.failures)"
         )
-        .bind(animal_id)
-        .bind(date)
-        .bind(r.milk_day_production)
-        .bind(r.milk_day_production_average)
-        .bind(r.average_weight)
-        .bind(r.isk)
-        .bind(r.fat_percentage)
-        .bind(r.protein_percentage)
-        .bind(r.lactose_percentage)
-        .bind(r.scc)
-        .bind(r.mdp_milkings)
-        .bind(r.mdp_refusals)
-        .bind(r.mdp_failures)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dates).bind(&milk_amounts).bind(&avg_amounts).bind(&avg_weights).bind(&isks)
+        .bind(&fats).bind(&proteins).bind(&lactoses).bind(&sccs).bind(&milkings).bind(&refusals).bind(&failures)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_robot_data(
@@ -383,14 +471,36 @@ pub async fn upsert_robot_data(
     records: &[RobotData],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "robot_milk_data") else {
-            continue;
-        };
-        let Some(dt) = parse_lely_datetime(&r.milking_date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dts = Vec::new();
+        let mut devices = Vec::new();
+        let mut speeds = Vec::new();
+        let mut speeds_max = Vec::new();
+        let mut lf_t = Vec::new(); let mut lr_t = Vec::new(); let mut rf_t = Vec::new(); let mut rr_t = Vec::new();
+        let mut lf_dt = Vec::new(); let mut lr_dt = Vec::new(); let mut rf_dt = Vec::new(); let mut rr_dt = Vec::new();
+        let mut lf_x = Vec::new(); let mut lf_y = Vec::new(); let mut lf_z = Vec::new();
+        let mut lr_x = Vec::new(); let mut lr_y = Vec::new(); let mut lr_z = Vec::new();
+        let mut rf_x = Vec::new(); let mut rf_y = Vec::new(); let mut rf_z = Vec::new();
+        let mut rr_x = Vec::new(); let mut rr_y = Vec::new(); let mut rr_z = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "robot_milk_data") else { continue };
+            let Some(dt) = parse_lely_datetime(&r.milking_date) else { continue };
+            animal_ids.push(aid);
+            dts.push(dt);
+            devices.push(r.device_address);
+            speeds.push(r.milk_speed);
+            speeds_max.push(r.milk_speed_max);
+            lf_t.push(r.lf_milk_time); lr_t.push(r.lr_milk_time); rf_t.push(r.rf_milk_time); rr_t.push(r.rr_milk_time);
+            lf_dt.push(r.lf_dead_milk_time); lr_dt.push(r.lr_dead_milk_time); rf_dt.push(r.rf_dead_milk_time); rr_dt.push(r.rr_dead_milk_time);
+            lf_x.push(r.lf_x_position); lf_y.push(r.lf_y_position); lf_z.push(r.lfz_position);
+            lr_x.push(r.lr_x_position); lr_y.push(r.lr_y_position); lr_z.push(r.lr_z_position);
+            rf_x.push(r.rf_x_position); rf_y.push(r.rf_y_position); rf_z.push(r.rf_z_position);
+            rr_x.push(r.rr_x_position); rr_y.push(r.rr_y_position); rr_z.push(r.rr_z_position);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO robot_milk_data (animal_id, milking_date, device_address, milk_speed, milk_speed_max, \
@@ -400,42 +510,25 @@ pub async fn upsert_robot_data(
              lr_x_position, lr_y_position, lr_z_position, \
              rf_x_position, rf_y_position, rf_z_position, \
              rr_x_position, rr_y_position, rr_z_position) \
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25) \
+             SELECT * FROM unnest($1::int[], $2::timestamptz[], $3::int[], $4::float8[], $5::float8[], \
+             $6::int[], $7::int[], $8::int[], $9::int[], $10::int[], $11::int[], $12::int[], $13::int[], \
+             $14::int[], $15::int[], $16::int[], $17::int[], $18::int[], $19::int[], \
+             $20::int[], $21::int[], $22::int[], $23::int[], $24::int[], $25::int[]) \
              ON CONFLICT (animal_id, milking_date) DO UPDATE SET \
              milk_speed = COALESCE(EXCLUDED.milk_speed, robot_milk_data.milk_speed), \
              milk_speed_max = COALESCE(EXCLUDED.milk_speed_max, robot_milk_data.milk_speed_max)"
         )
-        .bind(animal_id)
-        .bind(dt)
-        .bind(r.device_address)
-        .bind(r.milk_speed)
-        .bind(r.milk_speed_max)
-        .bind(r.lf_milk_time)
-        .bind(r.lr_milk_time)
-        .bind(r.rf_milk_time)
-        .bind(r.rr_milk_time)
-        .bind(r.lf_dead_milk_time)
-        .bind(r.lr_dead_milk_time)
-        .bind(r.rf_dead_milk_time)
-        .bind(r.rr_dead_milk_time)
-        .bind(r.lf_x_position)
-        .bind(r.lf_y_position)
-        .bind(r.lfz_position)
-        .bind(r.lr_x_position)
-        .bind(r.lr_y_position)
-        .bind(r.lr_z_position)
-        .bind(r.rf_x_position)
-        .bind(r.rf_y_position)
-        .bind(r.rf_z_position)
-        .bind(r.rr_x_position)
-        .bind(r.rr_y_position)
-        .bind(r.rr_z_position)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dts).bind(&devices).bind(&speeds).bind(&speeds_max)
+        .bind(&lf_t).bind(&lr_t).bind(&rf_t).bind(&rr_t)
+        .bind(&lf_dt).bind(&lr_dt).bind(&rf_dt).bind(&rr_dt)
+        .bind(&lf_x).bind(&lf_y).bind(&lf_z)
+        .bind(&lr_x).bind(&lr_y).bind(&lr_z)
+        .bind(&rf_x).bind(&rf_y).bind(&rf_z)
+        .bind(&rr_x).bind(&rr_y).bind(&rr_z)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_feed_day_amounts(
@@ -443,36 +536,37 @@ pub async fn upsert_feed_day_amounts(
     records: &[FeedDayAmount],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "feed_day_amounts") else {
-            continue;
-        };
-        let Some(date) = parse_lely_date(&r.feed_date) else {
-            continue;
-        };
-        let Some(feed_number) = r.feed_number else {
-            continue;
-        };
-        let total = r.total.unwrap_or(0.0);
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dates = Vec::new();
+        let mut feed_numbers = Vec::new();
+        let mut totals = Vec::new();
+        let mut rest_feeds = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "feed_day_amounts") else { continue };
+            let Some(d) = parse_lely_date(&r.feed_date) else { continue };
+            let Some(fn_) = r.feed_number else { continue };
+            animal_ids.push(aid);
+            dates.push(d);
+            feed_numbers.push(fn_);
+            totals.push(r.total.unwrap_or(0.0));
+            rest_feeds.push(r.rest_feed);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO feed_day_amounts (animal_id, feed_date, feed_number, total, rest_feed) \
-             VALUES ($1, $2, $3, $4, $5) \
+             SELECT * FROM unnest($1::int[], $2::date[], $3::int[], $4::float8[], $5::int[]) \
              ON CONFLICT (animal_id, feed_date, feed_number) DO UPDATE SET \
              total = EXCLUDED.total, rest_feed = COALESCE(EXCLUDED.rest_feed, feed_day_amounts.rest_feed)"
         )
-        .bind(animal_id)
-        .bind(date)
-        .bind(feed_number)
-        .bind(total)
-        .bind(r.rest_feed)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dates).bind(&feed_numbers).bind(&totals).bind(&rest_feeds)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_feed_visits(
@@ -480,31 +574,34 @@ pub async fn upsert_feed_visits(
     records: &[FeedVisit],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "feed_visits") else {
-            continue;
-        };
-        let Some(dt) = parse_lely_datetime(&r.feed_date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dts = Vec::new();
+        let mut feed_numbers = Vec::new();
+        let mut amounts = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "feed_visits") else { continue };
+            let Some(dt) = parse_lely_datetime(&r.feed_date) else { continue };
+            animal_ids.push(aid);
+            dts.push(dt);
+            feed_numbers.push(r.number_of_feed_type);
+            amounts.push(r.intake.map(|i| i as f64));
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO feed_visits (animal_id, visit_datetime, feed_number, amount, duration_seconds) \
-             VALUES ($1, $2, $3, $4, NULL) \
+             SELECT * FROM unnest($1::int[], $2::timestamptz[], $3::int[], $4::float8[], array_fill(null::int, array[array_length($1::int[], 1)])) \
              ON CONFLICT (animal_id, visit_datetime) DO UPDATE SET \
              amount = COALESCE(EXCLUDED.amount, feed_visits.amount)"
         )
-        .bind(animal_id)
-        .bind(dt)
-        .bind(r.number_of_feed_type)
-        .bind(r.intake.map(|i| i as f64))
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dts).bind(&feed_numbers).bind(&amounts)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_activities(
@@ -512,32 +609,35 @@ pub async fn upsert_activities(
     records: &[Activity],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "activities") else {
-            continue;
-        };
-        let Some(dt) = parse_lely_datetime(&r.activity_date_time) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dts = Vec::new();
+        let mut counters = Vec::new();
+        let mut heats = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "activities") else { continue };
+            let Some(dt) = parse_lely_datetime(&r.activity_date_time) else { continue };
+            animal_ids.push(aid);
+            dts.push(dt);
+            counters.push(r.activity_counter);
+            heats.push(r.heat_attention);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO activities (animal_id, activity_datetime, activity_counter, heat_attention) \
-             VALUES ($1, $2, $3, $4) \
+             SELECT * FROM unnest($1::int[], $2::timestamptz[], $3::int[], $4::boolean[]) \
              ON CONFLICT (animal_id, activity_datetime) DO UPDATE SET \
              activity_counter = COALESCE(EXCLUDED.activity_counter, activities.activity_counter), \
              heat_attention = COALESCE(EXCLUDED.heat_attention, activities.heat_attention)"
         )
-        .bind(animal_id)
-        .bind(dt)
-        .bind(r.activity_counter)
-        .bind(r.heat_attention)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dts).bind(&counters).bind(&heats)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_ruminations(
@@ -545,47 +645,72 @@ pub async fn upsert_ruminations(
     records: &[Rumination],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "ruminations") else {
-            continue;
-        };
-        let Some(dt) = parse_lely_datetime(&r.date_time) else {
-            continue;
-        };
-        let date = dt.date_naive();
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dates = Vec::new();
+        let mut eating_secs = Vec::new();
+        let mut rum_mins = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "ruminations") else { continue };
+            let Some(dt) = parse_lely_datetime(&r.date_time) else { continue };
+            animal_ids.push(aid);
+            dates.push(dt.date_naive());
+            eating_secs.push(r.eating_seconds);
+            rum_mins.push(r.rumination_minutes);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO ruminations (animal_id, date, eating_seconds, rumination_minutes) \
-             VALUES ($1, $2, $3, $4) \
+             SELECT * FROM unnest($1::int[], $2::date[], $3::int[], $4::int[]) \
              ON CONFLICT (animal_id, date) DO UPDATE SET \
              eating_seconds = COALESCE(EXCLUDED.eating_seconds, ruminations.eating_seconds), \
              rumination_minutes = COALESCE(EXCLUDED.rumination_minutes, ruminations.rumination_minutes)"
         )
-        .bind(animal_id)
-        .bind(date)
-        .bind(r.eating_seconds)
-        .bind(r.rumination_minutes)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dates).bind(&eating_secs).bind(&rum_mins)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_grazing_data(pool: &PgPool, records: &[Grazing]) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(date) = parse_lely_date(&r.date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut dates = Vec::new();
+        let mut grazing_times = Vec::new();
+        let mut total_cows = Vec::new();
+        let mut cows14 = Vec::new();
+        let mut pcts = Vec::new();
+        let mut yes_nos = Vec::new();
+        let mut sd_times = Vec::new();
+        let mut cum_days = Vec::new();
+        let mut cum_times = Vec::new();
+        let mut tanks = Vec::new();
+
+        for r in chunk {
+            let Some(d) = parse_lely_date(&r.date) else { continue };
+            dates.push(d);
+            grazing_times.push(r.grazing_time);
+            total_cows.push(r.total_milking_cows);
+            cows14.push(r.cows14_dil);
+            pcts.push(r.percentage_in_pasture);
+            yes_nos.push(r.grazing_day_yes_no);
+            sd_times.push(r.sd_time_pasture);
+            cum_days.push(r.cum_pasture_days);
+            cum_times.push(r.cum_total_pasturetime);
+            tanks.push(r.tank_number);
+        }
+        if dates.is_empty() { continue; }
 
         let result = sqlx::query(
-            "INSERT INTO grazing_data (date, animal_count, pasture_time, lactation_period, \
+            "INSERT INTO grazing_data (date, pasture_time, lactation_period, \
              total_milking_cows, cows_14dil, percentage_in_pasture, grazing_day_yes_no, \
              sd_time_pasture, cum_pasture_days, cum_total_pasturetime, tank_number) \
-             VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, $8, $9, $10, $11) \
+             SELECT * FROM unnest($1::date[], $2::int[], array_fill(null::text, array[array_length($1::date[], 1)]), \
+             $3::int[], $4::int[], $5::float8[], $6::boolean[], $7::int[], $8::int[], $9::int[], $10::bigint[]) \
              ON CONFLICT (date) DO UPDATE SET \
              animal_count = COALESCE(EXCLUDED.animal_count, grazing_data.animal_count), \
              pasture_time = COALESCE(EXCLUDED.pasture_time, grazing_data.pasture_time), \
@@ -598,23 +723,12 @@ pub async fn upsert_grazing_data(pool: &PgPool, records: &[Grazing]) -> Result<u
              cum_total_pasturetime = COALESCE(EXCLUDED.cum_total_pasturetime, grazing_data.cum_total_pasturetime), \
              tank_number = COALESCE(EXCLUDED.tank_number, grazing_data.tank_number)"
         )
-        .bind(date)
-        .bind(r.grazing_time)
-        .bind(None::<i32>)
-        .bind(r.total_milking_cows)
-        .bind(r.cows14_dil)
-        .bind(r.percentage_in_pasture)
-        .bind(r.grazing_day_yes_no)
-        .bind(r.sd_time_pasture)
-        .bind(r.cum_pasture_days)
-        .bind(r.cum_total_pasturetime)
-        .bind(r.tank_number)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&dates).bind(&grazing_times).bind(&total_cows).bind(&cows14).bind(&pcts)
+        .bind(&yes_nos).bind(&sd_times).bind(&cum_days).bind(&cum_times).bind(&tanks)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_calvings(
@@ -622,30 +736,33 @@ pub async fn upsert_calvings(
     records: &[Calving],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "calvings") else {
-            continue;
-        };
-        let Some(date) = parse_lely_date(&r.calving_date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dates = Vec::new();
+        let mut remarks = Vec::new();
+        let mut lac_numbers = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "calvings") else { continue };
+            let Some(d) = parse_lely_date(&r.calving_date) else { continue };
+            animal_ids.push(aid);
+            dates.push(d);
+            remarks.push(r.remarks.clone());
+            lac_numbers.push(r.lac_number);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO calvings (animal_id, calving_date, remarks, lac_number) \
-             VALUES ($1, $2, $3, $4) \
-             ON CONFLICT DO NOTHING",
+             SELECT * FROM unnest($1::int[], $2::date[], $3::text[], $4::int[]) \
+             ON CONFLICT DO NOTHING"
         )
-        .bind(animal_id)
-        .bind(date)
-        .bind(&r.remarks)
-        .bind(r.lac_number)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dates).bind(&remarks).bind(&lac_numbers)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_inseminations(
@@ -653,31 +770,35 @@ pub async fn upsert_inseminations(
     records: &[Insemination],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "inseminations") else {
-            continue;
-        };
-        let Some(date) = parse_lely_date(&r.insemination_date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dates = Vec::new();
+        let mut sire_codes = Vec::new();
+        let mut ins_types = Vec::new();
+        let mut charge_numbers = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "inseminations") else { continue };
+            let Some(d) = parse_lely_date(&r.insemination_date) else { continue };
+            animal_ids.push(aid);
+            dates.push(d);
+            sire_codes.push(r.sire_code.clone());
+            ins_types.push(r.insemination_type.clone());
+            charge_numbers.push(r.charge_number.clone());
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO inseminations (animal_id, insemination_date, sire_code, insemination_type, charge_number) \
-             VALUES ($1, $2, $3, $4, $5) \
+             SELECT * FROM unnest($1::int[], $2::date[], $3::text[], $4::text[], $5::text[]) \
              ON CONFLICT DO NOTHING"
         )
-        .bind(animal_id)
-        .bind(date)
-        .bind(&r.sire_code)
-        .bind(&r.insemination_type)
-        .bind(&r.charge_number)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dates).bind(&sire_codes).bind(&ins_types).bind(&charge_numbers)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_pregnancies(
@@ -685,31 +806,33 @@ pub async fn upsert_pregnancies(
     records: &[Pregnancy],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "pregnancies") else {
-            continue;
-        };
-        let Some(date) = parse_lely_date(&r.pregnancy_date) else {
-            continue;
-        };
-        let ins_date = parse_lely_date(&r.insemination_date);
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dates = Vec::new();
+        let mut p_types = Vec::new();
+        let mut ins_dates = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "pregnancies") else { continue };
+            let Some(d) = parse_lely_date(&r.pregnancy_date) else { continue };
+            animal_ids.push(aid);
+            dates.push(d);
+            p_types.push(r.pregnancy_type.clone());
+            ins_dates.push(parse_lely_date(&r.insemination_date));
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO pregnancies (animal_id, pregnancy_date, pregnancy_type, insemination_date) \
-             VALUES ($1, $2, $3, $4) \
+             SELECT * FROM unnest($1::int[], $2::date[], $3::text[], $4::date[]) \
              ON CONFLICT DO NOTHING"
         )
-        .bind(animal_id)
-        .bind(date)
-        .bind(&r.pregnancy_type)
-        .bind(ins_date)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dates).bind(&p_types).bind(&ins_dates)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_heats(
@@ -717,28 +840,29 @@ pub async fn upsert_heats(
     records: &[Heat],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "heats") else {
-            continue;
-        };
-        let Some(date) = parse_lely_date(&r.heat_date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dates = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "heats") else { continue };
+            let Some(d) = parse_lely_date(&r.heat_date) else { continue };
+            animal_ids.push(aid);
+            dates.push(d);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO heats (animal_id, heat_date) \
-             VALUES ($1, $2) \
-             ON CONFLICT DO NOTHING",
+             SELECT * FROM unnest($1::int[], $2::date[]) \
+             ON CONFLICT DO NOTHING"
         )
-        .bind(animal_id)
-        .bind(date)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dates)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_dry_offs(
@@ -746,51 +870,59 @@ pub async fn upsert_dry_offs(
     records: &[DryOff],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "dry_offs") else {
-            continue;
-        };
-        let Some(date) = parse_lely_date(&r.dry_off_date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dates = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "dry_offs") else { continue };
+            let Some(d) = parse_lely_date(&r.dry_off_date) else { continue };
+            animal_ids.push(aid);
+            dates.push(d);
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO dry_offs (animal_id, dry_off_date) \
-             VALUES ($1, $2) \
-             ON CONFLICT DO NOTHING",
+             SELECT * FROM unnest($1::int[], $2::date[]) \
+             ON CONFLICT DO NOTHING"
         )
-        .bind(animal_id)
-        .bind(date)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dates)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_sires(pool: &PgPool, records: &[Sire]) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(code) = &r.sire_code else { continue };
-        let Some(ln) = &r.life_number else { continue };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut codes = Vec::new();
+        let mut lns = Vec::new();
+        let mut names = Vec::new();
+        let mut actives = Vec::new();
+
+        for r in chunk {
+            let Some(c) = &r.sire_code else { continue };
+            let Some(ln) = &r.life_number else { continue };
+            codes.push(c.clone());
+            lns.push(ln.clone());
+            names.push(r.sire_name.clone());
+            actives.push(r.sire_active.unwrap_or(true));
+        }
+        if codes.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO sires (sire_code, life_number, name, active) \
-             VALUES ($1, $2, $3, $4) \
-             ON CONFLICT DO NOTHING",
+             SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::boolean[]) \
+             ON CONFLICT DO NOTHING"
         )
-        .bind(code)
-        .bind(ln)
-        .bind(&r.sire_name)
-        .bind(r.sire_active.unwrap_or(true))
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&codes).bind(&lns).bind(&names).bind(&actives)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_transfers(
@@ -798,32 +930,37 @@ pub async fn upsert_transfers(
     records: &[Transfer],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "transfers") else {
-            continue;
-        };
-        let Some(dt) = parse_lely_datetime(&r.transfer_date) else {
-            continue;
-        };
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut dts = Vec::new();
+        let mut types_ = Vec::new();
+        let mut reason_ids = Vec::new();
+        let mut from_locs = Vec::new();
+        let mut to_locs = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "transfers") else { continue };
+            let Some(dt) = parse_lely_datetime(&r.transfer_date) else { continue };
+            animal_ids.push(aid);
+            dts.push(dt);
+            types_.push(r.transfer_type.clone());
+            reason_ids.push(r.reason_id);
+            from_locs.push(r.ucn_origin.clone());
+            to_locs.push(r.ucn_destination.clone());
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO transfers (animal_id, transfer_date, transfer_type, reason_id, from_location, to_location) \
-             VALUES ($1, $2, $3, $4, $5, $6) \
+             SELECT * FROM unnest($1::int[], $2::timestamptz[], $3::text[], $4::int[], $5::text[], $6::text[]) \
              ON CONFLICT DO NOTHING"
         )
-        .bind(animal_id)
-        .bind(dt)
-        .bind(&r.transfer_type)
-        .bind(r.reason_id)
-        .bind(&r.ucn_origin)
-        .bind(&r.ucn_destination)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&dts).bind(&types_).bind(&reason_ids).bind(&from_locs).bind(&to_locs)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 pub async fn upsert_bloodlines(
@@ -831,30 +968,31 @@ pub async fn upsert_bloodlines(
     records: &[BloodLine],
     cache: &AnimalCache,
 ) -> Result<u64, anyhow::Error> {
-    let mut count = 0u64;
-    for r in records {
-        let Some(animal_id) = cache.resolve_or_warn(&r.life_number, "bloodlines") else {
-            continue;
-        };
-        let Some(code) = &r.blood_type_code else {
-            continue;
-        };
-        let pct = r.percentage.unwrap_or(0.0);
+    let mut total = 0u64;
+    for chunk in records.chunks(BATCH_SIZE) {
+        let mut animal_ids = Vec::new();
+        let mut codes = Vec::new();
+        let mut pcts = Vec::new();
+
+        for r in chunk {
+            let Some(aid) = cache.resolve_or_warn(&r.life_number, "bloodlines") else { continue };
+            let Some(c) = &r.blood_type_code else { continue };
+            animal_ids.push(aid);
+            codes.push(c.clone());
+            pcts.push(r.percentage.unwrap_or(0.0));
+        }
+        if animal_ids.is_empty() { continue; }
 
         let result = sqlx::query(
             "INSERT INTO bloodlines (animal_id, blood_type_code, percentage) \
-             VALUES ($1, $2, $3) \
-             ON CONFLICT DO NOTHING",
+             SELECT * FROM unnest($1::int[], $2::text[], $3::float8[]) \
+             ON CONFLICT DO NOTHING"
         )
-        .bind(animal_id)
-        .bind(code)
-        .bind(pct)
-        .execute(pool)
-        .await?;
-
-        count += result.rows_affected();
+        .bind(&animal_ids).bind(&codes).bind(&pcts)
+        .execute(pool).await?;
+        total += result.rows_affected();
     }
-    Ok(count)
+    Ok(total)
 }
 
 fn parse_lely_date(s: &Option<String>) -> Option<NaiveDate> {

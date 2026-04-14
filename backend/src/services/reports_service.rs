@@ -5,6 +5,257 @@ use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::models::reports::*;
 
+#[derive(Debug, sqlx::FromRow)]
+struct HerdOverviewDbRow {
+    date: String,
+    cow_count: i64,
+    total_milk: Option<f64>,
+    avg_day_production: Option<f64>,
+    total_milkings: Option<i64>,
+    total_refusals: Option<i64>,
+    total_failures: Option<i64>,
+    milk_separated: Option<i64>,
+    avg_scc: Option<f64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct RestFeedDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    feed_date: String,
+    feed_number: i32,
+    total_planned: f64,
+    rest_feed: Option<i32>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct CowDailyProductionDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    date: String,
+    milk_amount: Option<f64>,
+    avg_amount: Option<f64>,
+    avg_weight: Option<f64>,
+    isk: Option<f64>,
+    scc: Option<i32>,
+    fat_pct: Option<f64>,
+    protein_pct: Option<f64>,
+    lactose_pct: Option<f64>,
+    feed_total: Option<f64>,
+    feed_rest: Option<i32>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct RobotPerformanceDbRow {
+    device_address: Option<i32>,
+    date: String,
+    avg_milk_speed: Option<f64>,
+    max_milk_speed: Option<f64>,
+    milkings: i64,
+    avg_lf_milk_time: Option<f64>,
+    avg_lr_milk_time: Option<f64>,
+    avg_rf_milk_time: Option<f64>,
+    avg_rr_milk_time: Option<f64>,
+    avg_lf_dead_milk_time: Option<f64>,
+    avg_lr_dead_milk_time: Option<f64>,
+    avg_rf_dead_milk_time: Option<f64>,
+    avg_rr_dead_milk_time: Option<f64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct FailedMilkingDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    visit_datetime: String,
+    device_address: Option<i32>,
+    milk_yield: Option<f64>,
+    lf_colour: Option<String>,
+    lr_colour: Option<String>,
+    rf_colour: Option<String>,
+    rr_colour: Option<String>,
+    lf_conductivity: Option<i32>,
+    lr_conductivity: Option<i32>,
+    rf_conductivity: Option<i32>,
+    rr_conductivity: Option<i32>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct UdderHealthDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    visit_datetime: String,
+    lf_conductivity: Option<i32>,
+    lr_conductivity: Option<i32>,
+    rf_conductivity: Option<i32>,
+    rr_conductivity: Option<i32>,
+    lf_colour: Option<String>,
+    lr_colour: Option<String>,
+    rf_colour: Option<String>,
+    rr_colour: Option<String>,
+    latest_scc: Option<i32>,
+    milk_yield: Option<f64>,
+    deviation_day_prod: Option<f64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct MilkDayProductionTimeDbRow {
+    date: String,
+    total_milk: Option<f64>,
+    avg_milk_per_cow: Option<f64>,
+    cow_count: i64,
+    milkings: Option<i64>,
+    refusals: Option<i64>,
+    failures: Option<i64>,
+    avg_weight: Option<f64>,
+    total_feed: Option<f64>,
+    total_rest_feed: Option<i64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct VisitBehaviorDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    total_milkings: i64,
+    total_refusals: i64,
+    avg_milk_per_milking: Option<f64>,
+    avg_duration_seconds: Option<f64>,
+    last_visit: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct CalendarCalvingDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    lac_number: Option<i32>,
+    group_number: Option<i32>,
+    last_insemination_date: Option<String>,
+    expected_calving_date: Option<String>,
+    days_until_calving: Option<i64>,
+    sire_code: Option<String>,
+    days_pregnant: Option<i64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct CalendarHeatDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    last_heat_date: Option<String>,
+    expected_heat_date: Option<String>,
+    days_until_heat: Option<i64>,
+    days_in_lactation: Option<i64>,
+    inseminated: bool,
+    overdue: bool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct CalendarPregnancyCheckDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    insemination_date: Option<String>,
+    sire_code: Option<String>,
+    days_since_insemination: Option<i64>,
+    pregnancy_confirmed: bool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct HealthActivityDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    health_index: Option<f64>,
+    activity_deviation: Option<f64>,
+    rumination_minutes: Option<i32>,
+    max_rumination_change_24h: Option<i32>,
+    rumination_3day_diff: Option<i32>,
+    latest_milk: Option<f64>,
+    avg_milk_7d: Option<f64>,
+    milk_deviation_pct: Option<f64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct CowRobotEfficiencyDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    milk_per_box_time_week: Option<f64>,
+    avg_milk_speed: Option<f64>,
+    avg_treatment_time: Option<f64>,
+    avg_milking_time: Option<f64>,
+    milkings_7d: i64,
+    total_milk_7d: Option<f64>,
+    avg_milk_per_milking: Option<f64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct LactationAnalysisDbRow {
+    lac_number: i32,
+    dim: i32,
+    avg_milk: Option<f64>,
+    avg_visits: Option<f64>,
+    avg_feed: Option<f64>,
+    avg_weight: Option<f64>,
+    avg_fat: Option<f64>,
+    avg_protein: Option<f64>,
+    cow_count: i64,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct FeedPerTypeDayDbRow {
+    date: String,
+    feed_type: String,
+    feed_type_name: String,
+    total_amount_product: Option<f64>,
+    total_amount_dm: Option<f64>,
+    total_cost: Option<f64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct FeedPerCowDayDbRow {
+    date: String,
+    animal_count: i64,
+    avg_total_per_cow: Option<f64>,
+    avg_concentrate_per_cow: Option<f64>,
+    avg_roughage_per_cow: Option<f64>,
+    avg_cost_per_cow: Option<f64>,
+    avg_rumination_minutes: Option<f64>,
+    avg_day_production: Option<f64>,
+    avg_lactation_days: Option<f64>,
+    feed_efficiency: Option<f64>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct TransitionDbRow {
+    animal_id: i32,
+    animal_name: Option<String>,
+    life_number: Option<String>,
+    days_relative: i64,
+    milk_24h: Option<f64>,
+    sick_chance: Option<f64>,
+    rumination_3day_diff: Option<i32>,
+    rumination_minutes: Option<i32>,
+    feed_total: Option<f64>,
+    feed_rest: Option<i32>,
+    latest_scc: Option<i32>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ExportMilkDbRow {
+    animal_name: String,
+    date: String,
+    milk_amount: Option<f64>,
+    avg_amount: Option<f64>,
+    avg_weight: Option<f64>,
+    isk: Option<f64>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct MilkSummary {
     pub total_milk: f64,
@@ -156,31 +407,20 @@ pub async fn feed_summary(
     })
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn herd_overview(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<HerdOverviewResponse, AppError> {
-    let rows: Vec<(
-        String,
-        i64,
-        Option<f64>,
-        Option<f64>,
-        Option<i64>,
-        Option<i64>,
-        Option<i64>,
-        Option<i64>,
-        Option<f64>,
-    )> = sqlx::query_as(
+    let rows: Vec<HerdOverviewDbRow> = sqlx::query_as(
         "SELECT d.date::text,
                 COALESCE(d.cow_count, 0),
                 d.total_milk,
-                d.avg_milk,
-                mq.milkings,
-                mq.refusals,
-                mq.failures,
-                sep.cnt,
+                d.avg_milk as avg_day_production,
+                mq.milkings as total_milkings,
+                mq.refusals as total_refusals,
+                mq.failures as total_failures,
+                sep.cnt as milk_separated,
                 mq.avg_scc
          FROM (
              SELECT date,
@@ -219,31 +459,19 @@ pub async fn herd_overview(
 
     let period: Vec<HerdOverviewRow> = rows
         .into_iter()
-        .map(
-            |(
-                date,
-                cow_count,
-                total_milk,
-                avg_day_production,
-                total_milkings,
-                total_refusals,
-                total_failures,
-                milk_separated,
-                avg_scc,
-            )| {
-                HerdOverviewRow {
-                    date,
-                    cow_count,
-                    total_milk,
-                    avg_day_production,
-                    total_milkings,
-                    total_refusals,
-                    total_failures,
-                    milk_separated,
-                    avg_scc,
-                }
-            },
-        )
+        .map(|row| {
+            HerdOverviewRow {
+                date: row.date,
+                cow_count: row.cow_count,
+                total_milk: row.total_milk,
+                avg_day_production: row.avg_day_production,
+                total_milkings: row.total_milkings,
+                total_refusals: row.total_refusals,
+                total_failures: row.total_failures,
+                milk_separated: row.milk_separated,
+                avg_scc: row.avg_scc,
+            }
+        })
         .collect();
 
     let n = period.len().max(1) as f64;
@@ -269,22 +497,13 @@ pub async fn herd_overview(
     })
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn rest_feed_report(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<RestFeedResponse, AppError> {
-    let rows: Vec<(
-        i32,
-        Option<String>,
-        Option<String>,
-        String,
-        i32,
-        f64,
-        Option<i32>,
-    )> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number, f.feed_date::text, f.feed_number, f.total, f.rest_feed
+    let rows: Vec<RestFeedDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number, f.feed_date::text as feed_date, f.feed_number, f.total as total_planned, f.rest_feed
          FROM feed_day_amounts f
          JOIN animals a ON a.id = f.animal_id
          WHERE f.rest_feed IS NOT NULL AND f.rest_feed > 0
@@ -299,30 +518,20 @@ pub async fn rest_feed_report(
 
     let rest_rows: Vec<RestFeedRow> = rows
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                feed_date,
-                feed_number,
-                total_planned,
-                rest_feed,
-            )| {
-                let rest_feed_pct =
-                    rest_feed.map(|rf| (rf as f64 / total_planned * 100.0 * 100.0).round() / 100.0);
-                RestFeedRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    feed_date,
-                    feed_number,
-                    total_planned,
-                    rest_feed,
-                    rest_feed_pct,
-                }
-            },
-        )
+        .map(|row| {
+            let rest_feed_pct =
+                row.rest_feed.map(|rf| (rf as f64 / row.total_planned * 100.0 * 100.0).round() / 100.0);
+            RestFeedRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                feed_date: row.feed_date,
+                feed_number: row.feed_number,
+                total_planned: row.total_planned,
+                rest_feed: row.rest_feed,
+                rest_feed_pct,
+            }
+        })
         .collect();
 
     let total_planned_all: Option<f64> = sqlx::query_scalar(
@@ -352,33 +561,17 @@ pub async fn rest_feed_report(
     })
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn cow_daily_production(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
     animal_id: Option<i32>,
 ) -> Result<Vec<CowDailyProductionRow>, AppError> {
-    let rows: Vec<(
-        i32,
-        Option<String>,
-        Option<String>,
-        String,
-        Option<f64>,
-        Option<f64>,
-        Option<f64>,
-        Option<f64>,
-        Option<i32>,
-        Option<f64>,
-        Option<f64>,
-        Option<f64>,
-        Option<f64>,
-        Option<i32>,
-    )> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number, md.date::text,
+    let rows: Vec<CowDailyProductionDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number, md.date::text,
                 md.milk_amount, md.avg_amount, md.avg_weight, md.isk,
-                mq.scc, mq.fat_percentage, mq.protein_percentage, mq.lactose_percentage,
-                fd_agg.total, fd_agg.rest
+                mq.scc, mq.fat_percentage as fat_pct, mq.protein_percentage as protein_pct, mq.lactose_percentage as lactose_pct,
+                fd_agg.total as feed_total, fd_agg.rest as feed_rest
          FROM milk_day_productions md
          JOIN animals a ON a.id = md.animal_id
          LEFT JOIN milk_quality mq ON mq.animal_id = md.animal_id AND mq.date = md.date
@@ -399,58 +592,40 @@ pub async fn cow_daily_production(
 
     Ok(rows
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                date,
-                milk_amount,
-                avg_amount,
-                avg_weight,
-                isk,
-                scc,
-                fat_pct,
-                protein_pct,
-                lactose_pct,
-                feed_total,
-                feed_rest,
-            )| {
-                CowDailyProductionRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    date,
-                    milk_amount,
-                    avg_amount,
-                    avg_weight,
-                    isk,
-                    scc,
-                    fat_pct,
-                    protein_pct,
-                    lactose_pct,
-                    feed_total,
-                    feed_rest,
-                }
-            },
-        )
+        .map(|row| {
+            CowDailyProductionRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                date: row.date,
+                milk_amount: row.milk_amount,
+                avg_amount: row.avg_amount,
+                avg_weight: row.avg_weight,
+                isk: row.isk,
+                scc: row.scc,
+                fat_pct: row.fat_pct,
+                protein_pct: row.protein_pct,
+                lactose_pct: row.lactose_pct,
+                feed_total: row.feed_total,
+                feed_rest: row.feed_rest,
+            }
+        })
         .collect())
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn robot_performance(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<Vec<RobotPerformanceRow>, AppError> {
-    let rows: Vec<(Option<i32>, String, Option<f64>, Option<f64>, i64, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+    let rows: Vec<RobotPerformanceDbRow> = sqlx::query_as(
         "SELECT r.device_address, r.milking_date::date::text as date,
-                AVG(r.milk_speed)::float8, MAX(r.milk_speed_max)::float8,
-                COUNT(*)::int8,
-                AVG(r.lf_milk_time)::float8, AVG(r.lr_milk_time)::float8,
-                AVG(r.rf_milk_time)::float8, AVG(r.rr_milk_time)::float8,
-                AVG(r.lf_dead_milk_time)::float8, AVG(r.lr_dead_milk_time)::float8,
-                AVG(r.rf_dead_milk_time)::float8, AVG(r.rr_dead_milk_time)::float8
+                AVG(r.milk_speed)::float8 as avg_milk_speed, MAX(r.milk_speed_max)::float8 as max_milk_speed,
+                COUNT(*)::int8 as milkings,
+                AVG(r.lf_milk_time)::float8 as avg_lf_milk_time, AVG(r.lr_milk_time)::float8 as avg_lr_milk_time,
+                AVG(r.rf_milk_time)::float8 as avg_rf_milk_time, AVG(r.rr_milk_time)::float8 as avg_rr_milk_time,
+                AVG(r.lf_dead_milk_time)::float8 as avg_lf_dead_milk_time, AVG(r.lr_dead_milk_time)::float8 as avg_lr_dead_milk_time,
+                AVG(r.rf_dead_milk_time)::float8 as avg_rf_dead_milk_time, AVG(r.rr_dead_milk_time)::float8 as avg_rr_dead_milk_time
          FROM robot_milk_data r
          WHERE ($1::date IS NULL OR r.milking_date::date >= $1) AND ($2::date IS NULL OR r.milking_date::date <= $2)
          GROUP BY r.device_address, r.milking_date::date
@@ -463,52 +638,35 @@ pub async fn robot_performance(
 
     Ok(rows
         .into_iter()
-        .map(
-            |(
-                device_address,
-                date,
-                avg_milk_speed,
-                max_milk_speed,
-                milkings,
-                avg_lf,
-                avg_lr,
-                avg_rf,
-                avg_rr,
-                dlf,
-                dlr,
-                drf,
-                drr,
-            )| {
-                RobotPerformanceRow {
-                    device_address,
-                    date,
-                    avg_milk_speed,
-                    max_milk_speed,
-                    milkings,
-                    avg_lf_milk_time: avg_lf,
-                    avg_lr_milk_time: avg_lr,
-                    avg_rf_milk_time: avg_rf,
-                    avg_rr_milk_time: avg_rr,
-                    avg_lf_dead_milk_time: dlf,
-                    avg_lr_dead_milk_time: dlr,
-                    avg_rf_dead_milk_time: drf,
-                    avg_rr_dead_milk_time: drr,
-                }
-            },
-        )
+        .map(|row| {
+            RobotPerformanceRow {
+                device_address: row.device_address,
+                date: row.date,
+                avg_milk_speed: row.avg_milk_speed,
+                max_milk_speed: row.max_milk_speed,
+                milkings: row.milkings,
+                avg_lf_milk_time: row.avg_lf_milk_time,
+                avg_lr_milk_time: row.avg_lr_milk_time,
+                avg_rf_milk_time: row.avg_rf_milk_time,
+                avg_rr_milk_time: row.avg_rr_milk_time,
+                avg_lf_dead_milk_time: row.avg_lf_dead_milk_time,
+                avg_lr_dead_milk_time: row.avg_lr_dead_milk_time,
+                avg_rf_dead_milk_time: row.avg_rf_dead_milk_time,
+                avg_rr_dead_milk_time: row.avg_rr_dead_milk_time,
+            }
+        })
         .collect())
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn failed_milkings(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<Vec<FailedMilkingRow>, AppError> {
-    let rows: Vec<(i32, Option<String>, Option<String>, String, Option<i32>, Option<f64>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i32>, Option<i32>, Option<i32>, Option<i32>)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number, v.visit_datetime::text,
+    let rows: Vec<FailedMilkingDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number, v.visit_datetime::text,
                 v.device_address, v.milk_yield,
-                v.lf_colour_code, v.lr_colour_code, v.rf_colour_code, v.rr_colour_code,
+                v.lf_colour_code as lf_colour, v.lr_colour_code as lr_colour, v.rf_colour_code as rf_colour, v.rr_colour_code as rr_colour,
                 v.lf_conductivity, v.lr_conductivity, v.rf_conductivity, v.rr_conductivity
          FROM milk_visit_quality v
          JOIN animals a ON a.id = v.animal_id
@@ -530,45 +688,27 @@ pub async fn failed_milkings(
 
     Ok(rows
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                visit_datetime,
-                device_address,
-                milk_yield,
-                lf_c,
-                lr_c,
-                rf_c,
-                rr_c,
-                lf_cond,
-                lr_cond,
-                rf_cond,
-                rr_cond,
-            )| {
-                FailedMilkingRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    visit_datetime,
-                    device_address,
-                    milk_yield,
-                    lf_colour: lf_c,
-                    lr_colour: lr_c,
-                    rf_colour: rf_c,
-                    rr_colour: rr_c,
-                    lf_conductivity: lf_cond,
-                    lr_conductivity: lr_cond,
-                    rf_conductivity: rf_cond,
-                    rr_conductivity: rr_cond,
-                }
-            },
-        )
+        .map(|row| {
+            FailedMilkingRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                visit_datetime: row.visit_datetime,
+                device_address: row.device_address,
+                milk_yield: row.milk_yield,
+                lf_colour: row.lf_colour,
+                lr_colour: row.lr_colour,
+                rf_colour: row.rf_colour,
+                rr_colour: row.rr_colour,
+                lf_conductivity: row.lf_conductivity,
+                lr_conductivity: row.lr_conductivity,
+                rf_conductivity: row.rf_conductivity,
+                rr_conductivity: row.rr_conductivity,
+            }
+        })
         .collect())
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn udder_health_worklist(pool: &PgPool) -> Result<UdderHealthResponse, AppError> {
     udder_health_query(pool, UdderHealthParams {
         interval: "24 hours",
@@ -577,7 +717,6 @@ pub async fn udder_health_worklist(pool: &PgPool) -> Result<UdderHealthResponse,
     }).await
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn udder_health_analyze(pool: &PgPool) -> Result<UdderHealthResponse, AppError> {
     udder_health_query(pool, UdderHealthParams {
         interval: "14 days",
@@ -592,15 +731,14 @@ struct UdderHealthParams<'a> {
     check_deviation: bool,
 }
 
-#[allow(clippy::type_complexity)]
 async fn udder_health_query(pool: &PgPool, params: UdderHealthParams<'_>) -> Result<UdderHealthResponse, AppError> {
     let threshold = params.cond_threshold;
     let deviation_clause = if params.check_deviation { "OR deviation.dev < -3.0" } else { "" };
     let sql = format!(
-        "SELECT a.id, a.name, a.life_number, v.visit_datetime::text,
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number, v.visit_datetime::text,
                 v.lf_conductivity, v.lr_conductivity, v.rf_conductivity, v.rr_conductivity,
-                v.lf_colour_code, v.lr_colour_code, v.rf_colour_code, v.rr_colour_code,
-                latest_scc.scc, v.milk_yield, deviation.dev
+                v.lf_colour_code as lf_colour, v.lr_colour_code as lr_colour, v.rf_colour_code as rf_colour, v.rr_colour_code as rr_colour,
+                latest_scc.scc as latest_scc, v.milk_yield, deviation.dev as deviation_day_prod
          FROM milk_visit_quality v
          JOIN animals a ON a.id = v.animal_id
          LEFT JOIN LATERAL (
@@ -624,90 +762,71 @@ async fn udder_health_query(pool: &PgPool, params: UdderHealthParams<'_>) -> Res
         threshold = threshold,
         deviation_clause = deviation_clause,
     );
-    let rows: Vec<(i32, Option<String>, Option<String>, String, Option<i32>, Option<i32>, Option<i32>, Option<i32>, Option<String>, Option<String>, Option<String>, Option<String>, Option<i32>, Option<f64>, Option<f64>)> = sqlx::query_as(&sql)
+    let rows: Vec<UdderHealthDbRow> = sqlx::query_as(&sql)
     .fetch_all(pool)
     .await
     .map_err(AppError::Database)?;
 
     let result: Vec<UdderHealthRow> = rows
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                visit_datetime,
-                lf_cond,
-                lr_cond,
-                rf_cond,
-                rr_cond,
-                lf_col,
-                lr_col,
-                rf_col,
-                rr_col,
-                latest_scc,
-                milk_yield,
-                deviation,
-            )| {
-                let mut attention_quarters = Vec::new();
-                let quarters = [
-                    ("LF", lf_cond, &lf_col),
-                    ("LR", lr_cond, &lr_col),
-                    ("RF", rf_cond, &rf_col),
-                    ("RR", rr_cond, &rr_col),
-                ];
-                for (name, cond, col) in &quarters {
-                    let mut reasons = Vec::new();
-                    if let Some(c) = cond
-                        && *c > threshold
-                    {
-                        reasons.push(format!("cond={}", c));
-                    }
-                    if let Some(cl) = col
-                        && !cl.is_empty()
-                    {
-                        reasons.push(format!("color={}", cl));
-                    }
-                    if !reasons.is_empty() {
-                        attention_quarters.push(format!("{}: {}", name, reasons.join(", ")));
-                    }
+        .map(|row| {
+            let mut attention_quarters = Vec::new();
+            let quarters = [
+                ("LF", row.lf_conductivity, &row.lf_colour),
+                ("LR", row.lr_conductivity, &row.lr_colour),
+                ("RF", row.rf_conductivity, &row.rf_colour),
+                ("RR", row.rr_conductivity, &row.rr_colour),
+            ];
+            for (name, cond, col) in &quarters {
+                let mut reasons = Vec::new();
+                if let Some(c) = cond
+                    && *c > threshold
+                {
+                    reasons.push(format!("cond={}", c));
                 }
-                UdderHealthRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    visit_datetime,
-                    lf_conductivity: lf_cond,
-                    lr_conductivity: lr_cond,
-                    rf_conductivity: rf_cond,
-                    rr_conductivity: rr_cond,
-                    lf_colour: lf_col,
-                    lr_colour: lr_col,
-                    rf_colour: rf_col,
-                    rr_colour: rr_col,
-                    latest_scc,
-                    milk_yield,
-                    deviation_day_prod: deviation,
-                    attention_quarters,
-                    separation: None,
+                if let Some(cl) = col
+                    && !cl.is_empty()
+                {
+                    reasons.push(format!("color={}", cl));
                 }
-            },
-        )
+                if !reasons.is_empty() {
+                    attention_quarters.push(format!("{}: {}", name, reasons.join(", ")));
+                }
+            }
+            UdderHealthRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                visit_datetime: row.visit_datetime,
+                lf_conductivity: row.lf_conductivity,
+                lr_conductivity: row.lr_conductivity,
+                rf_conductivity: row.rf_conductivity,
+                rr_conductivity: row.rr_conductivity,
+                lf_colour: row.lf_colour,
+                lr_colour: row.lr_colour,
+                rf_colour: row.rf_colour,
+                rr_colour: row.rr_colour,
+                latest_scc: row.latest_scc,
+                milk_yield: row.milk_yield,
+                deviation_day_prod: row.deviation_day_prod,
+                attention_quarters,
+                separation: None,
+            }
+        })
         .collect();
 
     Ok(UdderHealthResponse { rows: result })
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn milk_day_production_time(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<Vec<MilkDayProductionTimeRow>, AppError> {
-    let rows: Vec<(String, Option<f64>, Option<f64>, i64, Option<i64>, Option<i64>, Option<i64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
-        "SELECT d.date::text, day_milk.total, day_milk.avg_per_cow, day_milk.cnt,
+    let rows: Vec<MilkDayProductionTimeDbRow> = sqlx::query_as(
+        "SELECT d.date::text, day_milk.total as total_milk, day_milk.avg_per_cow, day_milk.cnt as cow_count,
                 mq_sum.milkings, mq_sum.refusals, mq_sum.failures,
-                day_milk.avg_weight, feed_sum.total_feed, feed_sum.rest_feed
+                day_milk.avg_weight, feed_sum.total_feed, feed_sum.rest_feed as total_rest_feed
          FROM (SELECT DISTINCT date FROM milk_day_productions
                WHERE ($1::date IS NULL OR date >= $1) AND ($2::date IS NULL OR date <= $2)) d
          LEFT JOIN LATERAL (
@@ -732,49 +851,35 @@ pub async fn milk_day_production_time(
 
     Ok(rows
         .into_iter()
-        .map(
-            |(
-                date,
-                total_milk,
-                avg_milk_per_cow,
-                cow_count,
-                milkings,
-                refusals,
-                failures,
-                avg_weight,
-                total_feed,
-                total_rest_feed,
-            )| {
-                MilkDayProductionTimeRow {
-                    date,
-                    total_milk,
-                    avg_milk_per_cow,
-                    cow_count,
-                    milkings,
-                    refusals,
-                    failures,
-                    avg_weight,
-                    total_feed,
-                    total_rest_feed,
-                }
-            },
-        )
+        .map(|row| {
+            MilkDayProductionTimeRow {
+                date: row.date,
+                total_milk: row.total_milk,
+                avg_milk_per_cow: row.avg_milk_per_cow,
+                cow_count: row.cow_count,
+                milkings: row.milkings,
+                refusals: row.refusals,
+                failures: row.failures,
+                avg_weight: row.avg_weight,
+                total_feed: row.total_feed,
+                total_rest_feed: row.total_rest_feed,
+            }
+        })
         .collect())
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn visit_behavior(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<Vec<VisitBehaviorRow>, AppError> {
-    let rows: Vec<(i32, Option<String>, Option<String>, i64, i64, Option<f64>, Option<f64>, Option<String>)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number,
-                COALESCE(milk_cnt.cnt, 0),
-                COALESCE(refusal_cnt.cnt, 0),
-                milk_avg.avg_milk,
-                dur_avg.avg_dur,
-                last_v.last_visit::text
+    let rows: Vec<VisitBehaviorDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number,
+                COALESCE(milk_cnt.cnt, 0) as total_milkings,
+                COALESCE(refusal_cnt.cnt, 0) as total_refusals,
+                milk_avg.avg_milk as avg_milk_per_milking,
+                dur_avg.avg_dur as avg_duration_seconds,
+                last_v.last_visit::text as last_visit
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT COUNT(*)::int8 as cnt FROM milk_visits v
@@ -810,41 +915,29 @@ pub async fn visit_behavior(
 
     Ok(rows
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                total_milkings,
-                total_refusals,
-                avg_milk_per_milking,
-                avg_duration_seconds,
-                last_visit,
-            )| {
-                VisitBehaviorRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    total_milkings,
-                    total_refusals,
-                    avg_milk_per_milking,
-                    avg_duration_seconds,
-                    milk_frequency_setting: None,
-                    last_visit,
-                }
-            },
-        )
+        .map(|row| {
+            VisitBehaviorRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                total_milkings: row.total_milkings,
+                total_refusals: row.total_refusals,
+                avg_milk_per_milking: row.avg_milk_per_milking,
+                avg_duration_seconds: row.avg_duration_seconds,
+                milk_frequency_setting: None,
+                last_visit: row.last_visit,
+            }
+        })
         .collect())
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
     let today = chrono::Utc::now().date_naive();
 
-    let calvings_data: Vec<(i32, Option<String>, Option<String>, Option<i32>, Option<i32>, Option<String>, Option<String>, Option<i64>, Option<String>, Option<i64>)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number, latest_c.lac_number, a.group_number,
-                latest_ins.ins_date::text, latest_ins.expected_calving::text,
-                latest_ins.days_left, latest_ins.sire_code, latest_ins.days_pregnant
+    let calvings_data: Vec<CalendarCalvingDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number, latest_c.lac_number, a.group_number,
+                latest_ins.ins_date::text as last_insemination_date, latest_ins.expected_calving::text as expected_calving_date,
+                latest_ins.days_left as days_until_calving, latest_ins.sire_code, latest_ins.days_pregnant
          FROM animals a
          CROSS JOIN LATERAL (
              SELECT c.lac_number FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1
@@ -871,33 +964,20 @@ pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
 
     let expected_calvings: Vec<CalendarCalvingRow> = calvings_data
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                lac_number,
-                group_number,
-                last_insemination_date,
-                expected_calving_date,
-                days_until_calving,
-                sire_code,
-                days_pregnant,
-            )| {
-                CalendarCalvingRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    lac_number,
-                    group_number,
-                    last_insemination_date,
-                    expected_calving_date,
-                    days_until_calving,
-                    sire_code,
-                    days_pregnant,
-                }
-            },
-        )
+        .map(|row| {
+            CalendarCalvingRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                lac_number: row.lac_number,
+                group_number: row.group_number,
+                last_insemination_date: row.last_insemination_date,
+                expected_calving_date: row.expected_calving_date,
+                days_until_calving: row.days_until_calving,
+                sire_code: row.sire_code,
+                days_pregnant: row.days_pregnant,
+            }
+        })
         .collect();
 
     let expected_dry_offs: Vec<CalendarDryOffRow> = expected_calvings
@@ -920,11 +1000,11 @@ pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
         .filter(|d| d.days_until_dry_off.is_some_and(|dl| dl <= 30))
         .collect();
 
-    let heats_data: Vec<(i32, Option<String>, Option<String>, Option<String>, Option<String>, Option<i64>, Option<i64>, bool, bool)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number,
-                last_h.heat_date::text, (last_h.heat_date + 21)::date::text as next_heat,
-                (last_h.heat_date + 21 - CURRENT_DATE)::int8 as days_until,
-                days_lac.days_in_lac,
+    let heats_data: Vec<CalendarHeatDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number,
+                last_h.heat_date::text as last_heat_date, (last_h.heat_date + 21)::date::text as expected_heat_date,
+                (last_h.heat_date + 21 - CURRENT_DATE)::int8 as days_until_heat,
+                days_lac.days_in_lac as days_in_lactation,
                 COALESCE(has_ins.has, false) as inseminated,
                 COALESCE((last_h.heat_date + 21) < CURRENT_DATE, false) as overdue
          FROM animals a
@@ -942,7 +1022,7 @@ pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
          ) has_ins ON true
          WHERE a.active = true AND a.gender = 'female'
            AND NOT EXISTS (SELECT 1 FROM pregnancies p WHERE p.animal_id = a.id AND p.pregnancy_date >= last_h.heat_date)
-         ORDER BY days_until"
+         ORDER BY days_until_heat"
     )
     .fetch_all(pool)
     .await
@@ -950,38 +1030,26 @@ pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
 
     let expected_heats: Vec<CalendarHeatRow> = heats_data
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                last_heat_date,
-                expected_heat_date,
-                days_until_heat,
-                days_in_lactation,
-                inseminated,
-                overdue,
-            )| {
-                CalendarHeatRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    last_heat_date,
-                    expected_heat_date,
-                    days_until_heat,
-                    days_in_lactation,
-                    inseminated,
-                    overdue,
-                }
-            },
-        )
+        .map(|row| {
+            CalendarHeatRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                last_heat_date: row.last_heat_date,
+                expected_heat_date: row.expected_heat_date,
+                days_until_heat: row.days_until_heat,
+                days_in_lactation: row.days_in_lactation,
+                inseminated: row.inseminated,
+                overdue: row.overdue,
+            }
+        })
         .collect();
 
-    let preg_checks: Vec<(i32, Option<String>, Option<String>, Option<String>, Option<String>, Option<i64>, bool)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number,
-                latest_i.ins_date::text, latest_i.sire_code,
-                (CURRENT_DATE - latest_i.ins_date)::int8 as days_since,
-                COALESCE(has_preg.confirmed, false)
+    let preg_checks: Vec<CalendarPregnancyCheckDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number,
+                latest_i.ins_date::text as insemination_date, latest_i.sire_code,
+                (CURRENT_DATE - latest_i.ins_date)::int8 as days_since_insemination,
+                COALESCE(has_preg.confirmed, false) as pregnancy_confirmed
          FROM animals a
          CROSS JOIN LATERAL (
              SELECT insemination_date as ins_date, sire_code
@@ -1001,27 +1069,17 @@ pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
 
     let pregnancy_checks: Vec<CalendarPregnancyCheckRow> = preg_checks
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                insemination_date,
-                sire_code,
-                days_since_insemination,
-                pregnancy_confirmed,
-            )| {
-                CalendarPregnancyCheckRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    insemination_date,
-                    sire_code,
-                    days_since_insemination,
-                    pregnancy_confirmed,
-                }
-            },
-        )
+        .map(|row| {
+            CalendarPregnancyCheckRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                insemination_date: row.insemination_date,
+                sire_code: row.sire_code,
+                days_since_insemination: row.days_since_insemination,
+                pregnancy_confirmed: row.pregnancy_confirmed,
+            }
+        })
         .collect();
 
     Ok(CalendarResponse {
@@ -1032,18 +1090,17 @@ pub async fn calendar(pool: &PgPool) -> Result<CalendarResponse, AppError> {
     })
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn health_activity_rumination(pool: &PgPool) -> Result<Vec<HealthActivityRow>, AppError> {
-    let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<i32>, Option<i32>, Option<i32>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number,
-                health_idx.idx,
-                act_dev.deviation,
-                rum_recent.rum_minutes,
-                rum_change.max_change,
-                rum_diff.diff_3d,
-                latest_m.milk,
-                milk_7d.avg_milk,
-                milk_dev.dev_pct
+    let rows: Vec<HealthActivityDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number,
+                health_idx.idx as health_index,
+                act_dev.deviation as activity_deviation,
+                rum_recent.rum_minutes as rumination_minutes,
+                rum_change.max_change as max_rumination_change_24h,
+                rum_diff.diff_3d as rumination_3day_diff,
+                latest_m.milk as latest_milk,
+                milk_7d.avg_milk as avg_milk_7d,
+                milk_dev.dev_pct as milk_deviation_pct
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT AVG(activity_counter)::float8 as idx FROM activities
@@ -1093,49 +1150,34 @@ pub async fn health_activity_rumination(pool: &PgPool) -> Result<Vec<HealthActiv
 
     Ok(rows
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                health_index,
-                activity_deviation,
-                rumination_minutes,
-                max_rumination_change_24h,
-                rumination_3day_diff,
-                latest_milk,
-                avg_milk_7d,
-                milk_deviation_pct,
-            )| {
-                HealthActivityRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    health_index,
-                    activity_deviation,
-                    rumination_minutes,
-                    max_rumination_change_24h,
-                    rumination_3day_diff,
-                    latest_milk,
-                    avg_milk_7d,
-                    milk_deviation_pct,
-                }
-            },
-        )
+        .map(|row| {
+            HealthActivityRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                health_index: row.health_index,
+                activity_deviation: row.activity_deviation,
+                rumination_minutes: row.rumination_minutes,
+                max_rumination_change_24h: row.max_rumination_change_24h,
+                rumination_3day_diff: row.rumination_3day_diff,
+                latest_milk: row.latest_milk,
+                avg_milk_7d: row.avg_milk_7d,
+                milk_deviation_pct: row.milk_deviation_pct,
+            }
+        })
         .collect())
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn cow_robot_efficiency(pool: &PgPool) -> Result<Vec<CowRobotEfficiencyRow>, AppError> {
-    let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, i64, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number,
-                eff.milk_per_box_time,
-                rob.avg_speed,
-                eff.avg_treatment,
-                eff.avg_milking,
-                v7d.visits,
-                v7d.total_milk,
-                v7d.avg_per_milking
+    let rows: Vec<CowRobotEfficiencyDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number,
+                eff.milk_per_box_time as milk_per_box_time_week,
+                rob.avg_speed as avg_milk_speed,
+                eff.avg_treatment as avg_treatment_time,
+                eff.avg_milking as avg_milking_time,
+                v7d.visits as milkings_7d,
+                v7d.total_milk as total_milk_7d,
+                v7d.avg_per_milking as avg_milk_per_milking
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT SUM(v.milk_amount)::float8 / NULLIF(SUM(v.duration_seconds)::float8 / 60.0, 0) * (COUNT(*)::float8 / 7.0) as milk_per_box_time,
@@ -1164,51 +1206,37 @@ pub async fn cow_robot_efficiency(pool: &PgPool) -> Result<Vec<CowRobotEfficienc
 
     Ok(rows
         .into_iter()
-        .map(
-            |(
-                animal_id,
-                animal_name,
-                life_number,
-                milk_per_box_time_week,
-                avg_milk_speed,
-                avg_treatment_time,
-                avg_milking_time,
-                milkings_7d,
-                total_milk_7d,
-                avg_milk_per_milking,
-            )| {
-                CowRobotEfficiencyRow {
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    milk_per_box_time_week,
-                    avg_milk_speed,
-                    avg_treatment_time,
-                    avg_milking_time,
-                    milkings_7d,
-                    total_milk_7d,
-                    avg_milk_per_milking,
-                }
-            },
-        )
+        .map(|row| {
+            CowRobotEfficiencyRow {
+                animal_id: row.animal_id,
+                animal_name: row.animal_name,
+                life_number: row.life_number,
+                milk_per_box_time_week: row.milk_per_box_time_week,
+                avg_milk_speed: row.avg_milk_speed,
+                avg_treatment_time: row.avg_treatment_time,
+                avg_milking_time: row.avg_milking_time,
+                milkings_7d: row.milkings_7d,
+                total_milk_7d: row.total_milk_7d,
+                avg_milk_per_milking: row.avg_milk_per_milking,
+            }
+        })
         .collect())
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn lactation_analysis(
     pool: &PgPool,
     lac_number: Option<i32>,
 ) -> Result<Vec<LactationAnalysisResponse>, AppError> {
-    let rows: Vec<(i32, i32, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, i64)> = sqlx::query_as(
+    let rows: Vec<LactationAnalysisDbRow> = sqlx::query_as(
         "SELECT c.lac_number,
                 (md.date - c.calving_date)::int as dim,
-                AVG(md.milk_amount)::float8,
-                AVG(vis.cnt)::float8,
-                AVG(fd.total)::float8,
-                AVG(md.avg_weight)::float8,
-                AVG(mq.fat_percentage)::float8,
-                AVG(mq.protein_percentage)::float8,
-                COUNT(DISTINCT md.animal_id)::int8
+                AVG(md.milk_amount)::float8 as avg_milk,
+                AVG(vis.cnt)::float8 as avg_visits,
+                AVG(fd.total)::float8 as avg_feed,
+                AVG(md.avg_weight)::float8 as avg_weight,
+                AVG(mq.fat_percentage)::float8 as avg_fat,
+                AVG(mq.protein_percentage)::float8 as avg_protein,
+                COUNT(DISTINCT md.animal_id)::int8 as cow_count
          FROM calvings c
          JOIN milk_day_productions md ON md.animal_id = c.animal_id AND md.date >= c.calving_date AND md.date < c.calving_date + INTERVAL '400 days'
          LEFT JOIN LATERAL (
@@ -1227,18 +1255,16 @@ pub async fn lactation_analysis(
 
     let mut map: std::collections::BTreeMap<i32, Vec<LactationAnalysisPoint>> =
         std::collections::BTreeMap::new();
-    for (ln, dim, avg_milk, avg_visits, avg_feed, avg_weight, avg_fat, avg_protein, cow_count) in
-        rows
-    {
-        map.entry(ln).or_default().push(LactationAnalysisPoint {
-            dim,
-            avg_milk,
-            avg_visits,
-            avg_feed,
-            avg_weight,
-            avg_fat,
-            avg_protein,
-            cow_count,
+    for row in rows {
+        map.entry(row.lac_number).or_default().push(LactationAnalysisPoint {
+            dim: row.dim,
+            avg_milk: row.avg_milk,
+            avg_visits: row.avg_visits,
+            avg_feed: row.avg_feed,
+            avg_weight: row.avg_weight,
+            avg_fat: row.avg_fat,
+            avg_protein: row.avg_protein,
+            cow_count: row.cow_count,
         });
     }
 
@@ -1248,24 +1274,16 @@ pub async fn lactation_analysis(
         .collect())
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn feed_per_type_day(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<FeedPerTypeResponse, AppError> {
-    let rows: Vec<(
-        String,
-        String,
-        String,
-        Option<f64>,
-        Option<f64>,
-        Option<f64>,
-    )> = sqlx::query_as(
+    let rows: Vec<FeedPerTypeDayDbRow> = sqlx::query_as(
         "SELECT fd.feed_date::text as date,
                 ft.feed_type, ft.name as feed_type_name,
-                SUM(fd.total)::float8 as total_product,
-                SUM(fd.total * ft.dry_matter_percentage / 100.0)::float8 as total_dm,
+                SUM(fd.total)::float8 as total_amount_product,
+                SUM(fd.total * ft.dry_matter_percentage / 100.0)::float8 as total_amount_dm,
                 SUM(fd.total * ft.price)::float8 as total_cost
          FROM feed_day_amounts fd
          JOIN feed_types ft ON ft.number_of_feed_type = fd.feed_number
@@ -1288,32 +1306,23 @@ pub async fn feed_per_type_day(
 
     let feed_rows: Vec<FeedPerTypeDayRow> = rows
         .into_iter()
-        .map(
-            |(
-                date,
-                feed_type,
-                feed_type_name,
-                total_amount_product,
-                total_amount_dm,
-                total_cost,
-            )| {
-                let cost_per_100milk = match (total_cost, milk_total) {
-                    (Some(cost), Some(milk)) if milk > 0.0 => {
-                        Some((cost / milk * 100.0 * 100.0).round() / 100.0)
-                    }
-                    _ => None,
-                };
-                FeedPerTypeDayRow {
-                    date,
-                    feed_type,
-                    feed_type_name,
-                    total_amount_product,
-                    total_amount_dm,
-                    total_cost,
-                    cost_per_100milk,
+        .map(|row| {
+            let cost_per_100milk = match (row.total_cost, milk_total) {
+                (Some(cost), Some(milk)) if milk > 0.0 => {
+                    Some((cost / milk * 100.0 * 100.0).round() / 100.0)
                 }
-            },
-        )
+                _ => None,
+            };
+            FeedPerTypeDayRow {
+                date: row.date,
+                feed_type: row.feed_type,
+                feed_type_name: row.feed_type_name,
+                total_amount_product: row.total_amount_product,
+                total_amount_dm: row.total_amount_dm,
+                total_cost: row.total_cost,
+                cost_per_100milk,
+            }
+        })
         .collect();
 
     let total_cost: Option<f64> = feed_rows.iter().filter_map(|r| r.total_cost).partial_sum();
@@ -1331,23 +1340,22 @@ pub async fn feed_per_type_day(
     })
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn feed_per_cow_day(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<Vec<FeedPerCowDayRow>, AppError> {
-    let rows: Vec<(String, i64, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+    let rows: Vec<FeedPerCowDayDbRow> = sqlx::query_as(
         "SELECT d.date::text,
-                cow_cnt.cnt,
-                feed.avg_total,
-                feed.avg_conc,
-                feed.avg_rough,
-                feed.avg_cost,
-                rum.avg_rum,
-                milk.avg_milk,
-                lac.avg_lac_days,
-                CASE WHEN feed.avg_total > 0 THEN milk.avg_milk / feed.avg_total ELSE NULL END as feed_eff
+                cow_cnt.cnt as animal_count,
+                feed.avg_total as avg_total_per_cow,
+                feed.avg_conc as avg_concentrate_per_cow,
+                feed.avg_rough as avg_roughage_per_cow,
+                feed.avg_cost as avg_cost_per_cow,
+                rum.avg_rum as avg_rumination_minutes,
+                milk.avg_milk as avg_day_production,
+                lac.avg_lac_days as avg_lactation_days,
+                CASE WHEN feed.avg_total > 0 THEN milk.avg_milk / feed.avg_total ELSE NULL END as feed_efficiency
          FROM (SELECT DISTINCT date FROM milk_day_productions
                WHERE ($1::date IS NULL OR date >= $1) AND ($2::date IS NULL OR date <= $2)) d
          LEFT JOIN LATERAL (
@@ -1383,33 +1391,20 @@ pub async fn feed_per_cow_day(
 
     Ok(rows
         .into_iter()
-        .map(
-            |(
-                date,
-                animal_count,
-                avg_total_per_cow,
-                avg_concentrate_per_cow,
-                avg_roughage_per_cow,
-                avg_cost_per_cow,
-                avg_rumination_minutes,
-                avg_day_production,
-                avg_lactation_days,
-                feed_efficiency,
-            )| {
-                FeedPerCowDayRow {
-                    date,
-                    animal_count,
-                    avg_total_per_cow,
-                    avg_concentrate_per_cow,
-                    avg_roughage_per_cow,
-                    avg_cost_per_cow,
-                    avg_rumination_minutes,
-                    avg_day_production,
-                    avg_lactation_days,
-                    feed_efficiency,
-                }
-            },
-        )
+        .map(|row| {
+            FeedPerCowDayRow {
+                date: row.date,
+                animal_count: row.animal_count,
+                avg_total_per_cow: row.avg_total_per_cow,
+                avg_concentrate_per_cow: row.avg_concentrate_per_cow,
+                avg_roughage_per_cow: row.avg_roughage_per_cow,
+                avg_cost_per_cow: row.avg_cost_per_cow,
+                avg_rumination_minutes: row.avg_rumination_minutes,
+                avg_day_production: row.avg_day_production,
+                avg_lactation_days: row.avg_lactation_days,
+                feed_efficiency: row.feed_efficiency,
+            }
+        })
         .collect())
 }
 
@@ -1728,18 +1723,17 @@ pub async fn pregnancy_rate_report(pool: &PgPool) -> Result<PregnancyRateRespons
     Ok(PregnancyRateResponse { periods })
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn transition_report(pool: &PgPool) -> Result<TransitionResponse, AppError> {
-    let rows: Vec<(i32, Option<String>, Option<String>, i64, Option<f64>, Option<f64>, Option<i32>, Option<i32>, Option<f64>, Option<i32>, Option<i32>)> = sqlx::query_as(
-        "SELECT a.id, a.name, a.life_number,
-                days_rel.days,
-                milk_24h.total,
+    let rows: Vec<TransitionDbRow> = sqlx::query_as(
+        "SELECT a.id as animal_id, a.name as animal_name, a.life_number,
+                days_rel.days as days_relative,
+                milk_24h.total as milk_24h,
                 NULL::float8 as sick_chance,
-                rum_diff.diff_3d,
+                rum_diff.diff_3d as rumination_3day_diff,
                 rum_latest.rumination_minutes,
-                feed_latest.total,
-                feed_latest.rest_feed,
-                scc_latest.scc
+                feed_latest.total as feed_total,
+                feed_latest.rest_feed as feed_rest,
+                scc_latest.scc as latest_scc
          FROM animals a
          JOIN LATERAL (
              SELECT (CURRENT_DATE - c.calving_date)::int8 as days,
@@ -1777,54 +1771,32 @@ pub async fn transition_report(pool: &PgPool) -> Result<TransitionResponse, AppE
     Ok(TransitionResponse {
         rows: rows
             .into_iter()
-            .map(
-                |(
-                    animal_id,
-                    animal_name,
-                    life_number,
-                    days_relative,
-                    milk_24h,
-                    sick_chance,
-                    rumination_3day_diff,
-                    rumination_minutes,
-                    feed_total,
-                    feed_rest,
-                    latest_scc,
-                )| {
-                    TransitionRow {
-                        animal_id,
-                        animal_name,
-                        life_number,
-                        days_relative,
-                        milk_24h,
-                        sick_chance,
-                        rumination_3day_diff,
-                        rumination_minutes,
-                        feed_total,
-                        feed_rest,
-                        latest_scc,
-                    }
-                },
-            )
+            .map(|row| {
+                TransitionRow {
+                    animal_id: row.animal_id,
+                    animal_name: row.animal_name,
+                    life_number: row.life_number,
+                    days_relative: row.days_relative,
+                    milk_24h: row.milk_24h,
+                    sick_chance: row.sick_chance,
+                    rumination_3day_diff: row.rumination_3day_diff,
+                    rumination_minutes: row.rumination_minutes,
+                    feed_total: row.feed_total,
+                    feed_rest: row.feed_rest,
+                    latest_scc: row.latest_scc,
+                }
+            })
             .collect(),
     })
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn export_milk_csv(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<String, AppError> {
-    let rows: Vec<(
-        String,
-        String,
-        Option<f64>,
-        Option<f64>,
-        Option<f64>,
-        Option<f64>,
-    )> = sqlx::query_as(
-        "SELECT a.name, md.date::text, md.milk_amount, md.avg_amount, md.avg_weight, md.isk
+    let rows: Vec<ExportMilkDbRow> = sqlx::query_as(
+        "SELECT a.name as animal_name, md.date::text, md.milk_amount, md.avg_amount, md.avg_weight, md.isk
          FROM milk_day_productions md
          JOIN animals a ON a.id = md.animal_id
          WHERE ($1::date IS NULL OR md.date >= $1) AND ($2::date IS NULL OR md.date <= $2)
@@ -1837,15 +1809,15 @@ pub async fn export_milk_csv(
     .map_err(AppError::Database)?;
 
     let mut csv = String::from("Животное,Дата,Надой (л),Средний надой,Средний вес,ИСК\n");
-    for (name, date, milk, avg_amount, avg_weight, isk) in &rows {
+    for row in &rows {
         csv.push_str(&format!(
             "{},{},{},{},{},{}\n",
-            escape_csv(name),
-            date,
-            milk.map_or(String::new(), |v| format!("{:.1}", v)),
-            avg_amount.map_or(String::new(), |v| format!("{:.1}", v)),
-            avg_weight.map_or(String::new(), |v| format!("{:.1}", v)),
-            isk.map_or(String::new(), |v| format!("{:.1}", v)),
+            escape_csv(&row.animal_name),
+            &row.date,
+            row.milk_amount.map_or(String::new(), |v| format!("{:.1}", v)),
+            row.avg_amount.map_or(String::new(), |v| format!("{:.1}", v)),
+            row.avg_weight.map_or(String::new(), |v| format!("{:.1}", v)),
+            row.isk.map_or(String::new(), |v| format!("{:.1}", v)),
         ));
     }
     Ok(csv)
@@ -1935,21 +1907,13 @@ pub async fn export_feed_csv(
     Ok(csv)
 }
 
-#[allow(clippy::type_complexity)]
 pub async fn milk_export_rows(
     pool: &PgPool,
     from_date: Option<NaiveDate>,
     till_date: Option<NaiveDate>,
 ) -> Result<Vec<Vec<String>>, AppError> {
-    let rows: Vec<(
-        String,
-        String,
-        Option<f64>,
-        Option<f64>,
-        Option<f64>,
-        Option<f64>,
-    )> = sqlx::query_as(
-        "SELECT a.name, md.date::text, md.milk_amount, md.avg_amount, md.avg_weight, md.isk
+    let rows: Vec<ExportMilkDbRow> = sqlx::query_as(
+        "SELECT a.name as animal_name, md.date::text, md.milk_amount, md.avg_amount, md.avg_weight, md.isk
          FROM milk_day_productions md
          JOIN animals a ON a.id = md.animal_id
          WHERE ($1::date IS NULL OR md.date >= $1) AND ($2::date IS NULL OR md.date <= $2)
@@ -1963,14 +1927,14 @@ pub async fn milk_export_rows(
 
     Ok(rows
         .into_iter()
-        .map(|(name, date, milk, avg_amount, avg_weight, isk)| {
+        .map(|row| {
             vec![
-                name,
-                date,
-                milk.map_or(String::new(), |v| format!("{:.1}", v)),
-                avg_amount.map_or(String::new(), |v| format!("{:.1}", v)),
-                avg_weight.map_or(String::new(), |v| format!("{:.1}", v)),
-                isk.map_or(String::new(), |v| format!("{:.1}", v)),
+                row.animal_name,
+                row.date,
+                row.milk_amount.map_or(String::new(), |v| format!("{:.1}", v)),
+                row.avg_amount.map_or(String::new(), |v| format!("{:.1}", v)),
+                row.avg_weight.map_or(String::new(), |v| format!("{:.1}", v)),
+                row.isk.map_or(String::new(), |v| format!("{:.1}", v)),
             ]
         })
         .collect())
