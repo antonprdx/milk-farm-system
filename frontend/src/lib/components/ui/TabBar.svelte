@@ -17,13 +17,16 @@
 	}
 </script>
 
-<div class="flex gap-1 mb-4 border-b border-slate-200 dark:border-slate-700" role="tablist">
+<div
+	class="flex gap-1 mb-4 border-b border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-thin"
+	role="tablist"
+>
 	{#each tabs as tab (tab.key)}
 		<button
 			onclick={() => select(tab.key)}
 			role="tab"
 			aria-selected={active === tab.key}
-			class="px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer relative {active ===
+			class="px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer relative whitespace-nowrap {active ===
 			tab.key
 				? 'text-blue-600 dark:text-blue-400'
 				: 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}"
