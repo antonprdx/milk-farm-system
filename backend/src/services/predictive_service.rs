@@ -1041,3 +1041,212 @@ pub async fn quarter_health(pool: &PgPool) -> Result<QuarterHealthResponse, AppE
 
     Ok(QuarterHealthResponse { cows })
 }
+
+pub async fn feed_efficiency(pool: &PgPool) -> Result<FeedEfficiencyResponse, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.life_number,
+                m.milk, f.feed
+         FROM animals a
+         LEFT JOIN LATERAL (
+             SELECT AVG(m.milk_amount)::float8 as milk
+             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+         ) m ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(f.total)::float8 as feed
+             FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - INTERVAL '30 days'
+         ) f ON true
+         WHERE a.active = true AND a.gender = 'female' AND m.milk IS NOT NULL
+         ORDER BY m.milk DESC NULLS LAST"
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut cows: Vec<CowFeedEfficiency> = rows
+        .into_iter()
+        .map(|(id, name, ln, milk, feed)| {
+            let eff = match (milk, feed) {
+                (Some(m), Some(f)) if f > 0.0 => Some(m / f),
+                _ => None,
+            };
+            let mpf = match (milk, feed) {
+                (Some(m), Some(f)) if f > 0.0 => Some(m / f),
+                _ => None,
+            };
+            CowFeedEfficiency {
+                animal_id: id,
+                animal_name: name,
+                life_number: ln,
+                avg_daily_milk: milk,
+                avg_daily_feed: feed,
+                feed_efficiency: eff,
+                milk_per_feed: mpf,
+                efficiency_rank: None,
+            }
+        })
+        .collect();
+
+    let herd_avg = if !cows.is_empty() {
+        let sum: f64 = cows.iter().filter_map(|c| c.feed_efficiency).sum();
+        let cnt = cows.iter().filter(|c| c.feed_efficiency.is_some()).count();
+        if cnt > 0 { Some(sum / cnt as f64) } else { None }
+    } else {
+        None
+    };
+
+    cows.sort_by(|a, b| b.feed_efficiency.partial_cmp(&a.feed_efficiency).unwrap_or(std::cmp::Ordering::Equal));
+    for (i, cow) in cows.iter_mut().enumerate() {
+        cow.efficiency_rank = Some((i + 1) as i32);
+    }
+
+    Ok(FeedEfficiencyResponse { cows, herd_avg_efficiency: herd_avg })
+}
+
+pub async fn dry_off_optimizer(pool: &PgPool) -> Result<DryOffOptimizerResponse, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<String>, Option<String>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.life_number,
+                p_duedate.exp_calving::text,
+                m7.milk,
+                scc.avg_scc
+         FROM animals a
+         JOIN LATERAL (
+             SELECT c.calving_date + INTERVAL '280 days' as exp_calving
+             FROM calvings c
+             JOIN LATERAL (
+                 SELECT i.insemination_date FROM inseminations i
+                 WHERE i.animal_id = c.animal_id AND i.insemination_date > c.calving_date
+                 ORDER BY i.insemination_date DESC LIMIT 1
+             ) ai ON true
+             JOIN pregnancies p ON p.animal_id = c.animal_id AND p.insemination_date = ai.insemination_date
+             WHERE c.animal_id = a.id
+             ORDER BY c.calving_date DESC LIMIT 1
+         ) p_duedate ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m
+             WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days'
+         ) m7 ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q
+             WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '30 days'
+         ) scc ON true
+         WHERE a.active = true AND a.gender = 'female'
+           AND p_duedate.exp_calving > CURRENT_DATE AND p_duedate.exp_calving < CURRENT_DATE + INTERVAL '120 days'
+         ORDER BY p_duedate.exp_calving"
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let cows: Vec<DryOffRecommendationEntry> = rows
+        .into_iter()
+        .filter_map(|(id, name, ln, exp_calving, milk, scc)| {
+            let exp = exp_calving?;
+            let exp_date = chrono::NaiveDate::parse_from_str(&exp, "%Y-%m-%d").ok()?;
+            let dry_off = exp_date - chrono::Duration::days(60);
+            let days_until = (dry_off - chrono::Local::now().date_naive()).num_days();
+
+            let scc_status = match scc {
+                Some(s) if s > 400000.0 => "elevated",
+                Some(s) if s > 200000.0 => "moderate",
+                _ => "normal",
+            };
+
+            let readiness = if days_until <= 0 {
+                "overdue"
+            } else if days_until <= 7 {
+                "now"
+            } else if days_until <= 21 {
+                "soon"
+            } else {
+                "monitor"
+            };
+
+            Some(DryOffRecommendationEntry {
+                animal_id: id,
+                animal_name: name,
+                life_number: ln,
+                expected_calving_date: Some(exp),
+                current_daily_milk: milk,
+                recommended_dry_off_date: Some(dry_off.to_string()),
+                days_until_dry_off: Some(days_until),
+                scc_status: scc_status.to_string(),
+                readiness: readiness.to_string(),
+            })
+        })
+        .collect();
+
+    Ok(DryOffOptimizerResponse { cows })
+}
+
+pub async fn lifetime_value(pool: &PgPool) -> Result<LifetimeValueResponse, AppError> {
+    let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, i64, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT a.id, a.name, a.life_number,
+                EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::float8 as age_years,
+                COALESCE(lac_cnt.n, 0) as lac_count,
+                total_milk.milk as total_milk,
+                avg_milk.avg_m as avg_milk_per_lac
+         FROM animals a
+         LEFT JOIN LATERAL (SELECT COUNT(*)::int8 as n FROM calvings c WHERE c.animal_id = a.id) lac_cnt ON true
+         LEFT JOIN LATERAL (
+             SELECT SUM(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id
+         ) total_milk ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(lac_milk.total)::float8 as avg_m
+             FROM (
+                 SELECT SUM(m.milk_amount)::float8 as total
+                 FROM milk_day_productions m
+                 JOIN calvings c ON c.animal_id = m.animal_id
+                 WHERE m.animal_id = a.id AND m.date >= c.calving_date
+                 GROUP BY c.id
+             ) lac_milk
+         ) avg_milk ON true
+         WHERE a.active = true AND a.gender = 'female'
+         ORDER BY a.name"
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let milk_price = 25.0_f64;
+    let feed_cost_per_day = 150.0_f64;
+    let lactation_days = 305.0_f64;
+
+    let cows: Vec<LifetimeValueEntry> = rows
+        .into_iter()
+        .map(|(id, name, ln, age, lac_count, total_milk, avg_milk_per_lac)| {
+            let max_lacs: i32 = 6;
+            let remaining = max_lacs.saturating_sub(lac_count as i32).max(0);
+
+            let avg_per_lac = avg_milk_per_lac.unwrap_or(0.0);
+            let proj_milk_val = remaining as f64 * avg_per_lac * milk_price;
+            let proj_feed = remaining as f64 * lactation_days * feed_cost_per_day;
+            let net = proj_milk_val - proj_feed;
+
+            let recommendation = if remaining <= 0 || age.unwrap_or(0.0) > 8.0 {
+                "culling_candidate"
+            } else if net < 0.0 {
+                "review"
+            } else if remaining <= 1 {
+                "last_lactation"
+            } else {
+                "keep"
+            };
+
+            LifetimeValueEntry {
+                animal_id: id,
+                animal_name: name,
+                life_number: ln,
+                age_years: age,
+                lactation_count: lac_count,
+                total_milk_produced: total_milk,
+                estimated_remaining_lactations: remaining,
+                projected_milk_value: Some((proj_milk_val * 100.0).round() / 100.0),
+                projected_feed_cost: Some((proj_feed * 100.0).round() / 100.0),
+                projected_net_value: Some((net * 100.0).round() / 100.0),
+                recommendation: recommendation.to_string(),
+            }
+        })
+        .collect();
+
+    Ok(LifetimeValueResponse { cows })
+}

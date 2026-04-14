@@ -4,7 +4,10 @@ use sqlx::PgPool;
 use crate::errors::AppError;
 use crate::models::analytics::{
     ClusterCowEntry, CowClusterResponse, CullingSurvivalEntry, CullingSurvivalResponse,
-    MastitisRiskEntry, MastitisRiskResponse, MilkForecastDataResponse, MilkForecastDay,
+    EquipmentAnomalyEntry, EquipmentAnomalyResponse, EstrusPrediction, EstrusResponse,
+    FeedRecommendationEntry, FeedRecommendationResponse, KetosisWarningEntry,
+    KetosisWarningResponse, MastitisRiskEntry, MastitisRiskResponse, MilkForecastDataResponse,
+    MilkForecastDay,
 };
 
 #[derive(Debug, Clone)]
@@ -109,6 +112,100 @@ struct MlClusterEntry {
 struct MlClusterResponse {
     clusters: Vec<MlClusterEntry>,
     cluster_names: std::collections::HashMap<String, String>,
+}
+
+#[derive(Debug, Serialize)]
+struct EstrusMLRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    animal_id: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlEstrusPrediction {
+    animal_id: i32,
+    animal_name: Option<String>,
+    estrus_probability: f64,
+    status: String,
+    contributing_signals: Vec<String>,
+    optimal_window: Option<String>,
+    #[allow(dead_code)]
+    model_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlEstrusResponse {
+    predictions: Vec<MlEstrusPrediction>,
+}
+
+#[derive(Debug, Serialize)]
+struct EmptyRequest {}
+
+#[derive(Debug, Deserialize)]
+struct MlEquipmentEntry {
+    animal_id: i32,
+    animal_name: Option<String>,
+    is_anomaly: bool,
+    anomaly_score: f64,
+    severity: String,
+    flags: Vec<String>,
+    device_address: Option<i32>,
+    #[allow(dead_code)]
+    model_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlEquipmentResponse {
+    entries: Vec<MlEquipmentEntry>,
+}
+
+#[derive(Debug, Serialize)]
+struct FeedRecMLRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    animal_id: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlFeedRecEntry {
+    animal_id: i32,
+    animal_name: Option<String>,
+    current_feed_avg: f64,
+    recommended_feed: f64,
+    difference_kg: f64,
+    suggestion: String,
+    dim_days: i32,
+    lactation_number: i32,
+    #[allow(dead_code)]
+    model_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlFeedRecResponse {
+    recommendations: Vec<MlFeedRecEntry>,
+}
+
+#[derive(Debug, Serialize)]
+struct KetosisMLRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    animal_id: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlKetosisEntry {
+    animal_id: i32,
+    animal_name: Option<String>,
+    risk_probability: f64,
+    risk_type: String,
+    severity: String,
+    fpr_current: f64,
+    fpr_trend: f64,
+    contributing_factors: Vec<String>,
+    #[allow(dead_code)]
+    model_version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlKetosisResponse {
+    predictions: Vec<MlKetosisEntry>,
 }
 
 impl MlClient {
@@ -345,6 +442,119 @@ impl MlClient {
         Ok(CullingSurvivalResponse {
             cows,
             model_version: "xgboost-v1".to_string(),
+        })
+    }
+
+    pub async fn estrus_detection(&self) -> Result<EstrusResponse, AppError> {
+        let resp = self
+            .client
+            .post(format!("{}/predict/estrus", self.base_url))
+            .json(&EstrusMLRequest { animal_id: None })
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Internal(anyhow::anyhow!("ML service returned {}", resp.status())));
+        }
+
+        let ml_resp: MlEstrusResponse = resp.json().await.map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+        Ok(EstrusResponse {
+            predictions: ml_resp.predictions.into_iter().map(|p| EstrusPrediction {
+                animal_id: p.animal_id,
+                animal_name: p.animal_name,
+                estrus_probability: p.estrus_probability,
+                status: p.status,
+                contributing_signals: p.contributing_signals,
+                optimal_window: p.optimal_window,
+                model_version: p.model_version,
+            }).collect(),
+        })
+    }
+
+    pub async fn equipment_anomaly(&self) -> Result<EquipmentAnomalyResponse, AppError> {
+        let resp = self
+            .client
+            .post(format!("{}/predict/equipment-anomaly", self.base_url))
+            .json(&EmptyRequest {})
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Internal(anyhow::anyhow!("ML service returned {}", resp.status())));
+        }
+
+        let ml_resp: MlEquipmentResponse = resp.json().await.map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+        Ok(EquipmentAnomalyResponse {
+            entries: ml_resp.entries.into_iter().map(|e| EquipmentAnomalyEntry {
+                animal_id: e.animal_id,
+                animal_name: e.animal_name,
+                is_anomaly: e.is_anomaly,
+                anomaly_score: e.anomaly_score,
+                severity: e.severity,
+                flags: e.flags,
+                device_address: e.device_address,
+                model_version: e.model_version,
+            }).collect(),
+        })
+    }
+
+    pub async fn feed_recommendation(&self) -> Result<FeedRecommendationResponse, AppError> {
+        let resp = self
+            .client
+            .post(format!("{}/predict/feed-recommendation", self.base_url))
+            .json(&FeedRecMLRequest { animal_id: None })
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Internal(anyhow::anyhow!("ML service returned {}", resp.status())));
+        }
+
+        let ml_resp: MlFeedRecResponse = resp.json().await.map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+        Ok(FeedRecommendationResponse {
+            recommendations: ml_resp.recommendations.into_iter().map(|r| FeedRecommendationEntry {
+                animal_id: r.animal_id,
+                animal_name: r.animal_name,
+                current_feed_avg: r.current_feed_avg,
+                recommended_feed: r.recommended_feed,
+                difference_kg: r.difference_kg,
+                suggestion: r.suggestion,
+                dim_days: r.dim_days,
+                lactation_number: r.lactation_number,
+                model_version: r.model_version,
+            }).collect(),
+        })
+    }
+
+    pub async fn ketosis_warning(&self) -> Result<KetosisWarningResponse, AppError> {
+        let resp = self
+            .client
+            .post(format!("{}/predict/ketosis-warning", self.base_url))
+            .json(&KetosisMLRequest { animal_id: None })
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Internal(anyhow::anyhow!("ML service returned {}", resp.status())));
+        }
+
+        let ml_resp: MlKetosisResponse = resp.json().await.map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+        Ok(KetosisWarningResponse {
+            predictions: ml_resp.predictions.into_iter().map(|p| KetosisWarningEntry {
+                animal_id: p.animal_id,
+                animal_name: p.animal_name,
+                risk_probability: p.risk_probability,
+                risk_type: p.risk_type,
+                severity: p.severity,
+                fpr_current: p.fpr_current,
+                fpr_trend: p.fpr_trend,
+                contributing_factors: p.contributing_factors,
+                model_version: p.model_version,
+            }).collect(),
         })
     }
 }

@@ -7,8 +7,10 @@ use crate::errors::AppError;
 use crate::middleware::auth::Claims;
 use crate::models::analytics::{
     AlertsResponse, CowClusterResponse, CullingSurvivalResponse,
-    EnergyBalanceResponse, FeedForecastResponse, FertilityWindowResponse, HealthIndexResponse,
-    KpiResponse, LactationCurveResponse, MastitisRiskResponse, MilkForecastDataResponse,
+    DryOffOptimizerResponse, EnergyBalanceResponse, EquipmentAnomalyResponse,
+    EstrusResponse, FeedEfficiencyResponse, FeedForecastResponse, FeedRecommendationResponse,
+    FertilityWindowResponse, HealthIndexResponse, KetosisWarningResponse, KpiResponse,
+    LactationCurveResponse, LifetimeValueResponse, MastitisRiskResponse, MilkForecastDataResponse,
     MilkTrendResponse, ProfitabilityResponse, QuarterHealthResponse, ReproductionForecastResponse,
     SeasonalResponse,
 };
@@ -65,6 +67,13 @@ pub fn routes() -> Router<AppState> {
         .route("/analytics/quarter-health", get(quarter_health))
         .route("/analytics/milk-forecast", get(milk_forecast))
         .route("/analytics/cow-clusters", get(cow_clusters))
+        .route("/analytics/estrus", get(estrus_detection))
+        .route("/analytics/equipment-anomaly", get(equipment_anomaly))
+        .route("/analytics/feed-recommendation", get(feed_recommendation))
+        .route("/analytics/ketosis-warning", get(ketosis_warning))
+        .route("/analytics/feed-efficiency", get(feed_efficiency))
+        .route("/analytics/dry-off-optimizer", get(dry_off_optimizer))
+        .route("/analytics/lifetime-value", get(lifetime_value))
 }
 
 #[utoipa::path(
@@ -394,4 +403,80 @@ async fn cow_clusters(
             "ML service unavailable"
         ))),
     }
+}
+
+async fn estrus_detection(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<EstrusResponse>, AppError> {
+    match &state.ml {
+        Some(ml) => {
+            let data = ml.estrus_detection().await?;
+            Ok(Json(data))
+        }
+        None => Err(AppError::Internal(anyhow::anyhow!("ML service unavailable"))),
+    }
+}
+
+async fn equipment_anomaly(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<EquipmentAnomalyResponse>, AppError> {
+    match &state.ml {
+        Some(ml) => {
+            let data = ml.equipment_anomaly().await?;
+            Ok(Json(data))
+        }
+        None => Err(AppError::Internal(anyhow::anyhow!("ML service unavailable"))),
+    }
+}
+
+async fn feed_recommendation(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<FeedRecommendationResponse>, AppError> {
+    match &state.ml {
+        Some(ml) => {
+            let data = ml.feed_recommendation().await?;
+            Ok(Json(data))
+        }
+        None => Err(AppError::Internal(anyhow::anyhow!("ML service unavailable"))),
+    }
+}
+
+async fn ketosis_warning(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<KetosisWarningResponse>, AppError> {
+    match &state.ml {
+        Some(ml) => {
+            let data = ml.ketosis_warning().await?;
+            Ok(Json(data))
+        }
+        None => Err(AppError::Internal(anyhow::anyhow!("ML service unavailable"))),
+    }
+}
+
+async fn feed_efficiency(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<FeedEfficiencyResponse>, AppError> {
+    let data = predictive_service::feed_efficiency(&state.pool).await?;
+    Ok(Json(data))
+}
+
+async fn dry_off_optimizer(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<DryOffOptimizerResponse>, AppError> {
+    let data = predictive_service::dry_off_optimizer(&state.pool).await?;
+    Ok(Json(data))
+}
+
+async fn lifetime_value(
+    _claims: Claims,
+    State(state): State<AppState>,
+) -> Result<Json<LifetimeValueResponse>, AppError> {
+    let data = predictive_service::lifetime_value(&state.pool).await?;
+    Ok(Json(data))
 }
