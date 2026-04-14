@@ -66,14 +66,23 @@ impl RateLimiter {
 }
 
 pub fn extract_client_ip(headers: &HeaderMap, trust_proxy: bool) -> String {
-    if trust_proxy
-        && let Some(forwarded) = headers.get("X-Forwarded-For")
-        && let Ok(val) = forwarded.to_str()
-        && let Some(ip) = val.split(',').next()
-    {
-        let ip = ip.trim().to_string();
-        if !ip.is_empty() {
-            return ip;
+    if trust_proxy {
+        if let Some(forwarded) = headers.get("X-Forwarded-For")
+            && let Ok(val) = forwarded.to_str()
+            && let Some(ip) = val.split(',').next()
+        {
+            let ip = ip.trim().to_string();
+            if !ip.is_empty() {
+                return ip;
+            }
+        }
+        if let Some(real_ip) = headers.get("X-Real-IP")
+            && let Ok(val) = real_ip.to_str()
+        {
+            let ip = val.trim().to_string();
+            if !ip.is_empty() {
+                return ip;
+            }
         }
     }
     "unknown".to_string()
