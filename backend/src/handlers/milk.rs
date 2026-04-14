@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
-use crate::models::milk::{CreateMilkDayProduction, MilkFilter, UpdateMilkDayProduction};
+use crate::models::milk::{CreateMilkDayProduction, CreateMilkVisit, MilkFilter, UpdateMilkDayProduction};
 use crate::models::pagination::paginated;
 use crate::services::milk_service;
 use crate::state::AppState;
@@ -22,7 +22,7 @@ pub fn routes() -> Router<AppState> {
                 .put(update_production)
                 .delete(delete_production),
         )
-        .route("/milk/visits", get(list_visits))
+        .route("/milk/visits", get(list_visits).post(create_visit))
         .route("/milk/quality", get(list_quality))
 }
 
@@ -165,6 +165,28 @@ async fn list_visits(
         || milk_service::count_visits(pool, f),
     )
     .await
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/milk/visits",
+    request_body = CreateMilkVisit,
+    responses(
+        (status = 201, description = "Milk visit created", body = serde_json::Value),
+        (status = 400, description = "Validation error"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Admin access required")
+    ),
+    security(("cookie_auth" = []))
+)]
+async fn create_visit(
+    _admin: crate::middleware::auth::AdminGuard,
+    State(state): State<AppState>,
+    Json(req): Json<CreateMilkVisit>,
+) -> Result<Json<Value>, AppError> {
+    req.validate()?;
+    let item = milk_service::create_visit(&state.pool, &req).await?;
+    Ok(Json(json!({ "data": item })))
 }
 
 #[utoipa::path(

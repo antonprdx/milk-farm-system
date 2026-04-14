@@ -75,6 +75,76 @@ pub async fn count_ruminations(pool: &PgPool, filter: &FitnessFilter) -> Result<
     Ok(row.0)
 }
 
+pub async fn create_activity(
+    pool: &PgPool,
+    req: &CreateActivity,
+) -> Result<Activity, AppError> {
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
+
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(req.animal_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+    if !exists {
+        return Err(AppError::NotFound(format!(
+            "Животное с ID {} не найдено или неактивно",
+            req.animal_id
+        )));
+    }
+
+    let row = sqlx::query_as::<_, Activity>(
+        "INSERT INTO activities (animal_id, activity_datetime, activity_counter, heat_attention)
+         VALUES ($1, $2, $3, $4) RETURNING *",
+    )
+    .bind(req.animal_id)
+    .bind(req.activity_datetime)
+    .bind(req.activity_counter)
+    .bind(req.heat_attention)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(AppError::Database)?;
+
+    tx.commit().await.map_err(AppError::Database)?;
+    Ok(row)
+}
+
+pub async fn create_rumination(
+    pool: &PgPool,
+    req: &CreateRumination,
+) -> Result<Rumination, AppError> {
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
+
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(req.animal_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+    if !exists {
+        return Err(AppError::NotFound(format!(
+            "Животное с ID {} не найдено или неактивно",
+            req.animal_id
+        )));
+    }
+
+    let row = sqlx::query_as::<_, Rumination>(
+        "INSERT INTO ruminations (animal_id, date, eating_seconds, rumination_minutes)
+         VALUES ($1, $2, $3, $4) RETURNING *",
+    )
+    .bind(req.animal_id)
+    .bind(req.date)
+    .bind(req.eating_seconds)
+    .bind(req.rumination_minutes)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(AppError::Database)?;
+
+    tx.commit().await.map_err(AppError::Database)?;
+    Ok(row)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

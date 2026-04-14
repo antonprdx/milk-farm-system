@@ -1,6 +1,6 @@
+use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 use utoipa::Modify;
 use utoipa::OpenApi;
-use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
 
 use crate::handlers::lely::{LelyConfigResponse, LelySyncStatus};
 use crate::handlers::{ChangePasswordRequest, ReportFilter, TrendQuery, UpdateRoleRequest};
@@ -22,12 +22,14 @@ use crate::models::feed::{
     CreateFeedDayAmount, CreateFeedGroup, CreateFeedType, FeedDayAmount, FeedFilter, FeedGroup,
     FeedType, FeedVisit, UpdateFeedGroup, UpdateFeedType,
 };
-use crate::models::fitness::{Activity, FitnessFilter, Rumination};
+use crate::models::fitness::{
+    Activity, CreateActivity, CreateRumination, FitnessFilter, Rumination,
+};
 use crate::models::grazing::{GrazingData, GrazingFilter};
 use crate::models::location::Location;
 use crate::models::milk::{
-    CreateMilkDayProduction, MilkDayProduction, MilkFilter, MilkQuality, MilkVisit,
-    UpdateMilkDayProduction,
+    CreateMilkDayProduction, CreateMilkVisit, MilkDayProduction, MilkFilter, MilkQuality,
+    MilkVisit, UpdateMilkDayProduction,
 };
 use crate::models::pagination::Pagination;
 use crate::models::preferences::{UpdatePreferences, UserPreferences};
@@ -44,11 +46,13 @@ use crate::models::reproduction::{
     CreatePregnancy, DryOff, Heat, Insemination, Pregnancy, ReproductionFilter, UpdateCalving,
     UpdateDryOff, UpdateHeat, UpdateInsemination, UpdatePregnancy,
 };
+use crate::models::sire::{CreateSire, Sire, SireFilter, UpdateSire};
 use crate::models::system_settings::{
     AlertThresholds, JwtTtlSettings, SystemInfo, SystemSetting, UpdateAlertThresholds,
     UpdateJwtTtl, UpdateSystemSetting,
 };
 use crate::models::timeline::{TimelineEvent, TimelineResponse};
+use crate::models::transfer::{CreateTransfer, Transfer, TransferFilter, UpdateTransfer};
 use crate::models::user::UserPublic;
 use crate::models::{BirthRemarkType, GenderType};
 
@@ -94,6 +98,7 @@ impl Modify for SecurityAddon {
         crate::handlers::milk::update_production,
         crate::handlers::milk::delete_production,
         crate::handlers::milk::list_visits,
+        crate::handlers::milk::create_visit,
         crate::handlers::milk::list_quality,
         crate::handlers::reproduction::list_calvings,
         crate::handlers::reproduction::get_calving,
@@ -126,7 +131,9 @@ impl Modify for SecurityAddon {
         crate::handlers::feed::list_types,
         crate::handlers::feed::list_groups,
         crate::handlers::fitness::list_activities,
+        crate::handlers::fitness::create_activity,
         crate::handlers::fitness::list_ruminations,
+        crate::handlers::fitness::create_rumination,
         crate::handlers::grazing::list_grazing,
         crate::handlers::bulk_tank::list,
         crate::handlers::bulk_tank::get_by_id,
@@ -184,6 +191,16 @@ impl Modify for SecurityAddon {
         crate::handlers::analytics::reproduction_forecast,
         crate::handlers::analytics::feed_forecast,
         crate::handlers::locations::list,
+        crate::handlers::sires::list,
+        crate::handlers::sires::get_by_id,
+        crate::handlers::sires::create,
+        crate::handlers::sires::update,
+        crate::handlers::sires::remove,
+        crate::handlers::transfers::list,
+        crate::handlers::transfers::get_by_id,
+        crate::handlers::transfers::create,
+        crate::handlers::transfers::update,
+        crate::handlers::transfers::remove,
         crate::handlers::lely::status,
         crate::handlers::lely::trigger_sync,
         crate::handlers::lely::get_config
@@ -204,6 +221,7 @@ impl Modify for SecurityAddon {
         MilkVisit,
         MilkQuality,
         CreateMilkDayProduction,
+        CreateMilkVisit,
         UpdateMilkDayProduction,
         MilkFilter,
         Calving,
@@ -236,6 +254,8 @@ impl Modify for SecurityAddon {
         FeedFilter,
         Activity,
         Rumination,
+        CreateActivity,
+        CreateRumination,
         FitnessFilter,
         GrazingData,
         GrazingFilter,
@@ -248,6 +268,14 @@ impl Modify for SecurityAddon {
         UpdateBulkTankTest,
         BulkTankFilter,
         Location,
+        Sire,
+        CreateSire,
+        UpdateSire,
+        SireFilter,
+        Transfer,
+        CreateTransfer,
+        UpdateTransfer,
+        TransferFilter,
         TimelineEvent,
         TimelineResponse,
         KpiResponse,

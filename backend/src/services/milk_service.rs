@@ -155,6 +155,42 @@ pub async fn count_visits(pool: &PgPool, filter: &MilkFilter) -> Result<i64, App
     Ok(row.0)
 }
 
+pub async fn create_visit(
+    pool: &PgPool,
+    req: &CreateMilkVisit,
+) -> Result<MilkVisit, AppError> {
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
+
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM animals WHERE id = $1 AND active = true)")
+            .bind(req.animal_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(AppError::Database)?;
+    if !exists {
+        return Err(AppError::NotFound(format!(
+            "Животное с ID {} не найдено или неактивно",
+            req.animal_id
+        )));
+    }
+
+    let row = sqlx::query_as::<_, MilkVisit>(
+        "INSERT INTO milk_visits (animal_id, visit_datetime, milk_amount, duration_seconds, milk_destination)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *",
+    )
+    .bind(req.animal_id)
+    .bind(req.visit_datetime)
+    .bind(req.milk_amount)
+    .bind(req.duration_seconds)
+    .bind(req.milk_destination)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(AppError::Database)?;
+
+    tx.commit().await.map_err(AppError::Database)?;
+    Ok(row)
+}
+
 pub async fn list_quality(
     pool: &PgPool,
     filter: &MilkFilter,

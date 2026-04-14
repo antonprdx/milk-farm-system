@@ -28,6 +28,8 @@
 		ClipboardList,
 		Wallet,
 		Search,
+		Dna,
+		ArrowLeftRight,
 	} from 'lucide-svelte';
 
 	let {
@@ -52,6 +54,7 @@
 		{ href: '/animals', label: 'Животные', icon: Beef },
 		{ href: '/milk', label: 'Удои', icon: Milk },
 		{ href: '/reproduction', label: 'Воспроизводство', icon: Heart },
+		{ href: '/sires', label: 'Быки', icon: Dna },
 		{ href: '/feed', label: 'Кормление', icon: Wheat },
 		{ href: '/vet', label: 'Вет. журнал', icon: Stethoscope },
 		{ href: '/tasks', label: 'Задачи', icon: ClipboardList },
@@ -61,6 +64,7 @@
 		{ href: '/bulk-tank', label: 'Танк-охладитель', icon: Container },
 		{ href: '/contacts', label: 'Контакты', icon: Users },
 		{ href: '/locations', label: 'Локации', icon: MapPin },
+		{ href: '/transfers', label: 'Перемещения', icon: ArrowLeftRight },
 		{ href: '/reports', label: 'Отчёты', icon: BarChart3 },
 		{ href: '/analytics', label: 'Аналитика', icon: TrendingUp },
 		{ href: '/search', label: 'Поиск', icon: Search },

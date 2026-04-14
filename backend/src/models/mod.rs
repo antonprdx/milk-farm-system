@@ -12,9 +12,11 @@ pub mod pagination;
 pub mod preferences;
 pub mod reports;
 pub mod reproduction;
+pub mod sire;
 pub mod system_settings;
 pub mod task;
 pub mod timeline;
+pub mod transfer;
 pub mod user;
 pub mod vet;
 
