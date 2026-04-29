@@ -2,54 +2,54 @@
 \contentsline {structure}{\numberline {}ТЕРМИНЫ~И~ОПРЕДЕЛЕНИЯ}{6}{structure.1}%
 \contentsline {structure}{\numberline {}ПЕРЕЧЕНЬ~СОКРАЩЕНИЙ~И~ОБОЗНАЧЕНИЙ}{8}{structure.2}%
 \contentsline {structure}{\numberline {}ВВЕДЕНИЕ}{10}{structure.3}%
-\contentsline {section}{\numberline {1}ПРЕДМЕТНАЯ ОБЛАСТЬ И ТЕХНИЧЕСКОЕ ЗАДАНИЕ}{14}{section.1}%
-\contentsline {subsection}{\numberline {1.1}Точное животноводство и автоматизация управления молочными фермами}{14}{subsection.1.1}%
-\contentsline {subsection}{\numberline {1.2}Обзор существующих решений}{15}{subsection.1.2}%
-\contentsline {subsection}{\numberline {1.3}Техническое задание}{17}{subsection.1.3}%
-\contentsline {subsection}{\numberline {1.4}Стек технологий}{19}{subsection.1.4}%
-\contentsline {section}{\numberline {2}ПРОЕКТИРОВАНИЕ И РАЗРАБОТКА СИСТЕМЫ}{21}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Архитектура системы}{21}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Модель данных}{23}{subsection.2.2}%
-\contentsline {subsection}{\numberline {2.3}Серверная часть (Backend)}{25}{subsection.2.3}%
-\contentsline {subsubsection}{\numberline {2.3.1}Маршрутизация и обработка запросов}{26}{subsubsection.2.3.1}%
-\contentsline {subsubsection}{\numberline {2.3.2}Аутентификация и авторизация}{27}{subsubsection.2.3.2}%
-\contentsline {subsubsection}{\numberline {2.3.3}Промежуточное программное обеспечение (Middleware)}{28}{subsubsection.2.3.3}%
-\contentsline {subsubsection}{\numberline {2.3.4}Интеграция с Lely}{28}{subsubsection.2.3.4}%
-\contentsline {subsection}{\numberline {2.4}Клиентское веб-приложение (Frontend)}{29}{subsection.2.4}%
-\contentsline {subsubsection}{\numberline {2.4.1}Маршрутизация и навигация}{30}{subsubsection.2.4.1}%
-\contentsline {subsubsection}{\numberline {2.4.2}Аутентификация на стороне клиента}{31}{subsubsection.2.4.2}%
-\contentsline {subsubsection}{\numberline {2.4.3}API-клиент}{31}{subsubsection.2.4.3}%
-\contentsline {subsubsection}{\numberline {2.4.4}Компоненты пользовательского интерфейса}{31}{subsubsection.2.4.4}%
-\contentsline {subsubsection}{\numberline {2.4.5}Генерация отчётов}{32}{subsubsection.2.4.5}%
-\contentsline {subsection}{\numberline {2.5}Модуль машинного обучения (Analytics-ML)}{33}{subsection.2.5}%
-\contentsline {subsubsection}{\numberline {2.5.1}Модели машинного обучения}{34}{subsubsection.2.5.1}%
-\contentsline {subsubsection}{\numberline {2.5.2}Инженерия признаков}{37}{subsubsection.2.5.2}%
-\contentsline {subsubsection}{\numberline {2.5.3}MLOps: обучение, переобучение и мониторинг}{38}{subsubsection.2.5.3}%
-\contentsline {subsection}{\numberline {2.6}Предиктивная аналитика в серверной части}{38}{subsection.2.6}%
-\contentsline {subsubsection}{\numberline {2.6.1}Сравнение моделей прогнозирования временных рядов}{40}{subsubsection.2.6.1}%
-\contentsline {subsubsection}{\numberline {2.6.2}Ансамблевый прогноз}{42}{subsubsection.2.6.2}%
-\contentsline {subsubsection}{\numberline {2.6.3}Объяснимость прогнозов (SHAP)}{43}{subsubsection.2.6.3}%
-\contentsline {subsection}{\numberline {2.7}Мониторинг}{44}{subsection.2.7}%
-\contentsline {subsection}{\numberline {2.8}Непрерывная интеграция и доставка (CI/CD)}{46}{subsection.2.8}%
-\contentsline {subsection}{\numberline {2.9}Развёртывание}{47}{subsection.2.9}%
-\contentsline {section}{\numberline {3}ТЕСТИРОВАНИЕ И ДЕМОНСТРАЦИЯ РАБОТЫ СИСТЕМЫ}{49}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Стратегия тестирования}{49}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Тестирование серверной части}{49}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Тестирование клиентского приложения}{50}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Тестирование модуля машинного обучения}{51}{subsection.3.4}%
-\contentsline {subsection}{\numberline {3.5}Нагрузочное тестирование}{51}{subsection.3.5}%
-\contentsline {subsection}{\numberline {3.6}Демонстрация системы}{51}{subsection.3.6}%
-\contentsline {subsubsection}{\numberline {3.6.1}Аутентификация}{52}{subsubsection.3.6.1}%
-\contentsline {subsubsection}{\numberline {3.6.2}Дашборд}{53}{subsubsection.3.6.2}%
-\contentsline {subsubsection}{\numberline {3.6.3}Управление животными}{54}{subsubsection.3.6.3}%
-\contentsline {subsubsection}{\numberline {3.6.4}Отчёты и аналитика}{56}{subsubsection.3.6.4}%
-\contentsline {subsubsection}{\numberline {3.6.5}Интеграция с Lely}{57}{subsubsection.3.6.5}%
-\contentsline {subsubsection}{\numberline {3.6.6}Оповещения}{57}{subsubsection.3.6.6}%
-\contentsline {subsection}{\numberline {3.7}Мониторинг работоспособности}{57}{subsection.3.7}%
-\contentsline {structure}{\numberline {}ЗАКЛЮЧЕНИЕ}{59}{structure.4}%
-\contentsline {structure}{\numberline {}СПИСОК~ИСПОЛЬЗОВАННЫХ~ИСТОЧНИКОВ}{62}{structure.5}%
-\contentsline {section}{ПРИЛОЖЕНИЕ~А~{Исходный код}}{66}{section*.17}%
-\contentsline {section}{ПРИЛОЖЕНИЕ~Б~{Описание таблиц базы данных}}{67}{section*.19}%
-\contentsline {section}{ПРИЛОЖЕНИЕ~В~{Визуализация модели данных}}{70}{section*.23}%
-\contentsline {section}{ПРИЛОЖЕНИЕ~Г~{Примеры API-запросов и ответов}}{74}{section*.30}%
+\contentsline {section}{\numberline {1}ПРЕДМЕТНАЯ ОБЛАСТЬ И ТЕХНИЧЕСКОЕ ЗАДАНИЕ}{15}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Точное животноводство и автоматизация управления молочными фермами}{15}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Обзор существующих решений}{16}{subsection.1.2}%
+\contentsline {subsection}{\numberline {1.3}Техническое задание}{18}{subsection.1.3}%
+\contentsline {subsection}{\numberline {1.4}Стек технологий}{20}{subsection.1.4}%
+\contentsline {section}{\numberline {2}ПРОЕКТИРОВАНИЕ И РАЗРАБОТКА СИСТЕМЫ}{22}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Архитектура системы}{22}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Модель данных}{24}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Серверная часть (Backend)}{26}{subsection.2.3}%
+\contentsline {subsubsection}{\numberline {2.3.1}Маршрутизация и обработка запросов}{27}{subsubsection.2.3.1}%
+\contentsline {subsubsection}{\numberline {2.3.2}Аутентификация и авторизация}{28}{subsubsection.2.3.2}%
+\contentsline {subsubsection}{\numberline {2.3.3}Промежуточное программное обеспечение (Middleware)}{29}{subsubsection.2.3.3}%
+\contentsline {subsubsection}{\numberline {2.3.4}Интеграция с Lely}{29}{subsubsection.2.3.4}%
+\contentsline {subsection}{\numberline {2.4}Клиентское веб-приложение (Frontend)}{30}{subsection.2.4}%
+\contentsline {subsubsection}{\numberline {2.4.1}Маршрутизация и навигация}{31}{subsubsection.2.4.1}%
+\contentsline {subsubsection}{\numberline {2.4.2}Аутентификация на стороне клиента}{32}{subsubsection.2.4.2}%
+\contentsline {subsubsection}{\numberline {2.4.3}API-клиент}{32}{subsubsection.2.4.3}%
+\contentsline {subsubsection}{\numberline {2.4.4}Компоненты пользовательского интерфейса}{32}{subsubsection.2.4.4}%
+\contentsline {subsubsection}{\numberline {2.4.5}Генерация отчётов}{33}{subsubsection.2.4.5}%
+\contentsline {subsection}{\numberline {2.5}Модуль машинного обучения (Analytics-ML)}{34}{subsection.2.5}%
+\contentsline {subsubsection}{\numberline {2.5.1}Модели машинного обучения}{35}{subsubsection.2.5.1}%
+\contentsline {subsubsection}{\numberline {2.5.2}Инженерия признаков}{38}{subsubsection.2.5.2}%
+\contentsline {subsubsection}{\numberline {2.5.3}MLOps: обучение, переобучение и мониторинг}{39}{subsubsection.2.5.3}%
+\contentsline {subsection}{\numberline {2.6}Предиктивная аналитика в серверной части}{39}{subsection.2.6}%
+\contentsline {subsubsection}{\numberline {2.6.1}Сравнение моделей прогнозирования временных рядов}{41}{subsubsection.2.6.1}%
+\contentsline {subsubsection}{\numberline {2.6.2}Ансамблевый прогноз}{43}{subsubsection.2.6.2}%
+\contentsline {subsubsection}{\numberline {2.6.3}Объяснимость прогнозов (SHAP)}{44}{subsubsection.2.6.3}%
+\contentsline {subsection}{\numberline {2.7}Мониторинг}{45}{subsection.2.7}%
+\contentsline {subsection}{\numberline {2.8}Непрерывная интеграция и доставка (CI/CD)}{47}{subsection.2.8}%
+\contentsline {subsection}{\numberline {2.9}Развёртывание}{48}{subsection.2.9}%
+\contentsline {section}{\numberline {3}ТЕСТИРОВАНИЕ И ДЕМОНСТРАЦИЯ РАБОТЫ СИСТЕМЫ}{50}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Стратегия тестирования}{50}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Тестирование серверной части}{50}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Тестирование клиентского приложения}{51}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Тестирование модуля машинного обучения}{52}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Нагрузочное тестирование}{52}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Демонстрация системы}{52}{subsection.3.6}%
+\contentsline {subsubsection}{\numberline {3.6.1}Аутентификация}{53}{subsubsection.3.6.1}%
+\contentsline {subsubsection}{\numberline {3.6.2}Дашборд}{54}{subsubsection.3.6.2}%
+\contentsline {subsubsection}{\numberline {3.6.3}Управление животными}{55}{subsubsection.3.6.3}%
+\contentsline {subsubsection}{\numberline {3.6.4}Отчёты и аналитика}{57}{subsubsection.3.6.4}%
+\contentsline {subsubsection}{\numberline {3.6.5}Интеграция с Lely}{58}{subsubsection.3.6.5}%
+\contentsline {subsubsection}{\numberline {3.6.6}Оповещения}{58}{subsubsection.3.6.6}%
+\contentsline {subsection}{\numberline {3.7}Мониторинг работоспособности}{58}{subsection.3.7}%
+\contentsline {structure}{\numberline {}ЗАКЛЮЧЕНИЕ}{60}{structure.4}%
+\contentsline {structure}{\numberline {}СПИСОК~ИСПОЛЬЗОВАННЫХ~ИСТОЧНИКОВ}{63}{structure.5}%
+\contentsline {section}{ПРИЛОЖЕНИЕ~А~{Исходный код}}{67}{section*.17}%
+\contentsline {section}{ПРИЛОЖЕНИЕ~Б~{Описание таблиц базы данных}}{68}{section*.19}%
+\contentsline {section}{ПРИЛОЖЕНИЕ~В~{Визуализация модели данных}}{71}{section*.23}%
+\contentsline {section}{ПРИЛОЖЕНИЕ~Г~{Примеры API-запросов и ответов}}{75}{section*.30}%
 \contentsfinish 
