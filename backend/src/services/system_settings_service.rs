@@ -9,7 +9,7 @@ pub fn start_time() -> &'static std::time::Instant {
     START_TIME.get_or_init(std::time::Instant::now)
 }
 
-async fn get_value(pool: &PgPool, key: &str) -> Result<String, AppError> {
+pub async fn get_value(pool: &PgPool, key: &str) -> Result<String, AppError> {
     let row: Option<(String,)> = sqlx::query_as("SELECT value FROM system_settings WHERE key = $1")
         .bind(key)
         .fetch_optional(pool)

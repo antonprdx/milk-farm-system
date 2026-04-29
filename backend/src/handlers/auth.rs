@@ -16,9 +16,9 @@ use crate::services::{system_settings_service, token_revocation_service, user_se
 use crate::state::AppState;
 
 static LOGIN_LIMITER: std::sync::LazyLock<RateLimiter> =
-    std::sync::LazyLock::new(|| RateLimiter::new(5, 60));
+    std::sync::LazyLock::new(|| RateLimiter::new(5, 60, None));
 static REGISTER_LIMITER: std::sync::LazyLock<RateLimiter> =
-    std::sync::LazyLock::new(|| RateLimiter::new(5, 60));
+    std::sync::LazyLock::new(|| RateLimiter::new(5, 60, None));
 
 fn build_cookie(
     name: &str,
@@ -81,7 +81,7 @@ pub fn routes() -> Router<AppState> {
 async fn health(State(state): State<AppState>) -> Result<Json<Value>, AppError> {
     let db_ok = sqlx::query("SELECT 1").execute(&state.pool).await.is_ok();
 
-    let lely_cfg = state.lely.get_config();
+    let lely_cfg = state.lely.get_config().await;
     let lely_status = if lely_cfg.enabled && !lely_cfg.base_url.is_empty() {
         let last_sync: Option<(String, String)> = sqlx::query_as(
             "SELECT status, TO_CHAR(last_synced_at, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') \
@@ -160,7 +160,7 @@ async fn login(
     Json(req): Json<LoginRequest>,
 ) -> Result<Response, AppError> {
     let ip = extract_client_ip(&headers, state.config.trust_proxy);
-    LOGIN_LIMITER.check(&format!("login:{}", ip))?;
+    LOGIN_LIMITER.check(&format!("login:{}", ip)).await?;
     req.validate()?;
 
     let user = user_service::find_by_username(&state.pool, &req.username)
@@ -250,10 +250,6 @@ async fn logout(
     let mut response = axum::response::Json(json!({ "message": "Выполнен выход" })).into_response();
     set_clear_cookies(&mut response, state.config.secure_cookies)?;
 
-    if let Err(e) = token_revocation_service::cleanup_expired(&state.pool).await {
-        tracing::warn!(error = %e, "Failed to cleanup expired tokens");
-    }
-
     Ok(response)
 }
 
@@ -276,7 +272,7 @@ async fn register(
     Json(req): Json<RegisterRequest>,
 ) -> Result<Json<Value>, AppError> {
     let ip = extract_client_ip(&headers, state.config.trust_proxy);
-    REGISTER_LIMITER.check(&format!("register:{}", ip))?;
+    REGISTER_LIMITER.check(&format!("register:{}", ip)).await?;
     req.validate()?;
 
     let password_hash = bcrypt::hash(&req.password, bcrypt::DEFAULT_COST)

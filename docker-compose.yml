@@ -1,16 +1,29 @@
 services:
   postgres:
-    image: postgres:16
+    image: timescale/timescaledb:latest-pg16
     environment:
       POSTGRES_USER: milkfarm
       POSTGRES_PASSWORD: milkfarm_secret
       POSTGRES_DB: milk_farm
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U milkfarm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -25,21 +38,52 @@ services:
       SECURE_COOKIES: "false"
       CORS_ORIGINS: "http://localhost:8080"
       ML_SERVICE_URL: http://analytics-ml:8001
-    ports:
-      - "3000:3000"
+      ML_API_KEY: ${ML_API_KEY:-}
+      REDIS_URL: redis://redis:6379
+      LELY_ENCRYPTION_KEY: change-me-in-production-at-least-32-chars
+      SEED_COWS: ${SEED_COWS:-300}
+      SEED_YEARS: ${SEED_YEARS:-3}
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.11.1
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://milkfarm:milkfarm_secret@postgres:5432/milk_farm_mlflow
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
+    volumes:
+      - mlflow_data:/mlflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -c "pip install psycopg2-binary &&
+      mlflow server
+      --backend-store-uri postgresql://milkfarm:milkfarm_secret@postgres:5432/milk_farm_mlflow
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   analytics-ml:
     build: ./analytics-ml
     environment:
       DATABASE_URL: postgresql+asyncpg://milkfarm:milkfarm_secret@postgres:5432/milk_farm
       MODEL_DIR: /app/models
+      API_KEY: ${ML_API_KEY:-}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
       - ml_models:/app/models
-    ports:
-      - "8001:8001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,11 +96,28 @@ services:
 
   frontend:
     build: ./frontend
-    ports:
-      - "8080:3000"
+    environment:
+      ORIGIN: http://localhost:8080
     depends_on:
       - backend
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
   pgdata:
   ml_models:
+  redisdata:
+  mlflow_data:

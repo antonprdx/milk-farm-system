@@ -6,7 +6,7 @@ use crate::handlers::lely::{LelyConfigResponse, LelySyncStatus};
 use crate::handlers::{ChangePasswordRequest, ReportFilter, TrendQuery, UpdateRoleRequest};
 use crate::middleware::auth::{Claims, LoginRequest, RegisterRequest};
 use crate::models::analytics::{
-    Alert, AlertsResponse, CullingRiskEntry, DailyMilkPoint, DryOffRecommendation, ExpectedCalving,
+    CullingRiskEntry, DailyMilkPoint, DryOffRecommendation, ExpectedCalving,
     ExpectedHeat, FeedForecastResponse, ForecastPoint, KpiResponse, LactationAvg,
     MilkTrendResponse, ReproductionForecastResponse,
 };
@@ -186,10 +186,10 @@ impl Modify for SecurityAddon {
         crate::handlers::settings::update_alert_thresholds,
         crate::handlers::settings::backup_database,
         crate::handlers::analytics::kpi,
-        crate::handlers::analytics::alerts,
         crate::handlers::analytics::milk_trend,
         crate::handlers::analytics::reproduction_forecast,
         crate::handlers::analytics::feed_forecast,
+        crate::handlers::analytics::ensemble_forecast,
         crate::handlers::locations::list,
         crate::handlers::sires::list,
         crate::handlers::sires::get_by_id,
@@ -281,8 +281,6 @@ impl Modify for SecurityAddon {
         KpiResponse,
         LactationAvg,
         CullingRiskEntry,
-        Alert,
-        AlertsResponse,
         DailyMilkPoint,
         ForecastPoint,
         MilkTrendResponse,
@@ -334,7 +332,11 @@ impl Modify for SecurityAddon {
         HealthTaskResponse,
         PregnancyRatePeriod,
         PregnancyRateResponse,
-        TransitionResponse
+        TransitionResponse,
+        crate::models::analytics::EnsembleForecastResponse,
+        crate::models::analytics::EnsembleForecastDay,
+        crate::models::analytics::ShapExplanation,
+        crate::models::analytics::ShapFeatureContribution
     )),
     modifiers(&SecurityAddon)
 )]

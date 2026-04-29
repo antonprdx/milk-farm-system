@@ -7,12 +7,13 @@ use crate::models::analytics::{
     EquipmentAnomalyEntry, EquipmentAnomalyResponse, EstrusPrediction, EstrusResponse,
     FeedRecommendationEntry, FeedRecommendationResponse, KetosisWarningEntry,
     KetosisWarningResponse, MastitisRiskEntry, MastitisRiskResponse, MilkForecastDataResponse,
-    MilkForecastDay,
+    MilkForecastDay, ShapExplanation, ShapFeatureContribution,
 };
 
 #[derive(Debug, Clone)]
 pub struct MlClient {
     base_url: String,
+    api_key: String,
     client: reqwest::Client,
 }
 
@@ -79,6 +80,19 @@ struct MlCullingResponse {
 }
 
 #[derive(Debug, Deserialize)]
+struct MlShapFeatureContribution {
+    feature: String,
+    value: f64,
+    shap_value: f64,
+}
+
+#[derive(Debug, Deserialize)]
+struct MlShapExplanation {
+    top_features: Vec<MlShapFeatureContribution>,
+    base_value: f64,
+}
+
+#[derive(Debug, Deserialize)]
 struct MlForecastResponse {
     #[allow(dead_code)]
     animal_id: i32,
@@ -86,6 +100,7 @@ struct MlForecastResponse {
     current_daily_avg: Option<f64>,
     forecast: Vec<MlForecastDay>,
     model_version: String,
+    shap_explanation: Option<MlShapExplanation>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -209,9 +224,10 @@ struct MlKetosisResponse {
 }
 
 impl MlClient {
-    pub fn new(base_url: String) -> Self {
+    pub fn new(base_url: String, api_key: String) -> Self {
         Self {
             base_url,
+            api_key,
             client: reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(10))
                 .build()
@@ -224,19 +240,29 @@ impl MlClient {
         if url.is_empty() {
             return None;
         }
-        Some(Self::new(url))
+        let api_key = std::env::var("ML_API_KEY").unwrap_or_default();
+        Some(Self::new(url, api_key))
     }
 
     async fn is_healthy(&self) -> bool {
-        match self
+        let mut req = self
             .client
-            .get(format!("{}/health", self.base_url))
-            .send()
-            .await
-        {
+            .get(format!("{}/health", self.base_url));
+        if !self.api_key.is_empty() {
+            req = req.header("X-API-Key", &self.api_key);
+        }
+        match req.send().await {
             Ok(resp) => resp.status().is_success(),
             Err(_) => false,
         }
+    }
+
+    fn post_request(&self, path: &str) -> reqwest::RequestBuilder {
+        let mut req = self.client.post(format!("{}{}", self.base_url, path));
+        if !self.api_key.is_empty() {
+            req = req.header("X-API-Key", &self.api_key);
+        }
+        req
     }
 
     pub async fn mastitis_risk(
@@ -277,8 +303,7 @@ impl MlClient {
         days: i32,
     ) -> Result<MilkForecastDataResponse, AppError> {
         let resp = self
-            .client
-            .post(format!("{}/predict/milk-forecast", self.base_url))
+            .post_request("/predict/milk-forecast")
             .json(&ForecastRequest { animal_id, days })
             .send()
             .await
@@ -311,6 +336,18 @@ impl MlClient {
                 })
                 .collect(),
             model_version: ml_resp.model_version,
+            shap_explanation: ml_resp.shap_explanation.map(|s| ShapExplanation {
+                top_features: s
+                    .top_features
+                    .into_iter()
+                    .map(|f| ShapFeatureContribution {
+                        feature: f.feature,
+                        value: f.value,
+                        shap_value: f.shap_value,
+                    })
+                    .collect(),
+                base_value: s.base_value,
+            }),
         })
     }
 
@@ -319,8 +356,7 @@ impl MlClient {
         days: i32,
     ) -> Result<CowClusterResponse, AppError> {
         let resp = self
-            .client
-            .post(format!("{}/predict/clusters", self.base_url))
+            .post_request("/predict/clusters")
             .json(&ClusterRequest { days })
             .send()
             .await
@@ -364,8 +400,7 @@ impl MlClient {
         animal_id: Option<i32>,
     ) -> Result<MastitisRiskResponse, AppError> {
         let resp = self
-            .client
-            .post(format!("{}/predict/mastitis", self.base_url))
+            .post_request("/predict/mastitis")
             .json(&MastitisRequest { animal_id })
             .send()
             .await
@@ -407,8 +442,7 @@ impl MlClient {
         animal_id: Option<i32>,
     ) -> Result<CullingSurvivalResponse, AppError> {
         let resp = self
-            .client
-            .post(format!("{}/predict/culling", self.base_url))
+            .post_request("/predict/culling")
             .json(&CullingRequest { animal_id })
             .send()
             .await
@@ -507,8 +541,7 @@ impl MlClient {
 
     async fn try_ml_estrus(&self) -> Result<EstrusResponse, AppError> {
         let resp = self
-            .client
-            .post(format!("{}/predict/estrus", self.base_url))
+            .post_request("/predict/estrus")
             .json(&EstrusMLRequest { animal_id: None })
             .send()
             .await
@@ -534,8 +567,7 @@ impl MlClient {
 
     async fn try_ml_equipment(&self) -> Result<EquipmentAnomalyResponse, AppError> {
         let resp = self
-            .client
-            .post(format!("{}/predict/equipment-anomaly", self.base_url))
+            .post_request("/predict/equipment-anomaly")
             .json(&EmptyRequest {})
             .send()
             .await
@@ -562,8 +594,7 @@ impl MlClient {
 
     async fn try_ml_feed_rec(&self) -> Result<FeedRecommendationResponse, AppError> {
         let resp = self
-            .client
-            .post(format!("{}/predict/feed-recommendation", self.base_url))
+            .post_request("/predict/feed-recommendation")
             .json(&FeedRecMLRequest { animal_id: None })
             .send()
             .await
@@ -591,8 +622,7 @@ impl MlClient {
 
     async fn try_ml_ketosis(&self) -> Result<KetosisWarningResponse, AppError> {
         let resp = self
-            .client
-            .post(format!("{}/predict/ketosis-warning", self.base_url))
+            .post_request("/predict/ketosis-warning")
             .json(&KetosisMLRequest { animal_id: None })
             .send()
             .await

@@ -5,6 +5,17 @@ class MastitisRiskRequest(BaseModel):
     animal_id: int | None = None
 
 
+class ShapFeatureContribution(BaseModel):
+    feature: str
+    value: float
+    shap_value: float
+
+
+class ShapExplanation(BaseModel):
+    top_features: list[ShapFeatureContribution]
+    base_value: float
+
+
 class MastitisRiskPrediction(BaseModel):
     animal_id: int
     animal_name: str | None
@@ -12,6 +23,7 @@ class MastitisRiskPrediction(BaseModel):
     risk_level: str
     contributing_features: list[str]
     model_version: str
+    shap_explanation: ShapExplanation | None = None
 
 
 class MastitisRiskResponse(BaseModel):
@@ -29,6 +41,7 @@ class CullingRiskPrediction(BaseModel):
     expected_days_remaining: int | None
     risk_factors: list[str]
     model_version: str
+    shap_explanation: ShapExplanation | None = None
 
 
 class CullingRiskResponse(BaseModel):
@@ -53,6 +66,7 @@ class MilkForecastResponse(BaseModel):
     current_daily_avg: float | None
     forecast: list[MilkForecastDay]
     model_version: str
+    shap_explanation: ShapExplanation | None = None
 
 
 class HealthReport(BaseModel):
@@ -105,6 +119,7 @@ class EstrusPrediction(BaseModel):
     contributing_signals: list[str]
     optimal_window: str | None
     model_version: str
+    shap_explanation: ShapExplanation | None = None
 
 
 class EstrusResponse(BaseModel):
@@ -164,6 +179,7 @@ class KetosisWarningEntry(BaseModel):
     fpr_trend: float
     contributing_factors: list[str]
     model_version: str
+    shap_explanation: ShapExplanation | None = None
 
 
 class KetosisWarningResponse(BaseModel):
@@ -182,3 +198,39 @@ class DriftStatusEntry(BaseModel):
 
 class DriftStatusResponse(BaseModel):
     models: list[DriftStatusEntry]
+
+
+class HerdMilkForecastRequest(BaseModel):
+    days: int = 365
+    forecast_days: int = 30
+
+
+class HerdMilkForecastDay(BaseModel):
+    date: str
+    predicted: float
+    lower: float
+    upper: float
+
+
+class HerdMilkForecastResponse(BaseModel):
+    forecast: list[HerdMilkForecastDay]
+    trend_direction: str
+    trend_percent: float
+    model_version: str
+
+
+class BcsEstimateRequest(BaseModel):
+    animal_id: int | None = None
+
+
+class BcsEstimateEntry(BaseModel):
+    animal_id: int
+    animal_name: str | None
+    estimated_bcs: float
+    status: str
+    model_version: str
+    shap_explanation: ShapExplanation | None = None
+
+
+class BcsEstimateResponse(BaseModel):
+    estimates: list[BcsEstimateEntry]

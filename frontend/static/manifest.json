@@ -6,6 +6,8 @@
   "display": "standalone",
   "background_color": "#f1f5f9",
   "theme_color": "#2563eb",
+  "lang": "ru",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/pwa-192x192.png",
@@ -16,6 +18,26 @@
       "src": "/pwa-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Животные",
+      "short_name": "Животные",
+      "url": "/animals",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Алерты",
+      "short_name": "Алерты",
+      "url": "/alerts",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
     }
   ]
 }

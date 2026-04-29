@@ -19,6 +19,8 @@ export interface VetRecord {
 	status: VetRecordStatus;
 	event_date: string;
 	diagnosis: string | null;
+	diagnosis_code: string | null;
+	confirmed: boolean;
 	treatment: string | null;
 	medication: string | null;
 	dosage: string | null;
@@ -37,6 +39,8 @@ export interface CreateVetRecord {
 	status?: VetRecordStatus;
 	event_date: string;
 	diagnosis?: string;
+	diagnosis_code?: string;
+	confirmed?: boolean;
 	treatment?: string;
 	medication?: string;
 	dosage?: string;
@@ -51,6 +55,8 @@ export interface UpdateVetRecord {
 	status?: VetRecordStatus;
 	event_date?: string;
 	diagnosis?: string;
+	diagnosis_code?: string;
+	confirmed?: boolean;
 	treatment?: string;
 	medication?: string;
 	dosage?: string;
@@ -152,4 +158,19 @@ export const VET_STATUS_LABELS: Record<VetRecordStatus, string> = {
 	in_progress: 'В процессе',
 	completed: 'Завершено',
 	cancelled: 'Отменено',
+};
+
+export const DIAGNOSIS_CODES: Record<string, string> = {
+	mastitis: 'Мастит',
+	ketosis: 'Кетоз',
+	acidosis: 'Ацидоз',
+	lameness: 'Хромота',
+	metritis: 'Метрит',
+	milk_fever: 'Парез',
+	rp: 'Задержка последа',
+	displaced_abomasum: 'Смещение сычуга',
+	pneumonia: 'Пневмония',
+	diarrhea: 'Диарея',
+	infertility: 'Бесплодие',
+	other: 'Другое',
 };

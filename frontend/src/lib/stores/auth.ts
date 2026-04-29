@@ -10,15 +10,13 @@ interface AuthState {
 }
 
 function createAuthStore() {
-	const initial: AuthState = browser
-		? {
-				username: null,
-				role: null,
-				mustChangePassword: false,
-				authenticated: false,
-				initialized: false,
-			}
-		: { username: null, role: null, mustChangePassword: false, authenticated: false, initialized: false };
+	const initial: AuthState = {
+		username: null,
+		role: null,
+		mustChangePassword: false,
+		authenticated: false,
+		initialized: false,
+	};
 
 	const { subscribe, set, update } = writable<AuthState>(initial);
 
@@ -34,9 +32,6 @@ function createAuthStore() {
 				});
 				if (res.ok) {
 					const data = await res.json();
-					localStorage.setItem('username', data.username);
-					localStorage.setItem('role', data.role);
-					localStorage.setItem('mustChangePassword', String(data.must_change_password));
 					set({
 						username: data.username,
 						role: data.role,
@@ -45,9 +40,6 @@ function createAuthStore() {
 						initialized: true,
 					});
 				} else {
-					localStorage.removeItem('username');
-					localStorage.removeItem('role');
-					localStorage.removeItem('mustChangePassword');
 					set({ username: null, role: null, mustChangePassword: false, authenticated: false, initialized: true });
 				}
 			} catch {
@@ -55,25 +47,12 @@ function createAuthStore() {
 			}
 		},
 		login(username: string, role: string, mustChangePassword = false) {
-			if (browser) {
-				localStorage.setItem('username', username);
-				localStorage.setItem('role', role);
-				localStorage.setItem('mustChangePassword', String(mustChangePassword));
-			}
 			set({ username, role, mustChangePassword, authenticated: true, initialized: true });
 		},
 		logout() {
-			if (browser) {
-				localStorage.removeItem('username');
-				localStorage.removeItem('role');
-				localStorage.removeItem('mustChangePassword');
-			}
 			set({ username: null, role: null, mustChangePassword: false, authenticated: false, initialized: true });
 		},
 		clearMustChangePassword() {
-			if (browser) {
-				localStorage.removeItem('mustChangePassword');
-			}
 			update((v) => ({ ...v, mustChangePassword: false }));
 		},
 		get authenticated() {

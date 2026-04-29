@@ -26,6 +26,7 @@ pub struct Config {
     pub rate_limit_window_secs: u64,
     pub shutdown_timeout_secs: u64,
     pub swagger_enabled: bool,
+    pub redis_url: String,
     pub lely_env: LelyConfig,
 }
 
@@ -98,6 +99,7 @@ impl Config {
                 .unwrap_or_else(|_| "true".into())
                 .parse()
                 .unwrap_or(true),
+            redis_url: std::env::var("REDIS_URL").unwrap_or_else(|_| String::new()),
             lely_env: LelyConfig {
                 enabled: std::env::var("LELY_ENABLED")
                     .unwrap_or_else(|_| "false".into())

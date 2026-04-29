@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 from logging import getLogger
+import os
 
 import joblib
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import pandas as pd
 
+from app.auth import verify_api_key
 from app.config import settings
 from app.models import clustering as clustering_model
 from app.schemas import DriftStatusEntry, DriftStatusResponse
@@ -18,10 +20,15 @@ from app.models import culling as culling_model
 from app.models import equipment_anomaly as equipment_model
 from app.models import estrus as estrus_model
 from app.models import feed_recommendation as feed_rec_model
+from app.models import herd_milk_prophet as prophet_model
+from app.models import bcs_estimator as bcs_model
 from app.models import ketosis_warning as ketosis_model
 from app.models import mastitis as mastitis_model
 from app.models import milk_forecast as forecast_model
 from app.schemas import (
+    BcsEstimateEntry,
+    BcsEstimateRequest,
+    BcsEstimateResponse,
     ClusterEntry,
     ClusterRequest,
     ClusterResponse,
@@ -40,6 +47,9 @@ from app.schemas import (
     FeedRecommendationRequest,
     FeedRecommendationResponse,
     HealthReport,
+    HerdMilkForecastDay,
+    HerdMilkForecastRequest,
+    HerdMilkForecastResponse,
     KetosisWarningEntry,
     KetosisWarningRequest,
     KetosisWarningResponse,
@@ -56,6 +66,7 @@ from app.services.data_loader import (
     async_session,
     check_connection,
     get_session,
+    load_bcs_features,
     load_clustering_features,
     load_culling_features,
     load_equipment_anomaly_features,
@@ -65,7 +76,7 @@ from app.services.data_loader import (
     load_mastitis_features,
     load_milk_timeseries,
 )
-from app.services.drift_monitor import check_drift, record_predictions
+from app.services.drift_monitor import check_drift, record_predictions, record_features
 
 logger = getLogger(__name__)
 
@@ -79,7 +90,6 @@ MODEL_FILES = {
     "cow_clusters": "cow_clusters.pkl",
     "estrus": "estrus_xgb.pkl",
     "equipment_anomaly": "equipment_anomaly.pkl",
-    "feed_recommendation": "feed_recommendation_xgb.pkl",
     "ketosis_warning": "ketosis_warning_xgb.pkl",
 }
 
@@ -99,7 +109,7 @@ async def _scheduled_retrain():
     logger.info("Scheduled retraining started")
     try:
         async with async_session() as session:
-            for name in ("mastitis", "culling", "cow_clusters", "milk_forecast", "estrus", "ketosis_warning", "feed_recommendation", "equipment_anomaly"):
+            for name in ("mastitis", "culling", "cow_clusters", "milk_forecast", "estrus", "ketosis_warning", "equipment_anomaly"):
                 try:
                     result = await _train_model(name, session)
                     _model_timestamps[name] = _check_model(name)
@@ -117,7 +127,7 @@ async def lifespan(app: FastAPI):
     for name in MODEL_FILES:
         _model_timestamps[name] = _check_model(name)
 
-    missing = [m for m in ("mastitis", "culling", "milk_forecast", "cow_clusters", "estrus", "ketosis_warning", "feed_recommendation", "equipment_anomaly") if _model_timestamps.get(m) is None]
+    missing = [m for m in ("mastitis", "culling", "milk_forecast", "cow_clusters", "estrus", "ketosis_warning", "equipment_anomaly") if _model_timestamps.get(m) is None]
     if missing:
         logger.info("Auto-training missing models: %s", missing)
         try:
@@ -154,7 +164,33 @@ async def lifespan(app: FastAPI):
         _scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="Milk Farm Analytics ML", version="1.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="Milk Farm Analytics ML",
+    version="1.2.0",
+    lifespan=lifespan,
+    dependencies=[Depends(verify_api_key)],
+)
+
+otlp_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+if otlp_endpoint:
+    try:
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+        resource = Resource.create({"service.name": "milk-farm-analytics-ml"})
+        provider = TracerProvider(resource=resource)
+        provider.add_span_processor(
+            BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint))
+        )
+        trace.set_tracer_provider(provider)
+        FastAPIInstrumentor.instrument_app(app)
+        logger.info("OTEL tracing enabled, endpoint=%s", otlp_endpoint)
+    except Exception as e:
+        logger.warning("OTEL setup failed: %s", e)
 
 
 @app.get("/health")
@@ -180,6 +216,8 @@ async def predict_mastitis(
 
     if df.empty:
         return MastitisRiskResponse(predictions=[])
+
+    record_features("mastitis", df)
 
     if req.animal_id is not None:
         df = df[df["animal_id"] == req.animal_id]
@@ -208,6 +246,8 @@ async def predict_culling(
 
     if df.empty:
         return CullingRiskResponse(predictions=[])
+
+    record_features("culling", df)
 
     if req.animal_id is not None:
         df = df[df["animal_id"] == req.animal_id]
@@ -256,6 +296,7 @@ async def predict_milk_forecast(
         current_daily_avg=result["current_daily_avg"],
         forecast=[MilkForecastDay(**d) for d in result["forecast"]],
         model_version=result["model_version"],
+        shap_explanation=result.get("shap_explanation"),
     )
 
 
@@ -296,6 +337,8 @@ async def predict_estrus(
 
     if df.empty:
         return EstrusResponse(predictions=[])
+
+    record_features("estrus", df)
 
     if req.animal_id is not None:
         df = df[df["animal_id"] == req.animal_id]
@@ -363,6 +406,46 @@ async def predict_feed(
     return FeedRecommendationResponse(recommendations=feed_results)
 
 
+@app.post("/predict/herd-milk-forecast", response_model=HerdMilkForecastResponse)
+async def predict_herd_milk(
+    req: HerdMilkForecastRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        rows = await session.execute(
+            text(
+                "SELECT date::text AS ds, COALESCE(SUM(milk_amount), 0) AS y "
+                "FROM milk_day_productions "
+                "WHERE date >= CURRENT_DATE - (:days || ' days')::interval "
+                "GROUP BY date ORDER BY date"
+            ),
+            {"days": req.days},
+        )
+        data = rows.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+
+    if not data or len(data) < 14:
+        return HerdMilkForecastResponse(
+            forecast=[], trend_direction="insufficient_data", trend_percent=0.0, model_version="no-data"
+        )
+
+    df = pd.DataFrame(data, columns=["ds", "y"])
+    df["y"] = pd.to_numeric(df["y"], errors="coerce").fillna(0)
+
+    try:
+        result = prophet_model.predict(df, periods=req.forecast_days)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return HerdMilkForecastResponse(
+        forecast=[HerdMilkForecastDay(**d) for d in result["forecast"]],
+        trend_direction=result["trend_direction"],
+        trend_percent=result["trend_percent"],
+        model_version=result["model_version"],
+    )
+
+
 @app.post("/predict/ketosis-warning", response_model=KetosisWarningResponse)
 async def predict_ketosis(
     req: KetosisWarningRequest,
@@ -375,6 +458,8 @@ async def predict_ketosis(
 
     if df.empty:
         return KetosisWarningResponse(predictions=[])
+
+    record_features("ketosis_warning", df)
 
     if req.animal_id is not None:
         df = df[df["animal_id"] == req.animal_id]
@@ -389,6 +474,32 @@ async def predict_ketosis(
     ketosis_results = [KetosisWarningEntry(**r) for r in results]
     record_predictions("ketosis_warning", results)
     return KetosisWarningResponse(predictions=ketosis_results)
+
+
+@app.post("/predict/bcs", response_model=BcsEstimateResponse)
+async def predict_bcs(
+    req: BcsEstimateRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        df = await load_bcs_features(session)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+
+    if df.empty:
+        return BcsEstimateResponse(estimates=[])
+
+    if req.animal_id is not None:
+        df = df[df["animal_id"] == req.animal_id]
+        if df.empty:
+            return BcsEstimateResponse(estimates=[])
+
+    try:
+        results = bcs_model.predict(df)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return BcsEstimateResponse(estimates=[BcsEstimateEntry(**r) for r in results])
 
 
 @app.get("/drift-status", response_model=DriftStatusResponse)
@@ -406,6 +517,15 @@ async def drift_status():
             samples=info.get("samples"),
         ))
     return DriftStatusResponse(models=entries)
+
+
+@app.get("/feature-drift")
+async def feature_drift_status():
+    from app.services.drift_monitor import check_feature_drift
+    results = []
+    for name in ("mastitis", "culling", "estrus", "ketosis_warning", "equipment_anomaly"):
+        results.append(check_feature_drift(name))
+    return {"models": results}
 
 
 async def _train_model(name: str, session: AsyncSession) -> dict:

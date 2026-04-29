@@ -1,0 +1,150 @@
+\appendixsection{Примеры API-запросов и ответов}
+\label{app-api}
+
+В данном приложении приведены примеры основных API-запросов и ответов информационной системы. Каждый рисунок содержит запрос и соответствующий ответ сервера.
+
+\begin{figure}
+  \begin{lstlisting}[basicstyle=\small\ttfamily]
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "securepassword"
+}
+\end{lstlisting}
+\vspace{0.5em}
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+200 OK
+Set-Cookie: token=eyJhbGci...; HttpOnly; SameSite=Strict
+Set-Cookie: refresh_token=eyJhbGci...; HttpOnly; SameSite=Strict
+
+{
+  "user": {
+    "username": "admin",
+    "role": "admin",
+    "must_change_password": false
+  }
+}
+\end{lstlisting}
+  \caption{Аутентификация: POST /api/v1/auth/login}
+  \label{api-auth}
+\end{figure}
+
+\begin{figure}
+  \begin{lstlisting}[basicstyle=\small\ttfamily]
+GET /api/v1/animals?page=1&page_size=25&gender=female
+Cookie: token=eyJhbGci...
+\end{lstlisting}
+\vspace{0.5em}
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+200 OK
+{
+  "items": [
+    {
+      "id": 1,
+      "life_number": "RU123456789",
+      "name": "...",
+      "gender": "female",
+      "birth_date": "2020-03-15",
+      "active": true
+    }
+  ],
+  "total": 156,
+  "page": 1,
+  "page_size": 25
+}
+\end{lstlisting}
+  \caption{Получение списка животных: GET /api/v1/animals}
+  \label{api-animals}
+\end{figure}
+
+\begin{figure}
+  \begin{lstlisting}[basicstyle=\small\ttfamily]
+POST /api/v1/analytics/milk-trends
+Content-Type: application/json
+
+{
+  "animal_id": 1,
+  "days_ahead": 14
+}
+\end{lstlisting}
+\vspace{0.5em}
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+200 OK
+{
+  "animal_id": 1,
+  "forecast": [
+    {
+      "date": "2026-04-21",
+      "predicted_milk_kg": 28.5,
+      "lower_bound": 25.1,
+      "upper_bound": 31.9
+    },
+    {
+      "date": "2026-04-22",
+      "predicted_milk_kg": 28.2,
+      "lower_bound": 24.8,
+      "upper_bound": 31.6
+    }
+  ],
+  "model": "holt_winters",
+  "last_actual_date": "2026-04-20"
+}
+\end{lstlisting}
+  \caption{Прогноз надоев: POST /api/v1/analytics/milk-trends}
+  \label{api-forecast}
+\end{figure}
+
+\begin{figure}
+  \begin{lstlisting}[basicstyle=\small\ttfamily]
+POST /predict/mastitis
+Content-Type: application/json
+X-API-Key: <api_key>
+
+{
+  "animal_id": 1,
+  "scc": 350000,
+  "conductivity": 8.5,
+  "fpr": 1.45,
+  "milk_change_pct": -15.0,
+  "dim": 45,
+  "lactation": 2
+}
+\end{lstlisting}
+\vspace{0.5em}
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+200 OK
+{
+  "animal_id": 1,
+  "risk_level": "high",
+  "probability": 0.87,
+  "contributing_factors": [
+    {"factor": "scc_change", "importance": 0.35},
+    {"factor": "conductivity", "importance": 0.25},
+    {"factor": "milk_change", "importance": 0.20}
+  ]
+}
+\end{lstlisting}
+  \caption{Обнаружение мастита: POST /predict/mastitis}
+  \label{api-mastitis}
+\end{figure}
+
+\begin{figure}
+  \begin{lstlisting}[basicstyle=\small\ttfamily]
+GET /api/v1/reports/export/R16/csv?date_from=2026-04-01
+Cookie: token=eyJhbGci...
+\end{lstlisting}
+\vspace{0.5em}
+\begin{lstlisting}[basicstyle=\small\ttfamily]
+200 OK
+Content-Type: text/csv
+Content-Disposition: attachment; filename="R16_2026-04-20.csv"
+
+date,total_milk_kg,avg_milk_kg,avg_fat_pct
+2026-04-01,4350.0,29.0,3.85
+2026-04-02,4280.5,28.5,3.82
+\end{lstlisting}
+  \caption{Экспорт отчёта в CSV: GET /api/v1/reports/export}
+  \label{api-export}
+\end{figure}

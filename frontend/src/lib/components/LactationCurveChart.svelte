@@ -3,31 +3,12 @@
 </script>
 
 <script lang="ts">
-	import {
-		Chart,
-		LineController,
-		CategoryScale,
-		LinearScale,
-		PointElement,
-		LineElement,
-		Filler,
-		Tooltip,
-		Legend,
-	} from 'chart.js';
+	import { ensureChartRegistered, Chart } from '$lib/utils/chartRegistration';
 	import { theme } from '$lib/stores/theme';
 	import { themeColors, defaultTooltip, dsColors } from '$lib/utils/chartHelpers';
 	import { debounce } from '$lib/utils/debounce';
 
-	Chart.register(
-		LineController,
-		CategoryScale,
-		LinearScale,
-		PointElement,
-		LineElement,
-		Filler,
-		Tooltip,
-		Legend,
-	);
+	ensureChartRegistered();
 
 	interface Props {
 		data: LactationCurveResponse;

@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
+	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import LactationCurveChart from '$lib/components/LactationCurveChart.svelte';
 	import SeasonalChart from '$lib/components/SeasonalChart.svelte';
 	import {
@@ -246,6 +247,49 @@
 		if (pct >= 0.4) return 'text-orange-600 dark:text-orange-400';
 		return 'text-red-600 dark:text-red-400';
 	}
+
+	function riskLabel(level: string): string {
+		switch (level) {
+			case 'low': return 'Низкий';
+			case 'moderate': return 'Умеренный';
+			case 'medium': return 'Средний';
+			case 'high': return 'Высокий';
+			case 'critical': return 'Критический';
+			case 'optimal': return 'Оптимальный';
+			case 'elevated': return 'Повышенный';
+			default: return level;
+		}
+	}
+
+	function estrStatusLabel(s: string): string {
+		switch (s) {
+			case 'in_estrus': case 'in_heat': return 'Охота';
+			case 'approaching': return 'Приближается';
+			case 'outside_window': return 'Вне окна';
+			case 'in_window': return 'В окне';
+			default: return s;
+		}
+	}
+
+	function energyStatusLabel(s: string): string {
+		switch (s) {
+			case 'optimal': return 'Оптимальный';
+			case 'ketosis_risk': return 'Риск кетоза';
+			case 'acidosis_risk': return 'Риск ацидоза';
+			case 'normal': return 'Норма';
+			default: return s;
+		}
+	}
+
+	function lifetimeRecLabel(s: string): string {
+		switch (s) {
+			case 'keep': return 'Оставить';
+			case 'culling_candidate': return 'К выбраковке';
+			case 'review': return 'На рассмотрении';
+			case 'last_lactation': return 'Последняя лактация';
+			default: return s;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -350,7 +394,7 @@
 							<p class="font-semibold">{curve.calving_date}</p>
 						</div>
 						<div>
-							<span class="text-slate-500 dark:text-slate-400">DIM</span>
+							<span class="text-slate-500 dark:text-slate-400">DIM <Tooltip text="Days In Milk — дней с последнего отёла" iconSize={11} /></span>
 							<p class="font-semibold">{curve.current_dim}</p>
 						</div>
 					</div>
@@ -366,7 +410,7 @@
 						<tr>
 							<th class={thCls}>Корова</th>
 							<th class={thCls}>Лакт.</th>
-							<th class={thCls}>DIM</th>
+							<th class={thCls}>DIM <Tooltip text="Days In Milk — дней с последнего отёла" iconSize={12} /></th>
 							<th class={thCls}>Пик, л</th>
 							<th class={thCls}>Пик DIM</th>
 							<th class={thCls}>305д прогноз, л</th>
@@ -403,10 +447,10 @@
 						<th class={thCls}>Корова</th>
 						<th class={thCls}>Score</th>
 						<th class={thCls}>Риск</th>
-						<th class={thCls}>Надой Z</th>
+						<th class={thCls}>Надой Z <Tooltip text="Z-оценка: отклонение от среднего по стаду в стандартных отклонениях. >2 или <-2 — аномалия" iconSize={12} /></th>
 						<th class={thCls}>Жвачка Z</th>
 						<th class={thCls}>Активн. Z</th>
-						<th class={thCls}>SCC Z</th>
+						<th class={thCls}>SCC Z <Tooltip text="Z-оценка соматических клеток. Высокое значение — признак воспаления" iconSize={12} /></th>
 						<th class={thCls}>Главная проблема</th>
 					</tr>
 				</thead>
@@ -416,7 +460,7 @@
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={`${tdCls} font-semibold ${scoreColor(c.health_score)}`}>{c.health_score.toFixed(1)}</td>
 							<td class={tdCls}>
-								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.risk_level)}">{c.risk_level}</span>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.risk_level)}">{riskLabel(c.risk_level)}</span>
 							</td>
 							<td class={tdCls}>{c.milk_deviation_zscore?.toFixed(2) ?? '—'}</td>
 							<td class={tdCls}>{c.rumination_deviation_zscore?.toFixed(2) ?? '—'}</td>
@@ -437,7 +481,7 @@
 				<thead class="bg-slate-50 dark:bg-slate-900">
 					<tr>
 						<th class={thCls}>Корова</th>
-						<th class={thCls}>DIM</th>
+						<th class={thCls}>DIM <Tooltip text="Days In Milk" iconSize={12} /></th>
 						<th class={thCls}>Активн.</th>
 						<th class={thCls}>Жвачка</th>
 						<th class={thCls}>Надой</th>
@@ -611,7 +655,7 @@
 							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
 							<td class={`${tdCls} font-semibold ${(c.risk_score) >= 0.6 ? 'text-red-600 dark:text-red-400' : (c.risk_score >= 0.3 ? 'text-orange-600 dark:text-orange-400' : 'text-yellow-600 dark:text-yellow-400')}`}>{(c.risk_score * 100).toFixed(0)}%</td>
 							<td class={tdCls}>
-								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.risk_level)}">{c.risk_level}</span>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.risk_level)}">{riskLabel(c.risk_level)}</span>
 							</td>
 							<td class={tdCls}>
 								{#each c.contributing_factors as f, i}
@@ -669,7 +713,7 @@
 						<th class={thCls}>Корова</th>
 						<th class={thCls}>Жир, %</th>
 						<th class={thCls}>Белок, %</th>
-						<th class={thCls}>FPR</th>
+						<th class={thCls}>FPR <Tooltip text="Fat-to-Protein Ratio — отношение жира к белку. >1.4 — кетоз, <1.1 — ацидоз" iconSize={12} /></th>
 						<th class={thCls}>Статус</th>
 						<th class={thCls}>Тренд 7д</th>
 						<th class={thCls}>Тренд 30д</th>
@@ -683,7 +727,7 @@
 							<td class={tdCls}>{c.avg_protein_pct?.toFixed(2) ?? '—'}</td>
 							<td class={`${tdCls} font-semibold`}>{c.fat_protein_ratio?.toFixed(2) ?? '—'}</td>
 							<td class={tdCls}>
-								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.status === 'optimal' ? 'optimal' : c.status === 'ketosis_risk' || c.status === 'acidosis_risk' ? 'high' : c.status === 'normal' ? 'low' : 'medium')}">{c.status}</span>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.status === 'optimal' ? 'optimal' : c.status === 'ketosis_risk' || c.status === 'acidosis_risk' ? 'high' : c.status === 'normal' ? 'low' : 'medium')}">{energyStatusLabel(c.status)}</span>
 							</td>
 							<td class={tdCls}>{c.trend_7d?.toFixed(2) ?? '—'}</td>
 							<td class={tdCls}>{c.trend_30d !== null ? `${c.trend_30d >= 0 ? '+' : ''}${(c.trend_30d * 100).toFixed(1)}%` : '—'}</td>
@@ -723,7 +767,7 @@
 							<td class={`${tdCls} ${(c.max_asymmetry ?? 0) > 5 ? 'text-orange-600 dark:text-orange-400 font-semibold' : ''}`}>{c.max_asymmetry?.toFixed(1) ?? '—'}</td>
 							<td class={tdCls}>{c.worst_quarter ?? '—'}</td>
 							<td class={tdCls}>
-								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.risk_level)}">{c.risk_level}</span>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.risk_level)}">{riskLabel(c.risk_level)}</span>
 							</td>
 						</tr>
 					{/each}
@@ -855,7 +899,7 @@
 							<td class={tdCls}>{p.animal_name ?? `#${p.animal_id}`}</td>
 							<td class={`${tdCls} font-semibold ${p.estrus_probability >= 0.7 ? 'text-red-600 dark:text-red-400' : p.estrus_probability >= 0.4 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{(p.estrus_probability * 100).toFixed(0)}%</td>
 							<td class={tdCls}>
-								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(p.status === 'in_heat' ? 'high' : p.status === 'approaching' ? 'medium' : 'low')}">{p.status}</span>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(p.status === 'in_heat' ? 'high' : p.status === 'approaching' ? 'medium' : 'low')}">{estrStatusLabel(p.status)}</span>
 							</td>
 							<td class={tdCls}>{p.optimal_window ?? '—'}</td>
 							<td class={tdCls}>
@@ -920,7 +964,7 @@
 				<thead class="bg-slate-50 dark:bg-slate-900">
 					<tr>
 						<th class={thCls}>Корова</th>
-						<th class={thCls}>DIM</th>
+						<th class={thCls}>DIM <Tooltip text="Days In Milk" iconSize={12} /></th>
 						<th class={thCls}>Лакт.</th>
 						<th class={thCls}>Текущий корм</th>
 						<th class={thCls}>Рекомендация</th>
@@ -957,8 +1001,8 @@
 						<th class={thCls}>Риск</th>
 						<th class={thCls}>Тип</th>
 						<th class={thCls}>Серьёзность</th>
-						<th class={thCls}>FPR</th>
-						<th class={thCls}>Тренд FPR</th>
+						<th class={thCls}>FPR <Tooltip text="Fat-to-Protein Ratio — отношение жира к белку. >1.4 — кетоз, <1.1 — ацидоз" iconSize={12} /></th>
+						<th class={thCls}>Тренд FPR <Tooltip text="Изменение FPR за 30 дней в %" iconSize={12} /></th>
 						<th class={thCls}>Факторы</th>
 					</tr>
 				</thead>
@@ -1051,7 +1095,7 @@
 								<td class={tdCls}>{c.recommended_dry_off_date ?? '—'}</td>
 								<td class={`${tdCls} font-semibold ${(c.days_until_dry_off ?? 999) <= 0 ? 'text-red-600 dark:text-red-400' : (c.days_until_dry_off ?? 999) <= 7 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{c.days_until_dry_off !== null ? `${c.days_until_dry_off} д` : '—'}</td>
 								<td class={tdCls}>
-									<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.scc_status === 'elevated' ? 'high' : c.scc_status === 'moderate' ? 'medium' : 'low')}">{c.scc_status}</span>
+									<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.scc_status === 'elevated' ? 'high' : c.scc_status === 'moderate' ? 'medium' : 'low')}">{riskLabel(c.scc_status === 'elevated' ? 'high' : c.scc_status === 'moderate' ? 'moderate' : 'low')}</span>
 								</td>
 								<td class={tdCls}>
 									<span class="px-2 py-0.5 rounded-full text-xs font-medium {c.readiness === 'overdue' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' : c.readiness === 'now' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400' : c.readiness === 'soon' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}">{c.readiness}</span>
@@ -1093,7 +1137,7 @@
 							<td class={tdCls}>{c.projected_feed_cost !== null ? `${(c.projected_feed_cost / 1000).toFixed(0)}k` : '—'}</td>
 							<td class={`${tdCls} font-semibold ${(c.projected_net_value ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{c.projected_net_value !== null ? `${(c.projected_net_value / 1000).toFixed(0)}k` : '—'}</td>
 							<td class={tdCls}>
-								<span class="px-2 py-0.5 rounded-full text-xs font-medium {c.recommendation === 'culling_candidate' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' : c.recommendation === 'review' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400' : c.recommendation === 'last_lactation' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'}">{c.recommendation}</span>
+								<span class="px-2 py-0.5 rounded-full text-xs font-medium {c.recommendation === 'culling_candidate' ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400' : c.recommendation === 'review' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400' : c.recommendation === 'last_lactation' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'}">{lifetimeRecLabel(c.recommendation)}</span>
 							</td>
 						</tr>
 					{/each}

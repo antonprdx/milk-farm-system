@@ -431,3 +431,42 @@ async def load_ketosis_features(session: AsyncSession) -> pd.DataFrame:
     if not rows:
         return pd.DataFrame()
     return pd.DataFrame(rows)
+
+
+async def load_bcs_features(session: AsyncSession) -> pd.DataFrame:
+    query = text("""
+        SELECT
+            a.id as animal_id,
+            a.name as animal_name,
+            COALESCE(dim.days, 0) as dim_days,
+            COALESCE(lac.n, 0) as lactation_number,
+            COALESCE(m7.milk, 0) as avg_milk_7d,
+            COALESCE(m30.milk, 0) as avg_milk_30d,
+            COALESCE(f7.feed, 0) as avg_feed_7d,
+            COALESCE(r7.rum, 0) as avg_rumination_7d,
+            COALESCE(act7.act, 0) as avg_activity_7d,
+            CASE WHEN f7.feed > 0 THEN m7.milk / f7.feed ELSE 0 END::float8 as milk_feed_ratio,
+            COALESCE(m_trend.trend, 0) as milk_trend_7d,
+            COALESCE(w.weight, 0) as weight_kg
+        FROM animals a
+        LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+        LEFT JOIN LATERAL (SELECT COUNT(*)::int8 as n FROM calvings c WHERE c.animal_id = a.id) lac ON true
+        LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days') m7 ON true
+        LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days') m30 ON true
+        LEFT JOIN LATERAL (SELECT AVG(f.total)::float8 as feed FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - INTERVAL '7 days') f7 ON true
+        LEFT JOIN LATERAL (SELECT AVG(r.rumination_minutes)::float8 as rum FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '7 days') r7 ON true
+        LEFT JOIN LATERAL (SELECT AVG(act.activity_counter)::float8 as act FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - INTERVAL '7 days') act7 ON true
+        LEFT JOIN LATERAL (
+            SELECT (recent.milk / NULLIF(baseline.milk, 0) - 1)::float8 as trend
+            FROM (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days') recent,
+                 (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '14 days' AND m.date < CURRENT_DATE - INTERVAL '7 days') baseline
+        ) m_trend ON true
+        LEFT JOIN LATERAL (SELECT w.weight_kg::float8 as weight FROM weights w WHERE w.animal_id = a.id ORDER BY w.measure_date DESC LIMIT 1) w ON true
+        WHERE a.active = true AND a.gender = 'female' AND m7.milk IS NOT NULL
+        ORDER BY a.name
+    """)
+    result = await session.execute(query)
+    rows = result.mappings().all()
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows)

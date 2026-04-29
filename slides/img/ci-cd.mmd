@@ -1,0 +1,39 @@
+flowchart LR
+    subgraph Triggers["Триггеры"]
+        Push["Push to main\nPull Request"]
+        Tag["Tag v*"]
+    end
+
+    subgraph CI["CI Pipeline — ci.yml"]
+        direction TB
+        BackendCI["Backend\nfmt · clippy · audit\ntest (Pg16 service)"]
+        FrontendCI["Frontend\nlint · format · typecheck\ntest (Vitest)"]
+        MLCI["Analytics-ML\npytest"]
+    end
+
+    subgraph CD["CD Pipeline — cd.yml"]
+        direction TB
+        BuildBE["build-backend\nDocker → GHCR"]
+        BuildFE["build-frontend\nDocker → GHCR"]
+        BuildML["build-ml\nDocker → GHCR"]
+        Deploy["deploy\nSSH pull → compose up\nhealth check → cleanup"]
+    end
+
+    Push --> CI
+    Tag --> CD
+    BuildBE --> Deploy
+    BuildFE --> Deploy
+    BuildML --> Deploy
+
+    style Triggers fill:#f5f5f5,stroke:#9e9e9e,color:#333
+    style Push fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style Tag fill:#1565c0,stroke:#0d47a1,color:#fff
+    style CI fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style BackendCI fill:#c62828,stroke:#b71c1c,color:#fff
+    style FrontendCI fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style MLCI fill:#ff6f00,stroke:#e65100,color:#fff
+    style CD fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style BuildBE fill:#c62828,stroke:#b71c1c,color:#fff
+    style BuildFE fill:#2e7d32,stroke:#1b5e20,color:#fff
+    style BuildML fill:#ff6f00,stroke:#e65100,color:#fff
+    style Deploy fill:#00838f,stroke:#006064,color:#fff

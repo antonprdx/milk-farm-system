@@ -1,0 +1,75 @@
+erDiagram
+    animals {
+        serial id PK
+        text life_number UK
+        text name
+        gender_type gender
+        date birth_date
+        bool active
+    }
+    calvings {
+        serial id PK
+        int animal_id FK
+        date calving_date
+        text remarks
+        int lac_number
+    }
+    calves {
+        serial id PK
+        int calving_id FK
+        text life_number
+        gender_type gender
+        birth_remark_type birth_remark
+        float weight
+        bool born_dead
+        text calf_name
+    }
+    inseminations {
+        serial id PK
+        int animal_id FK
+        date insemination_date
+        text sire_code
+        text insemination_type
+    }
+    pregnancies {
+        serial id PK
+        int animal_id FK
+        date pregnancy_date
+        text pregnancy_type
+    }
+    heats {
+        serial id PK
+        int animal_id FK
+        date heat_date
+        bool confirmed
+        text confirmation_method
+    }
+    dry_offs {
+        serial id PK
+        int animal_id FK
+        date dry_off_date
+    }
+    culling_events {
+        serial id PK
+        int animal_id FK
+        date culling_date
+        text reason
+        jsonb details
+    }
+    transfers {
+        serial id PK
+        int animal_id FK
+        timestamptz transfer_date
+        text transfer_type
+        text from_location
+        text to_location
+    }
+
+    animals ||--o{ calvings : has
+    calvings ||--o{ calves : produces
+    animals ||--o{ inseminations : has
+    animals ||--o{ pregnancies : has
+    animals ||--o{ heats : has
+    animals ||--o{ dry_offs : has
+    animals ||--o{ culling_events : has
+    animals ||--o{ transfers : has

@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16
+    image: timescale/timescaledb:latest-pg16
     env_file: .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-milkfarm}
@@ -8,6 +8,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-milk_farm}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-milkfarm}"]
       interval: 5s
@@ -37,9 +38,15 @@ services:
       RUST_LOG: ${RUST_LOG:-info,milk_farm_backend=debug}
       TRUST_PROXY: ${TRUST_PROXY:-true}
       ML_SERVICE_URL: ${ML_SERVICE_URL:-http://analytics-ml:8001}
+      ML_API_KEY: ${ML_API_KEY:-}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-milk-farm-backend}
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     logging:
@@ -70,12 +77,54 @@ services:
         limits:
           memory: 256M
 
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.11.1
+    env_file: .env
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER:-milkfarm}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-milk_farm}_mlflow
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
+    volumes:
+      - mlflow_data:/mlflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://${POSTGRES_USER:-milkfarm}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-milk_farm}_mlflow
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   analytics-ml:
-    build: ./analytics-ml
+    image: ${ML_IMAGE:-ghcr.io/anomalyco/milk-farm/analytics-ml}:${ML_TAG:-latest}
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-milkfarm}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-milk_farm}
       MODEL_DIR: /app/models
+      API_KEY: ${ML_API_KEY:-}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
     volumes:
       - ml_models:/app/models
     depends_on:
@@ -113,3 +162,5 @@ services:
 volumes:
   pgdata:
   ml_models:
+  redisdata:
+  mlflow_data:

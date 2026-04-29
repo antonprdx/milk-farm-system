@@ -16,6 +16,7 @@
 		type CreateWeightRecord,
 		VET_RECORD_TYPE_LABELS,
 		VET_STATUS_LABELS,
+		DIAGNOSIS_CODES,
 	} from '$lib/api/vet';
 	import DataTable from '$lib/components/ui/DataTable.svelte';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
@@ -49,6 +50,7 @@
 		event_date: today,
 	});
 	let editVetForm = $state<UpdateVetRecord>({});
+	let editVetConfirmed = $state(false);
 
 	let createWeightForm = $state<CreateWeightRecord>({
 		animal_id: 0,
@@ -126,6 +128,8 @@
 			status: r.status,
 			event_date: r.event_date,
 			diagnosis: r.diagnosis ?? undefined,
+			diagnosis_code: r.diagnosis_code ?? undefined,
+			confirmed: undefined,
 			treatment: r.treatment ?? undefined,
 			medication: r.medication ?? undefined,
 			dosage: r.dosage ?? undefined,
@@ -134,6 +138,7 @@
 			notes: r.notes ?? undefined,
 			follow_up_date: r.follow_up_date ?? undefined,
 		};
+		editVetConfirmed = r.confirmed;
 		v.clear();
 		crud.openEdit(r.id);
 	}
@@ -159,6 +164,7 @@
 				if (!valid) return;
 				await crud.submit(() => createVetRecord(createVetForm), 'Запись создана', load);
 			} else {
+				editVetForm.confirmed = editVetConfirmed;
 				await crud.submit(
 					() => updateVetRecord(crud.editingId, editVetForm),
 					'Запись обновлена',
@@ -323,6 +329,8 @@
 			{ key: 'status', label: 'Статус' },
 			{ key: 'event_date', label: 'Дата' },
 			{ key: 'diagnosis', label: 'Диагноз' },
+			{ key: 'diagnosis_code', label: 'Код' },
+			{ key: 'confirmed', label: '' },
 			{ key: 'medication', label: 'Препарат' },
 			{ key: 'withdrawal', label: 'Ожидание' },
 			{ key: 'veterinarian', label: 'Ветеринар' },
@@ -355,6 +363,20 @@
 				<td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 max-w-[200px] truncate"
 					>{r.diagnosis ?? '—'}</td
 				>
+				<td class="px-4 py-3 text-sm">
+					{#if r.diagnosis_code}
+						<span class="px-1.5 py-0.5 rounded text-xs font-mono bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400"
+							>{DIAGNOSIS_CODES[r.diagnosis_code] ?? r.diagnosis_code}</span
+						>
+					{:else}—{/if}
+				</td>
+				<td class="px-4 py-3">
+					{#if r.confirmed}
+						<span class="px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400"
+							>Подтв.</span
+						>
+					{/if}
+				</td>
 				<td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400 max-w-[150px] truncate"
 					>{r.medication ?? '—'}</td
 				>
@@ -433,6 +455,32 @@
 					onblur={() => v.validateField('event_date', createVetForm.event_date, dateRules)}
 				/>
 				<FormField id="c-diag" label="Диагноз" bind:value={createVetForm.diagnosis} />
+				<div class="grid grid-cols-2 gap-3">
+					<div>
+						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+							>Код диагноза (для ML)</label
+						>
+						<select
+							bind:value={createVetForm.diagnosis_code}
+							class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+						>
+							<option value="">—</option>
+							{#each Object.entries(DIAGNOSIS_CODES) as [code, label] (code)}
+								<option value={code}>{label}</option>
+							{/each}
+						</select>
+					</div>
+					<div class="flex items-end pb-1">
+						<label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+							<input
+								type="checkbox"
+								bind:checked={createVetForm.confirmed}
+								class="w-4 h-4 rounded border-slate-300"
+							/>
+							Подтверждённый диагноз
+						</label>
+					</div>
+				</div>
 				<FormField id="c-treat" label="Лечение" bind:value={createVetForm.treatment} />
 				<div class="grid grid-cols-2 gap-3">
 					<FormField id="c-med" label="Препарат" bind:value={createVetForm.medication} />
@@ -478,6 +526,32 @@
 					onblur={() => v.validateField('event_date', editVetForm.event_date, dateRules)}
 				/>
 				<FormField id="e-diag" label="Диагноз" bind:value={editVetForm.diagnosis} />
+				<div class="grid grid-cols-2 gap-3">
+					<div>
+						<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1"
+							>Код диагноза (для ML)</label
+						>
+						<select
+							bind:value={editVetForm.diagnosis_code}
+							class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+						>
+							<option value="">—</option>
+							{#each Object.entries(DIAGNOSIS_CODES) as [code, label] (code)}
+								<option value={code}>{label}</option>
+							{/each}
+						</select>
+					</div>
+					<div class="flex items-end pb-1">
+						<label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+							<input
+								type="checkbox"
+								bind:checked={editVetConfirmed}
+								class="w-4 h-4 rounded border-slate-300"
+							/>
+							Подтверждённый диагноз
+						</label>
+					</div>
+				</div>
 				<FormField id="e-treat" label="Лечение" bind:value={editVetForm.treatment} />
 				<div class="grid grid-cols-2 gap-3">
 					<FormField id="e-med" label="Препарат" bind:value={editVetForm.medication} />

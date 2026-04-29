@@ -139,7 +139,7 @@ async fn update_config(
     Json(body): Json<UpdateLelyConfig>,
 ) -> Result<Json<Value>, AppError> {
     body.validate()?;
-    let mut current = state.lely.get_config();
+    let mut current = state.lely.get_config().await;
 
     if let Some(v) = body.enabled {
         current.enabled = v;
@@ -162,7 +162,7 @@ async fn update_config(
 
     service::save_config(&state.pool, &current, &state.config.lely_encryption_key).await?;
 
-    let _old_cancel = state.lely.set_config_and_restart_cancel(current.clone());
+    let _old_cancel = state.lely.set_config_and_restart_cancel(current.clone()).await;
 
     if current.enabled {
         crate::lely::sync::start_sync_scheduler(state.clone());
@@ -187,7 +187,7 @@ async fn test_connection(
     State(state): State<AppState>,
     Json(body): Json<UpdateLelyConfig>,
 ) -> Result<Json<Value>, AppError> {
-    let mut cfg = state.lely.get_config();
+    let mut cfg = state.lely.get_config().await;
     if let Some(v) = body.base_url {
         cfg.base_url = v;
     }
@@ -234,7 +234,7 @@ async fn trigger_sync(
     _admin: AdminGuard,
     State(state): State<AppState>,
 ) -> Result<Json<Value>, AppError> {
-    let cfg = state.lely.get_config();
+    let cfg = state.lely.get_config().await;
     if !cfg.enabled {
         return Err(AppError::BadRequest("Интеграция Lely не включена".into()));
     }
@@ -244,6 +244,8 @@ async fn trigger_sync(
         config: state.config.clone(),
         lely: state.lely.clone(),
         ml: state.ml.clone(),
+        redis: state.redis.clone(),
+        event_bus: state.event_bus.clone(),
     });
 
     tokio::spawn(async move {

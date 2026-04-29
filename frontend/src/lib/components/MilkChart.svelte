@@ -4,12 +4,12 @@
 </script>
 
 <script lang="ts">
-	import { Chart, BarController, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js';
+	import { ensureChartRegistered, Chart } from '$lib/utils/chartRegistration';
 	import { theme } from '$lib/stores/theme';
 	import { defaultTooltip, defaultScales } from '$lib/utils/chartHelpers';
 	import { debounce } from '$lib/utils/debounce';
 
-	Chart.register(BarController, CategoryScale, LinearScale, BarElement, Tooltip);
+	ensureChartRegistered();
 
 	type Granularity = 'day' | 'week';
 

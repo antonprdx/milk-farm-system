@@ -3,19 +3,20 @@
 	import { auth } from '$lib/stores/auth';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Toaster from '$lib/components/ui/Toaster.svelte';
+	import OfflineIndicator from '$lib/components/OfflineIndicator.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { theme } from '$lib/stores/theme';
 	import { Menu } from 'lucide-svelte';
 
-	let { children } = $props();
+	let { children, data } = $props<{ data: { serverAuth?: { role: string | null; mustChangePassword: boolean } } }>();
 
 	let isAuthenticated = $derived(browser ? $auth.authenticated : false);
 	let isInitialized = $derived(browser ? $auth.initialized : false);
 	let pathname = $derived($page.url.pathname);
-	let isAdmin = $derived(browser ? $auth.role === 'admin' : false);
-	let mustChangePassword = $derived(browser ? $auth.mustChangePassword : false);
+	let isAdmin = $derived(browser ? (data.serverAuth?.role === 'admin' || $auth.role === 'admin') : false);
+	let mustChangePassword = $derived(browser ? (data.serverAuth?.mustChangePassword ?? $auth.mustChangePassword) : false);
 	let sidebarCollapsed = $state(false);
 	let mobileMenuOpen = $state(false);
 	let mobileMenuClosing = $state(false);
@@ -135,3 +136,4 @@
 {/if}
 
 <Toaster />
+<OfflineIndicator />

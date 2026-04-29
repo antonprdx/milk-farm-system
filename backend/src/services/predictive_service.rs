@@ -12,6 +12,7 @@ pub async fn lactation_curves(
     pool: &PgPool,
     animal_id: Option<i32>,
 ) -> Result<Vec<LactationCurveResponse>, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, i32, String)> = if let Some(id) = animal_id {
         sqlx::query_as(
             "SELECT a.id, a.name, a.life_number, c.lac_number, c.calving_date::text
@@ -217,7 +218,7 @@ fn fit_wood_model(data: &std::collections::HashMap<i32, f64>) -> (f64, f64, f64)
     let c_val = -beta[2];
 
     let a = ln_a.exp();
-    (a, b_val, c_val.max(0.001).min(0.1))
+    (a, b_val, c_val.clamp(0.001, 0.1))
 }
 
 fn solve_3x3(a: [[f64; 3]; 3], mut b: [f64; 3]) -> Option<[f64; 3]> {
@@ -226,6 +227,7 @@ fn solve_3x3(a: [[f64; 3]; 3], mut b: [f64; 3]) -> Option<[f64; 3]> {
     for col in 0..n {
         let mut max_row = col;
         let mut max_val = m[col][col].abs();
+        #[allow(clippy::needless_range_loop)]
         for row in (col + 1)..n {
             let v = m[row][col].abs();
             if v > max_val {
@@ -243,6 +245,7 @@ fn solve_3x3(a: [[f64; 3]; 3], mut b: [f64; 3]) -> Option<[f64; 3]> {
         let pivot = m[col][col];
         for row in (col + 1)..n {
             let factor = m[row][col] / pivot;
+            #[allow(clippy::needless_range_loop)]
             for j in col..n {
                 m[row][j] -= factor * m[col][j];
             }
@@ -272,6 +275,7 @@ fn wood_predict(a: f64, b: f64, c: f64, dim: i32) -> f64 {
 }
 
 pub async fn health_index(pool: &PgPool) -> Result<HealthIndexResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 short_m.milk, long_m.milk, long_m.std as milk_std,
@@ -391,7 +395,7 @@ pub async fn health_index(pool: &PgPool) -> Result<HealthIndexResponse, AppError
             }
         }
 
-        score = score.max(0.0).min(100.0);
+        score = score.clamp(0.0, 100.0);
         let risk_level = if score < 40.0 {
             "critical"
         } else if score < 60.0 {
@@ -409,10 +413,10 @@ pub async fn health_index(pool: &PgPool) -> Result<HealthIndexResponse, AppError
             animal_name: name,
             life_number: ln,
             health_score: (score * 10.0).round() / 10.0,
-            milk_deviation_zscore: milk_z.map(|z| round2(z)),
-            rumination_deviation_zscore: rum_z.map(|z| round2(z)),
-            activity_deviation_zscore: act_z.map(|z| round2(z)),
-            scc_deviation_zscore: scc_z.map(|z| round2(z)),
+            milk_deviation_zscore: milk_z.map(round2),
+            rumination_deviation_zscore: rum_z.map(round2),
+            activity_deviation_zscore: act_z.map(round2),
+            scc_deviation_zscore: scc_z.map(round2),
             risk_level: risk_level.to_string(),
             top_concern: concerns.first().map(|c| c.0.clone()),
         });
@@ -433,6 +437,7 @@ fn zscore(short: Option<f64>, long: Option<f64>, std: Option<f64>) -> Option<f64
 }
 
 pub async fn fertility_window(pool: &PgPool) -> Result<FertilityWindowResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<i64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 (CURRENT_DATE - latest_c.calving_date)::int8 as days_since_calving,
@@ -486,12 +491,12 @@ pub async fn fertility_window(pool: &PgPool) -> Result<FertilityWindowResponse, 
 
     let mut cows = Vec::new();
     for (id, name, ln, dim, act_signal, rum_signal, milk_signal) in rows {
-        let in_window = dim.map_or(false, |d| d >= 30 && d <= 150);
+        let in_window = dim.is_some_and(|d| (30..=150).contains(&d));
 
         let mut score = 0.0_f64;
-        let act_high = act_signal.map_or(false, |s| s > 1.3);
-        let rum_low = rum_signal.map_or(false, |s| s < 0.85);
-        let milk_drop = milk_signal.map_or(false, |s| s < 0.9);
+        let act_high = act_signal.is_some_and(|s| s > 1.3);
+        let rum_low = rum_signal.is_some_and(|s| s < 0.85);
+        let milk_drop = milk_signal.is_some_and(|s| s < 0.9);
 
         if act_high {
             score += 40.0;
@@ -521,9 +526,9 @@ pub async fn fertility_window(pool: &PgPool) -> Result<FertilityWindowResponse, 
             animal_name: name,
             life_number: ln,
             days_since_calving: dim,
-            activity_signal: act_signal.map(|v| round2(v)),
-            rumination_signal: rum_signal.map(|v| round2(v)),
-            milk_signal: milk_signal.map(|v| round2(v)),
+            activity_signal: act_signal.map(round2),
+            rumination_signal: rum_signal.map(round2),
+            milk_signal: milk_signal.map(round2),
             combined_score: (score * 10.0).round() / 10.0,
             window_status: status.to_string(),
         });
@@ -538,6 +543,7 @@ pub async fn profitability(
     milk_price_per_liter: f64,
     feed_cost_per_kg: f64,
 ) -> Result<ProfitabilityResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 milk_30d.avg_milk,
@@ -587,13 +593,13 @@ pub async fn profitability(
             animal_id: id,
             animal_name: name,
             life_number: ln,
-            avg_daily_milk: avg_milk.map(|v| round2(v)),
-            avg_daily_feed: avg_feed.map(|v| round2(v)),
-            estimated_milk_revenue_day: milk_rev.map(|v| round2(v)),
-            estimated_feed_cost_day: feed_cost.map(|v| round2(v)),
-            estimated_margin_day: margin_day.map(|v| round2(v)),
-            margin_30d: margin_30d.map(|v| round2(v)),
-            feed_cost_ratio: feed_ratio.map(|v| round2(v)),
+            avg_daily_milk: avg_milk.map(round2),
+            avg_daily_feed: avg_feed.map(round2),
+            estimated_milk_revenue_day: milk_rev.map(round2),
+            estimated_feed_cost_day: feed_cost.map(round2),
+            estimated_margin_day: margin_day.map(round2),
+            margin_30d: margin_30d.map(round2),
+            feed_cost_ratio: feed_ratio.map(round2),
         });
     }
 
@@ -697,6 +703,7 @@ pub async fn seasonal_decomposition(pool: &PgPool) -> Result<SeasonalResponse, A
 }
 
 pub async fn mastitis_risk(pool: &PgPool) -> Result<MastitisRiskResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 scc_latest.scc as recent_scc,
@@ -762,36 +769,28 @@ pub async fn mastitis_risk(pool: &PgPool) -> Result<MastitisRiskResponse, AppErr
             factors.push("SCC>200k".to_string());
         }
 
-        if let Some(trend) = scc_t {
-            if trend > 2.0 {
+        if let Some(trend) = scc_t && trend > 2.0 {
                 score += 0.25;
                 factors.push("SCC↑↑".to_string());
-            } else if trend > 1.5 {
+            } else if let Some(trend) = scc_t && trend > 1.5 {
                 score += 0.15;
                 factors.push("SCC↑".to_string());
             }
-        }
 
-        if let Some(c) = cond {
-            if c > 60.0 {
+        if let Some(c) = cond && c > 60.0 {
                 score += 0.2;
                 factors.push("conductivity↑".to_string());
             }
-        }
 
-        if let Some(dev) = milk_dev {
-            if dev < -0.15 {
+        if let Some(dev) = milk_dev && dev < -0.15 {
                 score += 0.15;
                 factors.push("milk↓".to_string());
             }
-        }
 
-        if let Some(d) = dim {
-            if d < 30 {
+        if let Some(d) = dim && d < 30 {
                 score += 0.1;
                 factors.push("early_lactation".to_string());
             }
-        }
 
         if score < 0.05 {
             continue;
@@ -824,6 +823,7 @@ pub async fn mastitis_risk(pool: &PgPool) -> Result<MastitisRiskResponse, AppErr
 }
 
 pub async fn culling_survival(pool: &PgPool) -> Result<CullingSurvivalResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<i64>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::int8 as age_years,
@@ -913,12 +913,10 @@ pub async fn culling_survival(pool: &PgPool) -> Result<CullingSurvivalResponse, 
             }
         }
 
-        if let Some(lc) = lac_count {
-            if lc >= 6 {
+        if let Some(lc) = lac_count && lc >= 6 {
                 risk += 0.1;
                 factors.push("lac>=6".to_string());
             }
-        }
 
         if risk < 0.1 {
             continue;
@@ -945,6 +943,7 @@ pub async fn culling_survival(pool: &PgPool) -> Result<CullingSurvivalResponse, 
 }
 
 pub async fn energy_balance(pool: &PgPool) -> Result<EnergyBalanceResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 recent_7d.fat as fat_7d,
@@ -990,7 +989,7 @@ pub async fn energy_balance(pool: &PgPool) -> Result<EnergyBalanceResponse, AppE
             let status = match fpr {
                 Some(r) if r < 1.0 => "ketosis_risk",
                 Some(r) if r > 1.5 => "acidosis_risk",
-                Some(r) if r >= 1.2 && r <= 1.4 => "optimal",
+                Some(r) if (1.2..=1.4).contains(&r) => "optimal",
                 Some(_) => "normal",
                 None => "unknown",
             };
@@ -1001,12 +1000,12 @@ pub async fn energy_balance(pool: &PgPool) -> Result<EnergyBalanceResponse, AppE
                 animal_id: id,
                 animal_name: name,
                 life_number: ln,
-                avg_fat_pct: fat.map(|v| round2(v)),
-                avg_protein_pct: protein.map(|v| round2(v)),
+                avg_fat_pct: fat.map(round2),
+                avg_protein_pct: protein.map(round2),
                 fat_protein_ratio: fpr,
                 status: status.to_string(),
                 trend_7d,
-                trend_30d: trend_30d.map(|v| round2(v)),
+                trend_30d: trend_30d.map(round2),
             })
         })
         .collect();
@@ -1015,6 +1014,7 @@ pub async fn energy_balance(pool: &PgPool) -> Result<EnergyBalanceResponse, AppE
 }
 
 pub async fn quarter_health(pool: &PgPool) -> Result<QuarterHealthResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 q_avg.lf as lf_cond,
@@ -1046,8 +1046,8 @@ pub async fn quarter_health(pool: &PgPool) -> Result<QuarterHealthResponse, AppE
 
             let mut max_asym = 0.0_f64;
             let mut worst = 0;
-            for i in 0..4 {
-                let asym = (values[i] - avg).abs();
+            for (i, &val) in values.iter().enumerate() {
+                let asym = (val - avg).abs();
                 if asym > max_asym {
                     max_asym = asym;
                     worst = i;
@@ -1084,6 +1084,7 @@ pub async fn quarter_health(pool: &PgPool) -> Result<QuarterHealthResponse, AppE
 }
 
 pub async fn feed_efficiency(pool: &PgPool) -> Result<FeedEfficiencyResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 m.milk, f.feed
@@ -1144,6 +1145,7 @@ pub async fn feed_efficiency(pool: &PgPool) -> Result<FeedEfficiencyResponse, Ap
 }
 
 pub async fn dry_off_optimizer(pool: &PgPool) -> Result<DryOffOptimizerResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<String>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 p_duedate.exp_calving::text,
@@ -1220,6 +1222,7 @@ pub async fn dry_off_optimizer(pool: &PgPool) -> Result<DryOffOptimizerResponse,
 }
 
 pub async fn lifetime_value(pool: &PgPool) -> Result<LifetimeValueResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, i64, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::float8 as age_years,
@@ -1293,6 +1296,7 @@ pub async fn lifetime_value(pool: &PgPool) -> Result<LifetimeValueResponse, AppE
 }
 
 pub async fn estrus_detection(pool: &PgPool) -> Result<EstrusResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<i64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name,
                 (CURRENT_DATE - c.calving_date)::int8 as dim,
@@ -1346,7 +1350,7 @@ pub async fn estrus_detection(pool: &PgPool) -> Result<EstrusResponse, AppError>
 
     let mut predictions = Vec::new();
     for (id, name, dim, act_signal, rum_signal, milk_signal) in rows {
-        let in_window = dim.map_or(false, |d| d >= 30 && d <= 150);
+        let in_window = dim.is_some_and(|d| (30..=150).contains(&d));
 
         let mut score = 0.0_f64;
         let mut signals = Vec::new();
@@ -1371,12 +1375,10 @@ pub async fn estrus_detection(pool: &PgPool) -> Result<EstrusResponse, AppError>
             }
         }
 
-        if let Some(s) = milk_signal {
-            if s < 0.85 {
+        if let Some(s) = milk_signal && s < 0.85 {
                 score += 0.2;
                 signals.push("milk_drop".to_string());
             }
-        }
 
         if in_window {
             score += 0.1;
@@ -1420,6 +1422,7 @@ pub async fn estrus_detection(pool: &PgPool) -> Result<EstrusResponse, AppError>
 }
 
 pub async fn equipment_anomaly(pool: &PgPool) -> Result<EquipmentAnomalyResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<i32>)> = sqlx::query_as(
         "SELECT a.id, a.name,
                 v_avg.cond as avg_conductivity,
@@ -1491,19 +1494,15 @@ pub async fn equipment_anomaly(pool: &PgPool) -> Result<EquipmentAnomalyResponse
             }
         }
 
-        if let Some(t) = avg_temp {
-            if t > 40.0 {
+        if let Some(t) = avg_temp && t > 40.0 {
                 score += 0.25;
                 flags.push("high_temperature".to_string());
             }
-        }
 
-        if let Some(dev) = speed_dev {
-            if dev < -0.3 {
+        if let Some(dev) = speed_dev && dev < -0.3 {
                 score += 0.2;
                 flags.push("slow_milk_speed".to_string());
             }
-        }
 
         let is_anomaly = score >= 0.4;
         let severity = if score >= 0.7 {
@@ -1531,6 +1530,7 @@ pub async fn equipment_anomaly(pool: &PgPool) -> Result<EquipmentAnomalyResponse
 }
 
 pub async fn feed_recommendation(pool: &PgPool) -> Result<FeedRecommendationResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<f64>, Option<f64>, Option<i64>, Option<i64>)> = sqlx::query_as(
         "SELECT a.id, a.name,
                 f.feed as current_feed_avg,
@@ -1615,6 +1615,7 @@ pub async fn feed_recommendation(pool: &PgPool) -> Result<FeedRecommendationResp
 }
 
 pub async fn ketosis_warning(pool: &PgPool) -> Result<KetosisWarningResponse, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<i64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name,
                 recent.fpr as fpr_7d,
@@ -1677,28 +1678,22 @@ pub async fn ketosis_warning(pool: &PgPool) -> Result<KetosisWarningResponse, Ap
             factors.push("fpr_low".to_string());
         }
 
-        if let Some(trend) = fpr_trend {
-            if trend < -0.1 {
-                risk += 0.3;
-                factors.push("fpr_declining".to_string());
-            }
+        if let Some(trend) = fpr_trend && trend < -0.1 {
+            risk += 0.3;
+            factors.push("fpr_declining".to_string());
         }
 
-        if let Some(dim) = dim_days {
-            if dim < 30 {
-                risk += 0.25;
-                factors.push("early_lactation".to_string());
-            } else if dim < 60 {
-                risk += 0.1;
-                factors.push("fresh cow".to_string());
-            }
+        if let Some(dim) = dim_days && dim < 30 {
+            risk += 0.25;
+            factors.push("early_lactation".to_string());
+        } else if let Some(dim) = dim_days && dim < 60 {
+            risk += 0.1;
+            factors.push("fresh cow".to_string());
         }
 
-        if let Some(rum) = rum_7d {
-            if rum < 400.0 {
-                risk += 0.2;
-                factors.push("low_rumination".to_string());
-            }
+        if let Some(rum) = rum_7d && rum < 400.0 {
+            risk += 0.2;
+            factors.push("low_rumination".to_string());
         }
 
         if risk < 0.1 {
@@ -1786,6 +1781,7 @@ pub async fn animal_summary(
 }
 
 async fn summary_health_index(pool: &PgPool, id: i32) -> Result<Option<CowHealthIndex>, AppError> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
                 short_m.milk, long_m.milk, long_m.std as milk_std,
@@ -1836,8 +1832,7 @@ async fn summary_health_index(pool: &PgPool, id: i32) -> Result<Option<CowHealth
     let act_z = zscore(short_act, long_act, act_std);
 
     let (scc_z, scc_concern) = if let Some((recent, avg)) = scc_row {
-        if recent > 0.0 && avg.is_some() {
-            let baseline = avg.unwrap();
+        if let Some(baseline) = avg && recent > 0.0 {
             let ratio = recent / baseline;
             let z = if baseline > 0.0 { (recent - baseline) / (baseline * 0.5) } else { 0.0 };
             (Some(z), ratio > 1.5)
@@ -1868,7 +1863,7 @@ async fn summary_health_index(pool: &PgPool, id: i32) -> Result<Option<CowHealth
         else if z > 1.0 || scc_concern { score -= 10.0; concerns.push(("high_scc".to_string(), z)); }
     }
 
-    score = score.max(0.0).min(100.0);
+    score = score.clamp(0.0, 100.0);
     let risk_level = if score < 40.0 { "critical" } else if score < 60.0 { "high" } else if score < 80.0 { "moderate" } else { "low" };
     concerns.sort_by(|a, b| a.1.abs().partial_cmp(&b.1.abs()).unwrap_or(std::cmp::Ordering::Equal).reverse());
 
@@ -1887,6 +1882,7 @@ async fn summary_health_index(pool: &PgPool, id: i32) -> Result<Option<CowHealth
 }
 
 async fn summary_mastitis_risk(pool: &PgPool, id: i32) -> Result<Option<MastitisRiskEntry>, AppError> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
         "SELECT scc_latest.scc, scc_trend.ratio, cond.avg_cond, milk_dev.dev, dim.days
          FROM animals a
@@ -1926,9 +1922,9 @@ async fn summary_mastitis_risk(pool: &PgPool, id: i32) -> Result<Option<Mastitis
     else if recent_scc > 300000.0 { score += 0.25; factors.push("SCC>300k".to_string()); }
     else if recent_scc > 200000.0 { score += 0.1; factors.push("SCC>200k".to_string()); }
     if let Some(t) = scc_t { if t > 2.0 { score += 0.25; factors.push("SCC↑↑".to_string()); } else if t > 1.5 { score += 0.15; factors.push("SCC↑".to_string()); } }
-    if let Some(c) = cond { if c > 60.0 { score += 0.2; factors.push("conductivity↑".to_string()); } }
-    if let Some(d) = milk_dev { if d < -0.15 { score += 0.15; factors.push("milk↓".to_string()); } }
-    if let Some(d) = dim { if d < 30 { score += 0.1; factors.push("early_lactation".to_string()); } }
+    if let Some(c) = cond && c > 60.0 { score += 0.2; factors.push("conductivity↑".to_string()); }
+    if let Some(d) = milk_dev && d < -0.15 { score += 0.15; factors.push("milk↓".to_string()); }
+    if let Some(d) = dim && d < 30 { score += 0.1; factors.push("early_lactation".to_string()); }
 
     if score < 0.05 { return Ok(None); }
     score = score.min(1.0);
@@ -1945,6 +1941,7 @@ async fn summary_mastitis_risk(pool: &PgPool, id: i32) -> Result<Option<Mastitis
 }
 
 async fn summary_estrus(pool: &PgPool, id: i32) -> Result<Option<EstrusPrediction>, AppError> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(Option<i64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT dim.days, act_ratio.ratio, rum_ratio.ratio, milk_ratio.ratio
          FROM animals a
@@ -1973,13 +1970,13 @@ async fn summary_estrus(pool: &PgPool, id: i32) -> Result<Option<EstrusPredictio
 
     let Some((dim, act_signal, rum_signal, milk_signal)) = row else { return Ok(None) };
 
-    let in_window = dim.map_or(false, |d| d >= 30 && d <= 150);
+    let in_window = dim.is_some_and(|d| (30..=150).contains(&d));
     let mut score = 0.0_f64;
     let mut signals = Vec::new();
 
     if let Some(s) = act_signal { if s > 1.4 { score += 0.45; signals.push("high_activity".to_string()); } else if s > 1.2 { score += 0.25; signals.push("elevated_activity".to_string()); } }
     if let Some(s) = rum_signal { if s < 0.8 { score += 0.35; signals.push("low_rumination".to_string()); } else if s < 0.9 { score += 0.15; signals.push("reduced_rumination".to_string()); } }
-    if let Some(s) = milk_signal { if s < 0.85 { score += 0.2; signals.push("milk_drop".to_string()); } }
+    if let Some(s) = milk_signal && s < 0.85 { score += 0.2; signals.push("milk_drop".to_string()); }
     if in_window { score += 0.1; } else { score *= 0.5; }
     if score < 0.15 { return Ok(None); }
     score = score.min(1.0);
@@ -1999,6 +1996,7 @@ async fn summary_estrus(pool: &PgPool, id: i32) -> Result<Option<EstrusPredictio
 }
 
 async fn summary_energy_balance(pool: &PgPool, id: i32) -> Result<Option<CowEnergyBalance>, AppError> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT recent_7d.fat, recent_7d.protein, recent_30d.fpr_trend
          FROM animals a
@@ -2024,7 +2022,7 @@ async fn summary_energy_balance(pool: &PgPool, id: i32) -> Result<Option<CowEner
     let status = match fpr {
         Some(r) if r < 1.0 => "ketosis_risk",
         Some(r) if r > 1.5 => "acidosis_risk",
-        Some(r) if r >= 1.2 && r <= 1.4 => "optimal",
+        Some(r) if (1.2..=1.4).contains(&r) => "optimal",
         Some(_) => "normal",
         None => "unknown",
     };
@@ -2044,6 +2042,7 @@ async fn summary_energy_balance(pool: &PgPool, id: i32) -> Result<Option<CowEner
 }
 
 async fn summary_feed_rec(pool: &PgPool, id: i32) -> Result<Option<FeedRecommendationEntry>, AppError> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(Option<f64>, Option<f64>, Option<i64>, Option<i64>)> = sqlx::query_as(
         "SELECT f.feed, m.milk, dim.days, lac.n
          FROM animals a
@@ -2086,6 +2085,7 @@ async fn summary_feed_rec(pool: &PgPool, id: i32) -> Result<Option<FeedRecommend
 }
 
 async fn summary_ketosis(pool: &PgPool, id: i32) -> Result<Option<KetosisWarningEntry>, AppError> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(Option<f64>, Option<f64>, Option<i64>, Option<f64>)> = sqlx::query_as(
         "SELECT recent.fpr, fpr_trend.trend, dim.days, rum.rum
          FROM animals a
@@ -2114,9 +2114,9 @@ async fn summary_ketosis(pool: &PgPool, id: i32) -> Result<Option<KetosisWarning
     let mut risk_type = "subclinical".to_string();
     if fpr < 1.0 { risk += 0.5; factors.push("fpr_below_1.0".to_string()); risk_type = "clinical".to_string(); }
     else if fpr < 1.1 { risk += 0.25; factors.push("fpr_low".to_string()); }
-    if let Some(trend) = fpr_trend { if trend < -0.1 { risk += 0.3; factors.push("fpr_declining".to_string()); } }
+    if let Some(trend) = fpr_trend && trend < -0.1 { risk += 0.3; factors.push("fpr_declining".to_string()); }
     if let Some(dim) = dim_days { if dim < 30 { risk += 0.25; factors.push("early_lactation".to_string()); } else if dim < 60 { risk += 0.1; factors.push("fresh_cow".to_string()); } }
-    if let Some(rum) = rum_7d { if rum < 400.0 { risk += 0.2; factors.push("low_rumination".to_string()); } }
+    if let Some(rum) = rum_7d && rum < 400.0 { risk += 0.2; factors.push("low_rumination".to_string()); }
     if risk < 0.1 { return Ok(None); }
     risk = risk.min(1.0);
     let severity = if risk >= 0.6 { "high" } else if risk >= 0.3 { "moderate" } else { "low" };
@@ -2136,6 +2136,7 @@ async fn summary_ketosis(pool: &PgPool, id: i32) -> Result<Option<KetosisWarning
 }
 
 async fn summary_lifetime(pool: &PgPool, id: i32) -> Result<Option<LifetimeValueEntry>, AppError> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(Option<f64>, i64, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::float8 as age_years,
                 COALESCE(lac_cnt.n, 0) as lac_count,
@@ -2182,6 +2183,7 @@ async fn summary_lifetime(pool: &PgPool, id: i32) -> Result<Option<LifetimeValue
 }
 
 async fn summary_culling(pool: &PgPool, id: i32) -> Result<Option<CullingSurvivalEntry>, AppError> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(Option<i64>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
         "SELECT EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::int8 as age_years,
                 latest_milk.milk, avg_scc.scc, ci.interval, lac_count.lacs
@@ -2209,7 +2211,7 @@ async fn summary_culling(pool: &PgPool, id: i32) -> Result<Option<CullingSurviva
     if let Some(m) = milk { if m < 15.0 { risk += 0.3; base_days -= 180.0; factors.push("milk<15L".to_string()); } else if m < 20.0 { risk += 0.1; base_days -= 60.0; factors.push("milk<20L".to_string()); } }
     if let Some(s) = scc { if s > 300000.0 { risk += 0.25; base_days -= 180.0; factors.push("SCC>300k".to_string()); } else if s > 200000.0 { risk += 0.1; base_days -= 90.0; factors.push("SCC>200k".to_string()); } }
     if let Some(ci) = interval { if ci > 450.0 { risk += 0.2; base_days -= 120.0; factors.push("interval>450d".to_string()); } else if ci > 400.0 { risk += 0.1; base_days -= 60.0; factors.push("interval>400d".to_string()); } }
-    if let Some(lc) = lac_count { if lc >= 6 { risk += 0.1; factors.push("lac>=6".to_string()); } }
+    if let Some(lc) = lac_count && lc >= 6 { risk += 0.1; factors.push("lac>=6".to_string()); }
 
     if risk < 0.1 { return Ok(None); }
     risk = risk.min(1.0);
@@ -2227,6 +2229,7 @@ async fn summary_culling(pool: &PgPool, id: i32) -> Result<Option<CullingSurviva
 }
 
 async fn summary_cluster(pool: &PgPool, id: i32) -> Result<Option<ClusterCowEntry>, AppError> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(Option<f64>, Option<f64>, Option<i64>, Option<i64>)> = sqlx::query_as(
         "SELECT m.avg_milk, r.rum, dim.days, lac.n
          FROM animals a
@@ -2261,6 +2264,168 @@ async fn summary_cluster(pool: &PgPool, id: i32) -> Result<Option<ClusterCowEntr
         distance_to_center: round2(((milk - 25.0).powi(2) + (rumination - 450.0).powi(2) + (dim_days - 150.0).powi(2) + (lac_n - 2.0).powi(2)).sqrt()),
         model_version: "rule-based-v1".to_string(),
     }))
+}
+
+pub async fn health_timeline(
+    pool: &PgPool,
+    animal_id: i32,
+    days: i64,
+) -> Result<HealthTimelineResponse, AppError> {
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM animals WHERE id = $1")
+        .bind(animal_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(AppError::Database)?
+        .flatten();
+
+    let rows: Vec<(String, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT d.dt::text,
+                short_m.milk, long_m.milk, long_m.std as milk_std,
+                short_r.rum, long_r.rum, long_r.std as rum_std
+         FROM generate_series(CURRENT_DATE - ($2 || ' days')::interval, CURRENT_DATE, '1 day') d(dt)
+         LEFT JOIN LATERAL (
+             SELECT AVG(m.milk_amount)::float8 as milk
+             FROM milk_day_productions m WHERE m.animal_id = $1 AND m.date <= d.dt AND m.date > d.dt - INTERVAL '3 days'
+         ) short_m ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(m.milk_amount)::float8 as milk, STDDEV(m.milk_amount)::float8 as std
+             FROM milk_day_productions m WHERE m.animal_id = $1 AND m.date <= d.dt AND m.date > d.dt - INTERVAL '30 days'
+         ) long_m ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(r.rumination_minutes)::float8 as rum
+             FROM ruminations r WHERE r.animal_id = $1 AND r.date <= d.dt AND r.date > d.dt - INTERVAL '3 days'
+         ) short_r ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std
+             FROM ruminations r WHERE r.animal_id = $1 AND r.date <= d.dt AND r.date > d.dt - INTERVAL '30 days'
+         ) long_r ON true
+         ORDER BY d.dt"
+    )
+    .bind(animal_id)
+    .bind(days)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let act_rows: Vec<(String, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT d.dt::text, short_a.act, long_a.act, long_a.std
+         FROM generate_series(CURRENT_DATE - ($2 || ' days')::interval, CURRENT_DATE, '1 day') d(dt)
+         LEFT JOIN LATERAL (
+             SELECT AVG(act.activity_counter)::float8 as act
+             FROM activities act WHERE act.animal_id = $1 AND act.activity_datetime <= d.dt + INTERVAL '1 day' AND act.activity_datetime > d.dt - INTERVAL '2 days'
+         ) short_a ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(act.activity_counter)::float8 as act, STDDEV(act.activity_counter)::float8 as std
+             FROM activities act WHERE act.animal_id = $1 AND act.activity_datetime <= d.dt AND act.activity_datetime > d.dt - INTERVAL '30 days'
+             AND act.activity_datetime <= d.dt - INTERVAL '3 days'
+         ) long_a ON true
+         ORDER BY d.dt"
+    )
+    .bind(animal_id)
+    .bind(days)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let scc_rows: Vec<(String, Option<f64>, Option<f64>)> = sqlx::query_as(
+        "SELECT d.dt::text, recent.scc, baseline.avg_scc
+         FROM generate_series(CURRENT_DATE - ($2 || ' days')::interval, CURRENT_DATE, '1 day') d(dt)
+         LEFT JOIN LATERAL (
+             SELECT AVG(q.scc)::float8 as scc FROM milk_quality q
+             WHERE q.animal_id = $1 AND q.date <= d.dt AND q.date > d.dt - INTERVAL '3 days'
+         ) recent ON true
+         LEFT JOIN LATERAL (
+             SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q
+             WHERE q.animal_id = $1 AND q.date <= d.dt - INTERVAL '3 days' AND q.date > d.dt - INTERVAL '90 days'
+         ) baseline ON true
+         ORDER BY d.dt"
+    )
+    .bind(animal_id)
+    .bind(days)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let act_map: std::collections::HashMap<String, (Option<f64>, Option<f64>, Option<f64>)> = act_rows
+        .into_iter()
+        .map(|(d, s, l, st)| (d, (s, l, st)))
+        .collect();
+    let scc_map: std::collections::HashMap<String, (Option<f64>, Option<f64>)> = scc_rows
+        .into_iter()
+        .map(|(d, r, b)| (d, (r, b)))
+        .collect();
+
+    let mut timeline = Vec::new();
+    for (date, short_milk, long_milk, milk_std, short_rum, long_rum, rum_std) in &rows {
+        let milk_z = zscore(*short_milk, *long_milk, *milk_std);
+        let rum_z = zscore(*short_rum, *long_rum, *rum_std);
+
+        let (act_z, scc_z, scc_concern) = {
+            let act_data = act_map.get(date);
+            let act_z = if let Some((s, l, st)) = act_data {
+                zscore(*s, *l, *st)
+            } else {
+                None
+            };
+
+            let scc_data = scc_map.get(date);
+            let (scc_z, concern) = if let Some((recent, baseline)) = scc_data {
+                if let (Some(r), Some(b)) = (recent, baseline) {
+                    if *r > 0.0 && *b > 0.0 {
+                        let ratio = r / b;
+                        let z = (r - b) / (b * 0.5);
+                        (Some(z), ratio > 1.5)
+                    } else {
+                        (None, false)
+                    }
+                } else {
+                    (None, false)
+                }
+            } else {
+                (None, false)
+            };
+            (act_z, scc_z, concern)
+        };
+
+        let mut score = 100.0_f64;
+        if let Some(z) = milk_z {
+            if z < -2.0 { score -= 30.0; }
+            else if z < -1.0 { score -= 15.0; }
+        }
+        if let Some(z) = rum_z {
+            if z < -2.0 { score -= 25.0; }
+            else if z < -1.0 { score -= 10.0; }
+        }
+        if let Some(z) = act_z {
+            if z < -2.0 { score -= 20.0; }
+            else if z < -1.0 { score -= 10.0; }
+        }
+        if let Some(z) = scc_z {
+            if z > 2.0 { score -= 25.0; }
+            else if z > 1.0 || scc_concern { score -= 10.0; }
+        }
+
+        score = score.clamp(0.0, 100.0);
+        let risk_level = if score < 40.0 { "critical" } else if score < 60.0 { "high" } else if score < 80.0 { "moderate" } else { "low" };
+
+        if milk_z.is_some() || rum_z.is_some() || act_z.is_some() || scc_z.is_some() {
+            timeline.push(HealthTimelinePoint {
+                date: date.clone(),
+                health_score: round2(score),
+                risk_level: risk_level.to_string(),
+                milk_deviation_zscore: milk_z.map(round2),
+                rumination_deviation_zscore: rum_z.map(round2),
+                activity_deviation_zscore: act_z.map(round2),
+                scc_deviation_zscore: scc_z.map(round2),
+            });
+        }
+    }
+
+    Ok(HealthTimelineResponse {
+        animal_id,
+        animal_name: name,
+        timeline,
+    })
 }
 
 #[cfg(test)]

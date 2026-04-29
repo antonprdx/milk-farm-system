@@ -25,13 +25,9 @@
 		PanelLeftOpen,
 		X,
 		Stethoscope,
-		ClipboardList,
-		Wallet,
-		Search,
 		Dna,
 		ArrowLeftRight,
-		Package,
-	} from 'lucide-svelte';
+		} from 'lucide-svelte';
 
 	let {
 		collapsed = $bindable(false),
@@ -58,9 +54,6 @@
 		{ href: '/sires', label: 'Быки', icon: Dna },
 		{ href: '/feed', label: 'Кормление', icon: Wheat },
 		{ href: '/vet', label: 'Вет. журнал', icon: Stethoscope },
-		{ href: '/tasks', label: 'Задачи', icon: ClipboardList },
-		{ href: '/finance', label: 'Финансы', icon: Wallet },
-		{ href: '/inventory', label: 'Склад', icon: Package },
 		{ href: '/fitness', label: 'Фитнес', icon: Activity },
 		{ href: '/grazing', label: 'Пастьба', icon: TreePine },
 		{ href: '/bulk-tank', label: 'Танк-охладитель', icon: Container },
@@ -69,8 +62,7 @@
 		{ href: '/transfers', label: 'Перемещения', icon: ArrowLeftRight },
 		{ href: '/reports', label: 'Отчёты', icon: BarChart3 },
 		{ href: '/analytics', label: 'Аналитика', icon: TrendingUp },
-		{ href: '/search', label: 'Поиск', icon: Search },
-		{ href: '/settings', label: 'Настройки', icon: Settings, adminOnly: true },
+		{ href: '/settings', label: 'Настройки', icon: Settings },
 	];
 
 	function isActive(href: string, pathname: string): boolean {

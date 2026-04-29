@@ -176,12 +176,86 @@ pub async fn delete(pool: &PgPool, id: i32) -> Result<(), AppError> {
     Ok(())
 }
 
-pub async fn batch_deactivate(pool: &PgPool, ids: &[i32]) -> Result<u64, AppError> {
+pub async fn delete_with_reason(
+    pool: &PgPool,
+    id: i32,
+    reason: Option<&str>,
+    notes: Option<&str>,
+) -> Result<(), AppError> {
+    delete(pool, id).await?;
+
+    if let Some(reason) = reason {
+        let details = serde_json::json!({ "notes": notes.unwrap_or("") });
+        if let Err(e) = sqlx::query(
+            "INSERT INTO culling_events (animal_id, culling_date, reason, details)
+             VALUES ($1, CURRENT_DATE, $2, $3)",
+        )
+        .bind(id)
+        .bind(reason)
+        .bind(&details)
+        .execute(pool)
+        .await
+        {
+            tracing::error!(error = %e, animal_id = id, "Failed to insert culling event");
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn batch_deactivate(
+    pool: &PgPool,
+    ids: &[i32],
+    reason: Option<&str>,
+    notes: Option<&str>,
+) -> Result<u64, AppError> {
     let result = sqlx::query("UPDATE animals SET active = false, updated_at = NOW() WHERE id = ANY($1)")
         .bind(ids)
         .execute(pool)
         .await
         .map_err(AppError::Database)?;
+
+    if let (Some(reason), Some(_)) = (reason, result.rows_affected().checked_sub(0)) {
+        let details: serde_json::Value = serde_json::json!({
+            "notes": notes.unwrap_or(""),
+        });
+        if let Err(e) = sqlx::query(
+            "INSERT INTO culling_events (animal_id, culling_date, reason, details)
+             SELECT u.id, CURRENT_DATE, $2, $3 FROM UNNEST($1::int[]) AS u(id)
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(ids)
+        .bind(reason)
+        .bind(&details)
+        .execute(pool)
+        .await
+        {
+            tracing::error!(error = %e, "Failed to insert batch culling events");
+        }
+    }
+
+    Ok(result.rows_affected())
+}
+
+pub async fn batch_update(
+    pool: &PgPool,
+    ids: &[i32],
+    location: Option<&str>,
+    group_number: Option<i32>,
+) -> Result<u64, AppError> {
+    let result = sqlx::query(
+        "UPDATE animals SET
+            location = COALESCE($2, location),
+            group_number = COALESCE($3, group_number),
+            updated_at = NOW()
+         WHERE id = ANY($1)",
+    )
+    .bind(ids)
+    .bind(location)
+    .bind(group_number)
+    .execute(pool)
+    .await
+    .map_err(AppError::Database)?;
     Ok(result.rows_affected())
 }
 
@@ -329,6 +403,15 @@ mod tests {
         delete(&pool, created.id).await.unwrap();
         let found = get_by_id(&pool, created.id).await.unwrap();
         assert!(found.is_some());
+        assert!(!found.unwrap().active);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn test_batch_deactivate_with_reason(pool: PgPool) {
+        let a1 = create(&pool, &create_female_req()).await.unwrap();
+        let count = batch_deactivate(&pool, &[a1.id], Some("disease"), Some("test")).await.unwrap();
+        assert_eq!(count, 1);
+        let found = get_by_id(&pool, a1.id).await.unwrap();
         assert!(!found.unwrap().active);
     }
 

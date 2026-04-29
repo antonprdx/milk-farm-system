@@ -3,10 +3,11 @@ pub(crate) mod animals;
 pub(crate) mod auth;
 pub(crate) mod bulk_tank;
 pub(crate) mod contacts;
+pub mod events;
+pub(crate) mod farm;
 pub(crate) mod feed;
 pub(crate) mod fitness;
 pub(crate) mod grazing;
-pub(crate) mod inventory;
 pub(crate) mod lely;
 pub(crate) mod locations;
 pub(crate) mod milk;
@@ -14,8 +15,9 @@ pub(crate) mod reports;
 pub(crate) mod reproduction;
 pub(crate) mod settings;
 pub(crate) mod sires;
-pub(crate) mod tasks;
 pub(crate) mod transfers;
+pub(crate) mod notifications;
+pub(crate) mod weather;
 pub(crate) mod vet;
 
 use axum::Router;
@@ -30,6 +32,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .merge(auth::routes())
         .merge(animals::routes())
+        .merge(farm::routes())
         .merge(milk::routes())
         .merge(reproduction::routes())
         .merge(feed::routes())
@@ -43,8 +46,9 @@ pub fn routes() -> Router<AppState> {
         .merge(analytics::routes())
         .merge(lely::routes())
         .merge(vet::routes())
-        .merge(tasks::routes())
         .merge(sires::routes())
         .merge(transfers::routes())
-        .merge(inventory::routes())
+        .merge(notifications::routes())
+        .merge(weather::routes())
+        .merge(events::routes())
 }

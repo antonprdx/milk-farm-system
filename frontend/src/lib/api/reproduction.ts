@@ -32,6 +32,8 @@ export interface Heat {
 	id: number;
 	animal_id: number;
 	heat_date: string;
+	confirmed: boolean;
+	confirmation_method: string | null;
 	created_at: string;
 }
 
@@ -67,6 +69,8 @@ export interface CreatePregnancy {
 export interface CreateHeat {
 	animal_id: number;
 	heat_date: string;
+	confirmed?: boolean;
+	confirmation_method?: string;
 }
 
 export interface CreateDryOff {
@@ -95,6 +99,8 @@ export interface UpdatePregnancy {
 
 export interface UpdateHeat {
 	heat_date?: string;
+	confirmed?: boolean;
+	confirmation_method?: string;
 }
 
 export interface UpdateDryOff {

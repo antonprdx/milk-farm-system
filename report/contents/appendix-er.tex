@@ -1,0 +1,70 @@
+\appendixsection{Визуализация модели данных}
+\label{app-er}
+
+В данном приложении представлена полная модель данных информационной системы в виде ER-диаграмм, разделённых по предметным областям. Диаграммы отображают все 35+ таблиц базы данных PostgreSQL, их ключевые столбцы и отношения между таблицами. Таблицы, отмеченные символом $\rightleftharpoons$, являются гипертаблицами TimescaleDB с автоматической партицировкой по времени.
+
+\textbf{Пользователи и реестр животных}
+
+На рисунке~\ref{er-core} представлены основные таблицы пользователей и реестра животных. Таблица \texttt{animals} является центральной сущностью системы, на которую ссылается большинство остальных таблиц через внешний ключ \texttt{animal\_id}. Таблица \texttt{users} обеспечивает аутентификацию и авторизацию.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{db-core.png}
+  \caption{ER-диаграмма: пользователи и реестр животных}
+  \label{er-core}
+\end{figure}
+
+\textbf{Воспроизводство и выбраковка}
+
+На рисунке~\ref{er-repro} представлены таблицы воспроизводства. Каждая таблица связана с животным через внешний ключ \texttt{animal\_id}. Таблица \texttt{calves} связана с \texttt{calvings} каскадным удалением. Таблица \texttt{culling\_events} используется как источник меток для ML-модели прогнозирования выбраковки.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{db-repro.png}
+  \caption{ER-диаграмма: воспроизводство и выбраковка}
+  \label{er-repro}
+\end{figure}
+
+\textbf{Доение и молоко}
+
+На рисунке~\ref{er-milk} представлены таблицы учёта надоев. Все таблицы, кроме \texttt{bulk\_tank\_tests}, привязаны к конкретному животному. Таблицы \texttt{milk\_day\_productions}, \texttt{milk\_visits}, \texttt{milk\_quality}, \texttt{milk\_visit\_quality} и \texttt{robot\_milk\_data} являются гипертаблицами TimescaleDB с партицировкой по 7 дней.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{db-milk.png}
+  \caption{ER-диаграмма: доение и молоко}
+  \label{er-milk}
+\end{figure}
+
+\textbf{Кормление, здоровье и активность}
+
+На рисунке~\ref{er-feed} представлены таблицы кормления и мониторинга здоровья. Таблицы \texttt{feed\_day\_amounts}, \texttt{feed\_visits}, \texttt{activities} и \texttt{ruminations} являются гипертаблицами TimescaleDB. Таблица \texttt{vet\_records} содержит поля \texttt{diagnosis\_code} и \texttt{confirmed}, используемые как метки для ML-моделей.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{db-feed-health.png}
+  \caption{ER-диаграмма: кормление, здоровье и активность}
+  \label{er-feed}
+\end{figure}
+
+\textbf{Оповещения и операции}
+
+На рисунке~\ref{er-alerts} представлены таблицы оповещений, задач, аудита, финансов и учёта запасов. Оповещения создаются автоматически движком правил \texttt{alert\_engine} и доставляются через настраиваемые каналы уведомлений (браузер, Telegram).
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{db-alerts-ops.png}
+  \caption{ER-диаграмма: оповещения и операции}
+  \label{er-alerts}
+\end{figure}
+
+\textbf{Системные таблицы}
+
+На рисунке~\ref{er-system} представлены системные таблицы: конфигурация интеграции с Lely с зашифрованными учётными данными, состояние синхронизации, зоны фермы и кэш погодных данных.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{db-system.png}
+  \caption{ER-диаграмма: системные таблицы}
+  \label{er-system}
+\end{figure}

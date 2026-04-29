@@ -331,6 +331,17 @@ export function getQuarterHealth(signal?: AbortSignal) {
 	return api<QuarterHealthResponse>('/analytics/quarter-health', { signal });
 }
 
+export interface ShapFeatureContribution {
+	feature: string;
+	value: number;
+	shap_value: number;
+}
+
+export interface ShapExplanation {
+	top_features: ShapFeatureContribution[];
+	base_value: number;
+}
+
 export interface MilkForecastDay {
 	day_offset: number;
 	predicted_milk: number;
@@ -344,6 +355,7 @@ export interface MilkForecastResponse {
 	current_daily_avg: number | null;
 	forecast: MilkForecastDay[];
 	model_version: string;
+	shap_explanation: ShapExplanation | null;
 }
 
 export function getMilkForecast(animalId: number, days?: number, signal?: AbortSignal) {
@@ -351,6 +363,37 @@ export function getMilkForecast(animalId: number, days?: number, signal?: AbortS
 	if (days) params.days = String(days);
 	return api<MilkForecastResponse>(
 		`/analytics/milk-forecast${buildQuery(params)}`,
+		{ signal },
+	);
+}
+
+export interface EnsembleForecastDay {
+	day_offset: number;
+	predicted_milk: number;
+	lower_bound: number;
+	upper_bound: number;
+	ml_contribution: number;
+	rust_contribution: number;
+}
+
+export interface EnsembleForecastResponse {
+	animal_id: number;
+	animal_name: string | null;
+	current_daily_avg: number | null;
+	forecast: EnsembleForecastDay[];
+	ml_model_version: string;
+	rust_best_model: string;
+	ml_weight: number;
+	rust_weight: number;
+	rust_mape: number;
+	shap_explanation: ShapExplanation | null;
+}
+
+export function getEnsembleForecast(animalId: number, days?: number, signal?: AbortSignal) {
+	const params: Record<string, string> = { animal_id: String(animalId) };
+	if (days) params.days = String(days);
+	return api<EnsembleForecastResponse>(
+		`/analytics/ensemble-forecast${buildQuery(params)}`,
 		{ signal },
 	);
 }
@@ -515,4 +558,61 @@ export interface AnimalSummary {
 
 export function getAnimalSummary(animalId: number, signal?: AbortSignal) {
 	return api<AnimalSummary>(`/analytics/animal-summary?animal_id=${animalId}`, { signal });
+}
+
+export interface HealthTimelinePoint {
+	date: string;
+	health_score: number;
+	risk_level: string;
+	milk_deviation_zscore: number | null;
+	rumination_deviation_zscore: number | null;
+	activity_deviation_zscore: number | null;
+	scc_deviation_zscore: number | null;
+}
+
+export interface HealthTimelineResponse {
+	animal_id: number;
+	animal_name: string | null;
+	timeline: HealthTimelinePoint[];
+}
+
+export function getHealthTimeline(animalId: number, days?: number, signal?: AbortSignal) {
+	const params = `animal_id=${animalId}${days ? `&days=${days}` : ''}`;
+	return api<HealthTimelineResponse>(`/analytics/health-timeline?${params}`, { signal });
+}
+
+export interface ModelForecastPoint {
+	date: string;
+	value: number;
+}
+
+export interface ModelResult {
+	model_name: string;
+	description: string;
+	mape: number;
+	rmse: number;
+	forecast: ModelForecastPoint[];
+	fitted: ModelForecastPoint[];
+}
+
+export interface TimeSeriesComparisonResponse {
+	animal_id: number;
+	animal_name: string | null;
+	actual_dates: string[];
+	actual_values: number[];
+	models: ModelResult[];
+	best_model: string;
+}
+
+export function getTimeSeriesComparison(
+	animalId: number,
+	days?: number,
+	forecastDays?: number,
+	signal?: AbortSignal,
+) {
+	const params = `animal_id=${animalId}${days ? `&days=${days}` : ''}${forecastDays ? `&forecast_days=${forecastDays}` : ''}`;
+	return api<TimeSeriesComparisonResponse>(
+		`/analytics/time-series-comparison?${params}`,
+		{ signal },
+	);
 }

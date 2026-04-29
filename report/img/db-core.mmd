@@ -1,0 +1,63 @@
+erDiagram
+    users {
+        serial id PK
+        text username UK
+        text password_hash
+        text role
+        bool must_change_password
+        timestamptz created_at
+    }
+    user_preferences {
+        int user_id PK,FK
+        text theme
+        int page_size
+        bool compact_view
+        jsonb dashboard_widgets
+    }
+    system_settings {
+        text key PK
+        text value
+    }
+    revoked_tokens {
+        uuid jti PK
+        timestamptz expires_at
+    }
+    animals {
+        serial id PK
+        text life_number UK
+        text name
+        gender_type gender
+        date birth_date
+        text location
+        bool active
+        timestamptz created_at
+    }
+    sires {
+        serial id PK
+        text sire_code
+        text life_number
+        text name
+        bool active
+    }
+    bloodlines {
+        serial id PK
+        int animal_id FK
+        text blood_type_code
+        float percentage
+    }
+    locations {
+        serial id PK
+        text name
+        text location_type
+    }
+    contacts {
+        serial id PK
+        text name
+        text phone_cell
+        text email
+        bool active
+    }
+
+    users ||--|| user_preferences : has
+    animals ||--o{ bloodlines : has
+    animals ||--o{ sires : referenced_by

@@ -10,6 +10,8 @@ pub struct VetRecord {
     pub status: VetRecordStatus,
     pub event_date: NaiveDate,
     pub diagnosis: Option<String>,
+    pub diagnosis_code: Option<String>,
+    pub confirmed: bool,
     pub treatment: Option<String>,
     pub medication: Option<String>,
     pub dosage: Option<String>,
@@ -53,6 +55,8 @@ pub struct CreateVetRecord {
     pub status: Option<VetRecordStatus>,
     pub event_date: NaiveDate,
     pub diagnosis: Option<String>,
+    pub diagnosis_code: Option<String>,
+    pub confirmed: Option<bool>,
     pub treatment: Option<String>,
     pub medication: Option<String>,
     pub dosage: Option<String>,
@@ -67,6 +71,7 @@ impl CreateVetRecord {
         use crate::validation::*;
         date_not_future(&self.event_date, "Дата события")?;
         opt_max_len(&self.diagnosis, 500, "Диагноз")?;
+        opt_max_len(&self.diagnosis_code, 50, "Код диагноза")?;
         opt_max_len(&self.treatment, 1000, "Лечение")?;
         opt_max_len(&self.medication, 200, "Препарат")?;
         opt_max_len(&self.dosage, 100, "Дозировка")?;
@@ -88,6 +93,8 @@ pub struct UpdateVetRecord {
     pub status: Option<VetRecordStatus>,
     pub event_date: Option<NaiveDate>,
     pub diagnosis: Option<String>,
+    pub diagnosis_code: Option<String>,
+    pub confirmed: Option<bool>,
     pub treatment: Option<String>,
     pub medication: Option<String>,
     pub dosage: Option<String>,
@@ -104,6 +111,7 @@ impl UpdateVetRecord {
             date_not_future(&d, "Дата события")?;
         }
         opt_max_len(&self.diagnosis, 500, "Диагноз")?;
+        opt_max_len(&self.diagnosis_code, 50, "Код диагноза")?;
         opt_max_len(&self.treatment, 1000, "Лечение")?;
         opt_max_len(&self.medication, 200, "Препарат")?;
         opt_max_len(&self.dosage, 100, "Дозировка")?;

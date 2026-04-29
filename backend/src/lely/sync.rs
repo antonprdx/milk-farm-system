@@ -11,17 +11,12 @@ use crate::lely::service;
 use crate::state::AppStateInner;
 
 pub fn start_sync_scheduler(state: Arc<AppStateInner>) {
-    let cfg = state.lely.get_config();
-    let interval = Duration::from_secs(cfg.sync_interval_secs);
-    let cancel = match state.lely.cancel.read() {
-        Ok(guard) => guard.clone(),
-        Err(e) => {
-            tracing::error!("Lely cancel lock poisoned: {}", e);
-            e.into_inner().clone()
-        }
-    };
-
+    let state_clone = state.clone();
     tokio::spawn(async move {
+        let cfg = state_clone.lely.get_config().await;
+        let interval = Duration::from_secs(cfg.sync_interval_secs);
+        let cancel = state_clone.lely.cancel.read().await.clone();
+
         tracing::info!(
             interval_secs = interval.as_secs(),
             "Планировщик синхронизации Lely запущен"
@@ -36,7 +31,7 @@ pub fn start_sync_scheduler(state: Arc<AppStateInner>) {
                 }
             }
 
-            match run_sync(&state).await {
+            match run_sync(&state_clone).await {
                 Ok(()) => {
                     tracing::info!("Цикл синхронизации Lely завершён");
                 }
@@ -49,7 +44,7 @@ pub fn start_sync_scheduler(state: Arc<AppStateInner>) {
 }
 
 pub async fn run_sync(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error> {
-    if !state.lely.get_config().enabled {
+    if !state.lely.get_config().await.enabled {
         return Ok(());
     }
 
@@ -77,7 +72,7 @@ macro_rules! try_sync {
 }
 
 async fn run_sync_inner(state: &Arc<AppStateInner>) -> Result<(), anyhow::Error> {
-    let cfg = state.lely.get_config();
+    let cfg = state.lely.get_config().await;
     let client = LelyClient::new(&cfg);
     let pool = &state.pool;
 

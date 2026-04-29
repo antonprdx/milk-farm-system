@@ -468,9 +468,9 @@ fn holt_fit(values: &[f64], alpha: f64, beta: f64) -> (f64, f64, Vec<f64>) {
     let mut level = values[0];
     let mut trend = if n > 1 { values[1] - values[0] } else { 0.0 };
     let mut fitted = vec![level];
-    for t in 1..n {
+    for &val in values.iter().skip(1) {
         fitted.push(level + trend);
-        let new_level = alpha * values[t] + (1.0 - alpha) * (level + trend);
+        let new_level = alpha * val + (1.0 - alpha) * (level + trend);
         let new_trend = beta * (new_level - level) + (1.0 - beta) * trend;
         level = new_level;
         trend = new_trend;
@@ -503,13 +503,13 @@ fn holt_winters_fit(
     };
     let mut seasonal: Vec<f64> = (0..period).map(|i| values[i] - cycle_avg).collect();
     let mut fitted = Vec::with_capacity(n);
-    for t in 0..n {
+    for (t, &val) in values.iter().enumerate() {
         let s_idx = t % period;
         let s_val = seasonal[s_idx];
         fitted.push(level + trend + s_val);
-        let new_level = alpha * (values[t] - s_val) + (1.0 - alpha) * (level + trend);
+        let new_level = alpha * (val - s_val) + (1.0 - alpha) * (level + trend);
         let new_trend = beta * (new_level - level) + (1.0 - beta) * trend;
-        let new_seasonal = gamma * (values[t] - new_level) + (1.0 - gamma) * s_val;
+        let new_seasonal = gamma * (val - new_level) + (1.0 - gamma) * s_val;
         level = new_level;
         trend = new_trend;
         seasonal[s_idx] = new_seasonal;
@@ -538,9 +538,9 @@ fn optimize_holt(values: &[f64]) -> (f64, f64) {
             let beta = bi as f64 * 0.05;
             let (level, trend, _) = holt_fit(train, alpha, beta);
             let mut sse = 0.0;
-            for h in 0..val.len() {
+            for (h, &v) in val.iter().enumerate() {
                 let pred = level + (h + 1) as f64 * trend;
-                let err = val[h] - pred;
+                let err = v - pred;
                 sse += err * err;
             }
             if sse < best_sse {
@@ -570,11 +570,11 @@ fn optimize_hw(values: &[f64], period: usize) -> (f64, f64, f64) {
                 let gamma = gi as f64 * 0.05;
                 let model = holt_winters_fit(train, alpha, beta, gamma, period);
                 let mut sse = 0.0;
-                for h in 0..val.len() {
+                for (h, &v) in val.iter().enumerate() {
                     let s_idx = (train_len + h) % period;
                     let pred =
                         model.level + (h + 1) as f64 * model.trend + model.seasonal[s_idx];
-                    let err = val[h] - pred;
+                    let err = v - pred;
                     sse += err * err;
                 }
                 if sse < best_sse {
@@ -954,6 +954,519 @@ pub async fn latest_milk(pool: &PgPool) -> Result<Vec<LatestMilkEntry>, AppError
             isk: r.isk,
         })
         .collect())
+}
+
+pub async fn time_series_comparison(
+    pool: &PgPool,
+    animal_id: i32,
+    days: i64,
+    forecast_days: i64,
+) -> Result<TimeSeriesComparisonResponse, AppError> {
+    let name: Option<String> = sqlx::query_scalar(
+        "SELECT a.name FROM animals a WHERE a.id = $1",
+    )
+    .bind(animal_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?
+    .flatten();
+
+    let rows: Vec<(String, Option<f64>)> = sqlx::query_as(
+        "SELECT date::text, milk_amount::float8
+         FROM milk_day_productions
+         WHERE animal_id = $1 AND date >= CURRENT_DATE - ($2 || ' days')::interval
+         ORDER BY date",
+    )
+    .bind(animal_id)
+    .bind(days)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let dates: Vec<String> = rows.iter().map(|(d, _)| d.clone()).collect();
+    let raw_values: Vec<f64> = rows.iter().filter_map(|(_, v)| *v).collect();
+
+    if raw_values.len() < 10 {
+        return Ok(TimeSeriesComparisonResponse {
+            animal_id,
+            animal_name: name,
+            actual_dates: dates,
+            actual_values: raw_values,
+            models: vec![],
+            best_model: "insufficient_data".to_string(),
+        });
+    }
+
+    let values = clean_outliers(&raw_values);
+    let dates_clean: Vec<String> = dates[..values.len()].to_vec();
+
+    let period = 7;
+    let train_len = ((values.len() as f64) * 0.8) as usize;
+    if train_len < 10 {
+        return Ok(TimeSeriesComparisonResponse {
+            animal_id,
+            animal_name: name,
+            actual_dates: dates_clean,
+            actual_values: values,
+            models: vec![],
+            best_model: "insufficient_data".to_string(),
+        });
+    }
+
+    let train = &values[..train_len];
+    let test = &values[train_len..];
+
+    let last_date = chrono::NaiveDate::parse_from_str(
+        dates_clean.last().unwrap_or(&String::new()),
+        "%Y-%m-%d",
+    );
+
+    let mut models = Vec::new();
+
+    models.push(fit_ses(train, test, &dates_clean, forecast_days, last_date.ok()));
+    models.push(fit_sma(train, test, &dates_clean, forecast_days, last_date.ok(), 7));
+    models.push(fit_wma(train, test, &dates_clean, forecast_days, last_date.ok(), 7));
+    models.push(fit_linear_regression(train, test, &dates_clean, forecast_days, last_date.ok()));
+    models.push(fit_double_exponential(train, test, &dates_clean, forecast_days, last_date.ok()));
+    if values.len() >= 2 * period {
+        models.push(fit_holt_winters_model(train, test, &dates_clean, forecast_days, last_date.ok(), period));
+    }
+    models.push(fit_fourier(train, test, &dates_clean, forecast_days, last_date.ok(), 3));
+    models.push(fit_arima_011(train, test, &dates_clean, forecast_days, last_date.ok()));
+
+    let best = models
+        .iter()
+        .min_by(|a, b| a.mape.partial_cmp(&b.mape).unwrap_or(std::cmp::Ordering::Equal))
+        .map(|m| m.model_name.clone())
+        .unwrap_or_else(|| "none".to_string());
+
+    Ok(TimeSeriesComparisonResponse {
+        animal_id,
+        animal_name: name,
+        actual_dates: dates_clean,
+        actual_values: values,
+        models,
+        best_model: best,
+    })
+}
+
+fn make_forecast_dates(last_date: Option<chrono::NaiveDate>, actual_len: usize, forecast_days: i64) -> Vec<String> {
+    if let Some(ld) = last_date {
+        (1..=forecast_days)
+            .map(|h| (ld + chrono::Duration::days(h)).format("%Y-%m-%d").to_string())
+            .collect()
+    } else {
+        (1..=forecast_days)
+            .map(|h| format!("day_{}", actual_len + h as usize))
+            .collect()
+    }
+}
+
+fn calc_metrics(actual: &[f64], fitted: &[f64]) -> (f64, f64) {
+    let n = actual.len().min(fitted.len());
+    if n == 0 { return (100.0, 0.0); }
+    let sse: f64 = (0..n).map(|i| (actual[i] - fitted[i]).powi(2)).sum();
+    let rmse = (sse / n as f64).sqrt();
+    let mape_sum: f64 = (0..n).map(|i| {
+        if actual[i].abs() > 1e-10 { (actual[i] - fitted[i]).abs() / actual[i].abs() } else { 0.0 }
+    }).sum();
+    let mape = (mape_sum / n as f64) * 100.0;
+    (r2(mape), r2(rmse))
+}
+
+fn fit_ses(
+    train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>,
+) -> ModelResult {
+    let mut best_alpha = 0.3_f64;
+    let mut best_sse = f64::INFINITY;
+    for ai in 1..20u32 {
+        let alpha = ai as f64 * 0.05;
+        let mut level = train[0];
+        let mut sse = 0.0;
+        for &v in train.iter().skip(1) {
+            let pred = level;
+            let err = v - pred;
+            sse += err * err;
+            level = alpha * v + (1.0 - alpha) * level;
+        }
+        for &v in test.iter() {
+            let pred = level;
+            let err = v - pred;
+            sse += err * err;
+        }
+        if sse < best_sse {
+            best_sse = sse;
+            best_alpha = alpha;
+        }
+    }
+
+    let mut level = train[0];
+    let mut fitted_vals: Vec<f64> = vec![level];
+    for &v in train.iter().skip(1) {
+        fitted_vals.push(level);
+        level = best_alpha * v + (1.0 - best_alpha) * level;
+    }
+
+    let test_fitted: Vec<f64> = test.iter().map(|_| level).collect();
+    let (mape, rmse) = calc_metrics(test, &test_fitted);
+
+    let implied_slope = if fitted_vals.len() >= 3 {
+        let recent = &fitted_vals[fitted_vals.len() - 3..];
+        (recent[2] - recent[0]) / 2.0
+    } else {
+        0.0
+    };
+
+    let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
+    let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| ModelForecastPoint {
+        date: d.clone(),
+        value: r2(level + implied_slope * (h + 1) as f64),
+    }).collect();
+
+    let fitted_pts: Vec<ModelForecastPoint> = dates.iter().zip(fitted_vals.iter())
+        .map(|(d, v)| ModelForecastPoint { date: d.clone(), value: r2(*v) })
+        .collect();
+
+    ModelResult {
+        model_name: "SES".to_string(),
+        description: format!("Simple Exponential Smoothing (α={:.2})", best_alpha),
+        mape, rmse, forecast, fitted: fitted_pts,
+    }
+}
+
+fn fit_sma(
+    train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>, window: usize,
+) -> ModelResult {
+    let all_train: Vec<f64> = train.to_vec();
+    let mut fitted_vals: Vec<f64> = Vec::new();
+    for i in 0..all_train.len() {
+        if i < window {
+            let avg: f64 = all_train[..=i].iter().sum::<f64>() / (i + 1) as f64;
+            fitted_vals.push(avg);
+        } else {
+            let avg: f64 = all_train[(i - window + 1)..=i].iter().sum::<f64>() / window as f64;
+            fitted_vals.push(avg);
+        }
+    }
+
+    let last_avg: f64 = if all_train.len() >= window {
+        all_train[all_train.len() - window..].iter().sum::<f64>() / window as f64
+    } else {
+        all_train.iter().sum::<f64>() / all_train.len() as f64
+    };
+
+    let test_fitted: Vec<f64> = test.iter().map(|_| last_avg).collect();
+    let (mape, rmse) = calc_metrics(test, &test_fitted);
+
+    let implied_slope = if fitted_vals.len() >= window * 2 {
+        let recent_a = fitted_vals[fitted_vals.len() - window..].iter().sum::<f64>() / window as f64;
+        let prev_a = fitted_vals[fitted_vals.len() - window * 2..fitted_vals.len() - window].iter().sum::<f64>() / window as f64;
+        (recent_a - prev_a) / window as f64
+    } else if fitted_vals.len() >= 2 {
+        fitted_vals[fitted_vals.len() - 1] - fitted_vals[fitted_vals.len() - 2]
+    } else {
+        0.0
+    };
+
+    let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
+    let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| ModelForecastPoint {
+        date: d.clone(), value: r2(last_avg + implied_slope * (h + 1) as f64),
+    }).collect();
+
+    let fitted_pts: Vec<ModelForecastPoint> = dates.iter().zip(fitted_vals.iter())
+        .map(|(d, v)| ModelForecastPoint { date: d.clone(), value: r2(*v) })
+        .collect();
+
+    ModelResult {
+        model_name: "SMA".to_string(),
+        description: format!("Simple Moving Average (window={})", window),
+        mape, rmse, forecast, fitted: fitted_pts,
+    }
+}
+
+fn fit_wma(
+    train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>, window: usize,
+) -> ModelResult {
+    let all_train = train.to_vec();
+    let mut fitted_vals: Vec<f64> = Vec::new();
+    let weights: Vec<f64> = (1..=window).map(|i| i as f64).collect();
+    let w_sum: f64 = weights.iter().sum();
+
+    for i in 0..all_train.len() {
+        if i < window {
+            fitted_vals.push(all_train[..=i].iter().sum::<f64>() / (i + 1) as f64);
+        } else {
+            let segment = &all_train[(i - window + 1)..=i];
+            let wma: f64 = segment.iter().zip(weights.iter()).map(|(&v, &w)| v * w).sum::<f64>() / w_sum;
+            fitted_vals.push(wma);
+        }
+    }
+
+    let last_val = if all_train.len() >= window {
+        let segment = &all_train[all_train.len() - window..];
+        segment.iter().zip(weights.iter()).map(|(&v, &w)| v * w).sum::<f64>() / w_sum
+    } else {
+        all_train.iter().sum::<f64>() / all_train.len() as f64
+    };
+
+    let test_fitted: Vec<f64> = test.iter().map(|_| last_val).collect();
+    let (mape, rmse) = calc_metrics(test, &test_fitted);
+
+    let implied_slope = if fitted_vals.len() >= window * 2 {
+        let recent_a = fitted_vals[fitted_vals.len() - window..].iter().sum::<f64>() / window as f64;
+        let prev_a = fitted_vals[fitted_vals.len() - window * 2..fitted_vals.len() - window].iter().sum::<f64>() / window as f64;
+        (recent_a - prev_a) / window as f64
+    } else if fitted_vals.len() >= 2 {
+        fitted_vals[fitted_vals.len() - 1] - fitted_vals[fitted_vals.len() - 2]
+    } else {
+        0.0
+    };
+
+    let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
+    let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| ModelForecastPoint {
+        date: d.clone(), value: r2(last_val + implied_slope * (h + 1) as f64),
+    }).collect();
+
+    let fitted_pts: Vec<ModelForecastPoint> = dates.iter().zip(fitted_vals.iter())
+        .map(|(d, v)| ModelForecastPoint { date: d.clone(), value: r2(*v) })
+        .collect();
+
+    ModelResult {
+        model_name: "WMA".to_string(),
+        description: format!("Weighted Moving Average (window={})", window),
+        mape, rmse, forecast, fitted: fitted_pts,
+    }
+}
+
+fn fit_linear_regression(
+    train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>,
+) -> ModelResult {
+    let n = train.len() as f64;
+    let sum_x: f64 = (0..train.len()).map(|i| i as f64).sum();
+    let sum_y: f64 = train.iter().sum();
+    let sum_xy: f64 = (0..train.len()).map(|i| i as f64 * train[i]).sum();
+    let sum_x2: f64 = (0..train.len()).map(|i| (i as f64).powi(2)).sum();
+
+    let denom = n * sum_x2 - sum_x * sum_x;
+    let slope = slope_from_lr(n, sum_x, sum_y, sum_xy, sum_x2);
+    let intercept = if denom.abs() > 1e-12 { (sum_y - slope * sum_x) / n } else { sum_y / n };
+
+    let fitted_vals: Vec<f64> = (0..train.len()).map(|i| intercept + slope * i as f64).collect();
+    let test_fitted: Vec<f64> = (train.len()..train.len() + test.len()).map(|i| intercept + slope * i as f64).collect();
+    let (mape, rmse) = calc_metrics(test, &test_fitted);
+
+    let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
+    let start_idx = train.len() + test.len();
+    let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| ModelForecastPoint {
+        date: d.clone(), value: r2(intercept + slope * (start_idx + h) as f64),
+    }).collect();
+
+    let fitted_pts: Vec<ModelForecastPoint> = dates.iter().zip(fitted_vals.iter())
+        .map(|(d, v)| ModelForecastPoint { date: d.clone(), value: r2(*v) })
+        .collect();
+
+    ModelResult {
+        model_name: "LinearRegression".to_string(),
+        description: format!("Linear Regression (slope={:.3})", slope),
+        mape, rmse, forecast, fitted: fitted_pts,
+    }
+}
+
+fn slope_from_lr(n: f64, sum_x: f64, sum_y: f64, sum_xy: f64, sum_x2: f64) -> f64 {
+    let denom = n * sum_x2 - sum_x * sum_x;
+    if denom.abs() > 1e-12 { (n * sum_xy - sum_x * sum_y) / denom } else { 0.0 }
+}
+
+fn fit_double_exponential(
+    train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>,
+) -> ModelResult {
+    let (alpha, beta) = optimize_holt(train);
+    let (level, trend, fitted_raw) = holt_fit(train, alpha, beta);
+
+    let test_fitted: Vec<f64> = test.iter().enumerate().map(|(h, _)| level + (h + 1) as f64 * trend).collect();
+    let (mape, rmse) = calc_metrics(test, &test_fitted);
+
+    let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
+    let start_h = test.len() + 1;
+    let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| ModelForecastPoint {
+        date: d.clone(), value: r2(level + (start_h + h) as f64 * trend),
+    }).collect();
+
+    let fitted_pts: Vec<ModelForecastPoint> = dates.iter().zip(fitted_raw.iter())
+        .map(|(d, v)| ModelForecastPoint { date: d.clone(), value: r2(*v) })
+        .collect();
+
+    ModelResult {
+        model_name: "Holt".to_string(),
+        description: format!("Holt's Linear (α={:.2}, β={:.2})", alpha, beta),
+        mape, rmse, forecast, fitted: fitted_pts,
+    }
+}
+
+fn fit_holt_winters_model(
+    train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>, period: usize,
+) -> ModelResult {
+    let (alpha, beta, gamma) = optimize_hw(train, period);
+    let model = holt_winters_fit(train, alpha, beta, gamma, period);
+
+    let train_len = train.len();
+    let test_fitted: Vec<f64> = test.iter().enumerate().map(|(h, _)| {
+        let s_idx = (train_len + h) % period;
+        model.level + (h + 1) as f64 * model.trend + model.seasonal[s_idx]
+    }).collect();
+    let (mape, rmse) = calc_metrics(test, &test_fitted);
+
+    let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
+    let start_h = test.len() + 1;
+    let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| {
+        let s_idx = (train_len + start_h + h - 1) % period;
+        ModelForecastPoint { date: d.clone(), value: r2(model.level + (start_h + h) as f64 * model.trend + model.seasonal[s_idx]) }
+    }).collect();
+
+    let fitted_pts: Vec<ModelForecastPoint> = dates.iter().zip(model.fitted.iter())
+        .map(|(d, v)| ModelForecastPoint { date: d.clone(), value: r2(*v) })
+        .collect();
+
+    ModelResult {
+        model_name: "HoltWinters".to_string(),
+        description: format!("Holt-Winters (α={:.2}, β={:.2}, γ={:.2}, p={})", alpha, beta, gamma, period),
+        mape, rmse, forecast, fitted: fitted_pts,
+    }
+}
+
+fn fit_fourier(
+    train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>, harmonics: usize,
+) -> ModelResult {
+    let n = train.len() as f64;
+    let _mean: f64 = train.iter().sum::<f64>() / n;
+
+    let (slope, intercept) = {
+        let sum_x: f64 = (0..train.len()).map(|i| i as f64).sum();
+        let sum_y: f64 = train.iter().sum();
+        let sum_xy: f64 = (0..train.len()).map(|i| i as f64 * train[i]).sum();
+        let sum_x2: f64 = (0..train.len()).map(|i| (i as f64).powi(2)).sum();
+        let s = slope_from_lr(n, sum_x, sum_y, sum_xy, sum_x2);
+        let d = n * sum_x2 - sum_x * sum_x;
+        let ic = if d.abs() > 1e-12 { (sum_y - s * sum_x) / n } else { sum_y / n };
+        (s, ic)
+    };
+
+    let detrended: Vec<f64> = train.iter().enumerate().map(|(i, &v)| v - (intercept + slope * i as f64)).collect();
+
+    let base_period = 7.0_f64;
+    let mut cos_coeffs = vec![0.0_f64; harmonics];
+    let mut sin_coeffs = vec![0.0_f64; harmonics];
+
+    for k in 0..harmonics {
+        let period = base_period / (k as f64 + 1.0).min(1.0);
+        let mut cc = 0.0_f64;
+        let mut sc = 0.0_f64;
+        for (i, &v) in detrended.iter().enumerate() {
+            let t = i as f64;
+            cc += v * (2.0 * std::f64::consts::PI * t / period).cos();
+            sc += v * (2.0 * std::f64::consts::PI * t / period).sin();
+        }
+        cos_coeffs[k] = 2.0 * cc / n;
+        sin_coeffs[k] = 2.0 * sc / n;
+    }
+
+    let predict = |idx: usize| -> f64 {
+        let mut val = intercept + slope * idx as f64;
+        let t = idx as f64;
+        for k in 0..harmonics {
+            let period = base_period / (k as f64 + 1.0).min(1.0);
+            let angle = 2.0 * std::f64::consts::PI * t / period;
+            val += cos_coeffs[k] * angle.cos() + sin_coeffs[k] * angle.sin();
+        }
+        val
+    };
+
+    let fitted_vals: Vec<f64> = (0..train.len()).map(|i| predict(i)).collect();
+    let test_fitted: Vec<f64> = (train.len()..train.len() + test.len()).map(|i| predict(i)).collect();
+    let (mape, rmse) = calc_metrics(test, &test_fitted);
+
+    let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
+    let start_idx = train.len() + test.len();
+    let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| ModelForecastPoint {
+        date: d.clone(), value: r2(predict(start_idx + h)),
+    }).collect();
+
+    let fitted_pts: Vec<ModelForecastPoint> = dates.iter().zip(fitted_vals.iter())
+        .map(|(d, v)| ModelForecastPoint { date: d.clone(), value: r2(*v) })
+        .collect();
+
+    ModelResult {
+        model_name: "Fourier".to_string(),
+        description: format!("Fourier Series ({} harmonics)", harmonics),
+        mape, rmse, forecast, fitted: fitted_pts,
+    }
+}
+
+fn fit_arima_011(
+    train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>,
+) -> ModelResult {
+    let mut diffed: Vec<f64> = Vec::with_capacity(train.len() - 1);
+    for i in 1..train.len() {
+        diffed.push(train[i] - train[i - 1]);
+    }
+
+    let mut best_theta = 0.5_f64;
+    let mut best_sse = f64::INFINITY;
+    for ti in 0..20u32 {
+        let theta = ti as f64 * 0.05;
+        let mut errors = vec![0.0_f64; diffed.len()];
+        let mut sse = 0.0;
+        for i in 0..diffed.len() {
+            let pred = if i > 0 { theta * errors[i - 1] } else { 0.0 };
+            errors[i] = diffed[i] - pred;
+            sse += errors[i] * errors[i];
+        }
+        if sse < best_sse {
+            best_sse = sse;
+            best_theta = theta;
+        }
+    }
+
+    let mut errors = vec![0.0_f64; diffed.len()];
+    let mut fitted_vals = vec![train[0]];
+    for i in 0..diffed.len() {
+        let pred = if i > 0 { best_theta * errors[i - 1] } else { 0.0 };
+        errors[i] = diffed[i] - pred;
+        fitted_vals.push(train[i] + pred);
+    }
+
+    let mut last_error = *errors.last().unwrap_or(&0.0);
+    let mut last_val = *train.last().unwrap_or(&0.0);
+    let test_fitted: Vec<f64> = test.iter().map(|&v| {
+        let pred_diff = best_theta * last_error;
+        let pred = last_val + pred_diff;
+        let actual_diff = v - last_val;
+        last_error = actual_diff - pred_diff;
+        last_val = v;
+        pred
+    }).collect();
+    let (mape, rmse) = calc_metrics(test, &test_fitted);
+
+    let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
+    let mut f_val = *train.last().unwrap_or(&0.0);
+    let mut f_err = *errors.last().unwrap_or(&0.0);
+    let drift: f64 = diffed.iter().sum::<f64>() / diffed.len().max(1) as f64;
+    let forecast: Vec<ModelForecastPoint> = fc_dates.iter().map(|d| {
+        let pred = f_val + drift + best_theta * f_err;
+        f_err = 0.0;
+        f_val = pred;
+        ModelForecastPoint { date: d.clone(), value: r2(pred) }
+    }).collect();
+
+    let fitted_pts: Vec<ModelForecastPoint> = dates.iter().zip(fitted_vals.iter())
+        .map(|(d, v)| ModelForecastPoint { date: d.clone(), value: r2(*v) })
+        .collect();
+
+    ModelResult {
+        model_name: "ARIMA(0,1,1)".to_string(),
+        description: format!("ARIMA(0,1,1) (θ={:.2})", best_theta),
+        mape, rmse, forecast, fitted: fitted_pts,
+    }
 }
 
 #[cfg(test)]

@@ -295,10 +295,12 @@ pub async fn create_heat(pool: &PgPool, req: &CreateHeat) -> Result<Heat, AppErr
     }
 
     let row = sqlx::query_as::<_, Heat>(
-        "INSERT INTO heats (animal_id, heat_date) VALUES ($1,$2) RETURNING *",
+        "INSERT INTO heats (animal_id, heat_date, confirmed, confirmation_method) VALUES ($1,$2,$3,$4) RETURNING *",
     )
     .bind(req.animal_id)
     .bind(req.heat_date)
+    .bind(req.confirmed.unwrap_or(false))
+    .bind(&req.confirmation_method)
     .fetch_one(&mut *tx)
     .await
     .map_err(AppError::Database)?;
@@ -507,10 +509,15 @@ pub async fn get_heat(pool: &PgPool, id: i32) -> Result<Option<Heat>, AppError> 
 
 pub async fn update_heat(pool: &PgPool, id: i32, req: &UpdateHeat) -> Result<Heat, AppError> {
     sqlx::query_as::<_, Heat>(
-        "UPDATE heats SET heat_date = COALESCE($2, heat_date) WHERE id = $1 RETURNING *",
+        "UPDATE heats SET heat_date = COALESCE($2, heat_date),
+         confirmed = COALESCE($3, confirmed),
+         confirmation_method = COALESCE($4, confirmation_method)
+         WHERE id = $1 RETURNING *",
     )
     .bind(id)
     .bind(req.heat_date)
+    .bind(req.confirmed)
+    .bind(&req.confirmation_method)
     .fetch_one(pool)
     .await
     .map_err(AppError::Database)
@@ -749,9 +756,12 @@ mod tests {
         let req = CreateHeat {
             animal_id,
             heat_date: chrono::NaiveDate::from_ymd_opt(2024, 5, 1).unwrap(),
+            confirmed: Some(true),
+            confirmation_method: Some("visual".into()),
         };
         let heat = create_heat(&pool, &req).await.unwrap();
         assert_eq!(heat.animal_id, animal_id);
+        assert!(heat.confirmed);
     }
 
     #[sqlx::test(migrations = "./migrations")]
@@ -762,6 +772,8 @@ mod tests {
             &CreateHeat {
                 animal_id,
                 heat_date: chrono::NaiveDate::from_ymd_opt(2024, 1, 10).unwrap(),
+                confirmed: None,
+                confirmation_method: None,
             },
         )
         .await
@@ -771,6 +783,8 @@ mod tests {
             &CreateHeat {
                 animal_id,
                 heat_date: chrono::NaiveDate::from_ymd_opt(2024, 5, 10).unwrap(),
+                confirmed: None,
+                confirmation_method: None,
             },
         )
         .await

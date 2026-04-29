@@ -1,0 +1,65 @@
+erDiagram
+    animals {
+        serial id PK
+        text life_number UK
+        text name
+        bool active
+    }
+    milk_day_productions {
+        serial id PK
+        int animal_id FK
+        date date
+        float milk_amount
+        float avg_amount
+        float isk
+    }
+    milk_visits {
+        serial id PK
+        int animal_id FK
+        timestamptz visit_datetime
+        float milk_amount
+        int duration_seconds
+        int milk_destination
+    }
+    milk_quality {
+        serial id PK
+        int animal_id FK
+        date date
+        float fat_percentage
+        float protein_percentage
+        float lactose_percentage
+        int scc
+        int milkings
+    }
+    milk_visit_quality {
+        serial id PK
+        int animal_id FK
+        timestamptz visit_datetime
+        float milk_yield
+        int lf_conductivity
+        int rf_conductivity
+        float milk_temperature
+    }
+    robot_milk_data {
+        serial id PK
+        int animal_id FK
+        timestamptz milking_date
+        float milk_speed
+        float milk_speed_max
+        int lf_milk_time
+        int device_address
+    }
+    bulk_tank_tests {
+        serial id PK
+        date date
+        float fat
+        float protein
+        float lactose
+        int scc
+    }
+
+    animals ||--o{ milk_day_productions : has
+    animals ||--o{ milk_visits : has
+    animals ||--o{ milk_quality : has
+    animals ||--o{ milk_visit_quality : has
+    animals ||--o{ robot_milk_data : has

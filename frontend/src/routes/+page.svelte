@@ -1,20 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import {
-		Chart,
-		LineController,
-		CategoryScale,
-		LinearScale,
-		PointElement,
-		LineElement,
-		Filler,
-		Tooltip,
-		Legend,
-	} from 'chart.js';
+	import { ensureChartRegistered, Chart } from '$lib/utils/chartRegistration';
 	import { theme } from '$lib/stores/theme';
 	import { defaultTooltip, defaultScales, themeColors } from '$lib/utils/chartHelpers';
 	import { debounce } from '$lib/utils/debounce';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
+	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import {
 		Beef,
 		Milk,
@@ -32,13 +23,11 @@
 	} from 'lucide-svelte';
 	import {
 		getKpi,
-		getAlerts,
 		getMilkTrend,
 		getReproductionForecast,
 		getFeedForecast,
 		getLatestMilk,
 		type KpiResponse,
-		type Alert,
 		type MilkTrendResponse,
 		type ReproductionForecastResponse,
 		type FeedForecastResponse,
@@ -50,24 +39,9 @@
 		VET_RECORD_TYPE_LABELS,
 		type VetRecord,
 	} from '$lib/api/vet';
-	import {
-		listTasks,
-		TASK_PRIORITY_LABELS,
-		type Task,
-		type TaskPriority,
-	} from '$lib/api/tasks';
 	import { getPreferences, updatePreferences } from '$lib/api/settings';
 
-	Chart.register(
-		LineController,
-		CategoryScale,
-		LinearScale,
-		PointElement,
-		LineElement,
-		Filler,
-		Tooltip,
-		Legend,
-	);
+	ensureChartRegistered();
 
 	interface SystemStatus {
 		api: 'ok' | 'error' | 'checking';
@@ -82,7 +56,6 @@
 
 	const ALL_WIDGETS = [
 		{ id: 'kpi', label: 'KPI показатели' },
-		{ id: 'alerts', label: 'Предупреждения' },
 		{ id: 'milk_trend', label: 'Тренд надоя' },
 		{ id: 'latest_milk', label: 'Последние надои' },
 		{ id: 'reproduction', label: 'Воспроизводство' },
@@ -90,7 +63,6 @@
 		{ id: 'system_status', label: 'Статус системы' },
 		{ id: 'vet_followups', label: 'Ветеринарные повторные приёмы' },
 		{ id: 'active_withdrawals', label: 'Активные периоды ожидания' },
-		{ id: 'overdue_tasks', label: 'Просроченные задачи' },
 	] as const;
 
 	type WidgetId = (typeof ALL_WIDGETS)[number]['id'];
@@ -103,7 +75,6 @@
 	let error = $state('');
 	let loading = $state(true);
 	let kpi = $state<KpiResponse | null>(null);
-	let alerts = $state<Alert[]>([]);
 	let trend = $state<MilkTrendResponse | null>(null);
 	let repro = $state<ReproductionForecastResponse | null>(null);
 	let feed = $state<FeedForecastResponse | null>(null);
@@ -112,19 +83,16 @@
 	let latestMilk = $state<LatestMilkEntry[]>([]);
 	let vetFollowUps = $state<VetRecord[]>([]);
 	let activeWithdrawals = $state<VetRecord[]>([]);
-	let overdueTasks = $state<Task[]>([]);
 
 	let widgets = $state<WidgetId[]>([
 		'kpi',
 		'milk_trend',
-		'alerts',
 		'reproduction',
 		'feed',
 		'latest_milk',
 		'system_status',
 		'vet_followups',
 		'active_withdrawals',
-		'overdue_tasks',
 	]);
 	let showSettings = $state(false);
 	let settingsSaving = $state(false);
@@ -133,14 +101,12 @@
 
 	if (data.initialData) {
 		kpi = data.initialData.kpi;
-		alerts = data.initialData.alerts;
 		trend = data.initialData.trend;
 		repro = data.initialData.repro;
 		feed = data.initialData.feed;
 		latestMilk = data.initialData.latestMilk ?? [];
 		vetFollowUps = data.initialData.vetFollowUps ?? [];
 		activeWithdrawals = data.initialData.activeWithdrawals ?? [];
-		overdueTasks = data.initialData.overdueTasks ?? [];
 		loading = false;
 	}
 
@@ -211,24 +177,20 @@
 		try {
 			const results = await Promise.allSettled([
 				getKpi(),
-				getAlerts(),
 				getMilkTrend(30, 14),
 				getReproductionForecast(),
 				getFeedForecast(),
 				getLatestMilk(),
 				getUpcomingFollowUps(7),
 				getActiveWithdrawals(),
-				listTasks({ overdue: true }),
 			]);
 			if (results[0].status === 'fulfilled') kpi = results[0].value;
-			if (results[1].status === 'fulfilled') alerts = results[1].value.alerts;
-			if (results[2].status === 'fulfilled') trend = results[2].value;
-			if (results[3].status === 'fulfilled') repro = results[3].value;
-			if (results[4].status === 'fulfilled') feed = results[4].value;
-			if (results[5].status === 'fulfilled') latestMilk = results[5].value;
-			if (results[6].status === 'fulfilled') vetFollowUps = results[6].value.data ?? [];
-			if (results[7].status === 'fulfilled') activeWithdrawals = results[7].value.data ?? [];
-			if (results[8].status === 'fulfilled') overdueTasks = results[8].value.data ?? [];
+			if (results[1].status === 'fulfilled') trend = results[1].value;
+			if (results[2].status === 'fulfilled') repro = results[2].value;
+			if (results[3].status === 'fulfilled') feed = results[3].value;
+			if (results[4].status === 'fulfilled') latestMilk = results[4].value;
+			if (results[5].status === 'fulfilled') vetFollowUps = results[5].value.data ?? [];
+			if (results[6].status === 'fulfilled') activeWithdrawals = results[6].value.data ?? [];
 			const failed = results.find((r) => r.status === 'rejected');
 			if (failed && failed.status === 'rejected') {
 				error = failed.reason?.message || 'Ошибка загрузки данных';
@@ -243,19 +205,6 @@
 	function fmt(v: number | null | undefined, suffix = ''): string {
 		if (v == null) return '—';
 		return v.toFixed(1) + suffix;
-	}
-
-	function severityClass(s: string): string {
-		if (s === 'critical') return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
-		if (s === 'warning')
-			return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
-		return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300';
-	}
-
-	function severityLabel(s: string): string {
-		if (s === 'critical') return 'Критично';
-		if (s === 'warning') return 'Внимание';
-		return 'Инфо';
 	}
 
 	function trendLabel(dir: string): string {
@@ -284,13 +233,6 @@
 		if (score >= 0.5)
 			return 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300';
 		return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
-	}
-
-	function priorityBadge(p: TaskPriority): string {
-		if (p === 'urgent') return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
-		if (p === 'high') return 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300';
-		if (p === 'medium') return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
-		return 'bg-slate-100 text-slate-800 dark:bg-slate-700/40 dark:text-slate-300';
 	}
 
 	function buildTrendChart() {
@@ -341,9 +283,9 @@
 						if (!trend?.structural_breaks?.length) return;
 						const ctx = chart.ctx;
 						const yAxis = chart.scales.y;
-						const labels = chart.data.labels;
+						const chartLabels = chart.data.labels ?? [];
 						for (const bp of trend.structural_breaks) {
-							if (bp.index >= labels.length) continue;
+							if (bp.index >= chartLabels.length) continue;
 							const x = chart.scales.x.getPixelForValue(bp.index);
 							ctx.save();
 							ctx.beginPath();
@@ -639,7 +581,7 @@
 			<div
 				class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700"
 			>
-				<div class="text-xs text-slate-500 dark:text-slate-400">Интервал отёлов</div>
+				<div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">Интервал отёлов <Tooltip text="Среднее количество дней между отёлами по стаду. Целевой: 365-400 дней" /></div>
 				<div class="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
 					{fmt(kpi?.avg_calving_interval_days, ' д')}
 				</div>
@@ -647,7 +589,7 @@
 			<div
 				class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700"
 			>
-				<div class="text-xs text-slate-500 dark:text-slate-400">% оплодотворяемости</div>
+				<div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">% оплодотворяемости <Tooltip text="Процент осеменений, завершившихся беременностью. Целевой: >35%" /></div>
 				<div class="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
 					{fmt(kpi?.conception_rate_pct, '%')}
 				</div>
@@ -655,7 +597,7 @@
 			<div
 				class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700"
 			>
-				<div class="text-xs text-slate-500 dark:text-slate-400">Эффективность корма</div>
+				<div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">Эффективность корма <Tooltip text="Литров молока на 1 кг корма. Чем выше — тем эффективнее" /></div>
 				<div class="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">
 					{fmt(kpi?.feed_efficiency)}
 				</div>
@@ -671,7 +613,7 @@
 			<div
 				class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700"
 			>
-				<div class="text-xs text-slate-500 dark:text-slate-400">Средний SCC</div>
+				<div class="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">Средний SCC <Tooltip text="Somatic Cell Count — соматические клетки (тыс./мл). >200 — признак мастита" /></div>
 				<div class="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
 					{kpi?.avg_scc != null ? Math.round(kpi.avg_scc).toLocaleString('ru-RU') : '—'}
 				</div>
@@ -706,42 +648,6 @@
 				{#if feed?.milk_per_feed != null}
 					<div class="text-xs text-slate-400 mt-0.5">Молоко/корм: {fmt(feed.milk_per_feed)}</div>
 				{/if}
-			</div>
-		</div>
-	{/if}
-
-	{#if hasWidget('alerts') && alerts.length > 0}
-		<div
-			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700 mb-6"
-		>
-			<h2 class="text-base font-semibold text-slate-700 dark:text-slate-300 mb-3">
-				Предупреждения ({alerts.length})
-			</h2>
-			<div class="space-y-2 max-h-64 overflow-y-auto">
-				{#each alerts as a, i (i)}
-					<div
-						class="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50"
-					>
-						<span
-							class="px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap {severityClass(
-								a.severity,
-							)}">{severityLabel(a.severity)}</span
-						>
-						<div class="flex-1 min-w-0">
-							<div class="text-sm text-slate-700 dark:text-slate-300">
-								{#if a.animal_name}
-									<a
-										href="/animals/{a.animal_id}"
-										class="font-medium text-blue-600 dark:text-blue-400 hover:underline"
-										>{a.animal_name}</a
-									>
-								{/if}
-								{a.message}
-							</div>
-							<div class="text-xs text-slate-500 dark:text-slate-400">{a.value}</div>
-						</div>
-					</div>
-				{/each}
 			</div>
 		</div>
 	{/if}
@@ -1071,42 +977,6 @@
 							{/if}
 						</div>
 					</a>
-				{/each}
-			</div>
-		</div>
-	{/if}
-
-	{#if hasWidget('overdue_tasks') && overdueTasks.length > 0}
-		<div
-			class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 border border-slate-100 dark:border-slate-700 mb-6"
-		>
-			<div class="flex items-center justify-between mb-3">
-				<h2 class="text-base font-semibold text-slate-700 dark:text-slate-300">
-					Просроченные задачи ({overdueTasks.length})
-				</h2>
-			</div>
-			<div class="space-y-2 max-h-64 overflow-y-auto">
-				{#each overdueTasks as t, i (`task-${t.id}-${i}`)}
-					<div
-						class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50"
-					>
-						<span
-							class="px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap {priorityBadge(t.priority)}"
-						>
-							{TASK_PRIORITY_LABELS[t.priority] ?? t.priority}
-						</span>
-						<div class="flex-1 min-w-0">
-							<div class="text-sm font-medium text-slate-700 dark:text-slate-300">
-								{t.title}
-							</div>
-							<div class="text-xs text-slate-500 dark:text-slate-400">
-								Срок: {t.due_date ?? '—'}
-								{#if t.assigned_to}
-									· {t.assigned_to}
-								{/if}
-							</div>
-						</div>
-					</div>
 				{/each}
 			</div>
 		</div>

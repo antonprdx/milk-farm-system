@@ -56,6 +56,8 @@ pub struct Heat {
     pub id: i32,
     pub animal_id: i32,
     pub heat_date: NaiveDate,
+    pub confirmed: bool,
+    pub confirmation_method: Option<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -172,6 +174,8 @@ impl CreatePregnancy {
 pub struct CreateHeat {
     pub animal_id: i32,
     pub heat_date: NaiveDate,
+    pub confirmed: Option<bool>,
+    pub confirmation_method: Option<String>,
 }
 
 impl CreateHeat {
@@ -179,6 +183,7 @@ impl CreateHeat {
         use crate::validation::*;
         positive_i32(self.animal_id, "ID животного")?;
         date_not_future(&self.heat_date, "Дата охоты")?;
+        opt_max_len(&self.confirmation_method, 30, "Метод подтверждения")?;
         Ok(())
     }
 }
@@ -268,6 +273,8 @@ impl UpdatePregnancy {
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateHeat {
     pub heat_date: Option<NaiveDate>,
+    pub confirmed: Option<bool>,
+    pub confirmation_method: Option<String>,
 }
 
 impl UpdateHeat {
@@ -276,6 +283,7 @@ impl UpdateHeat {
         if let Some(ref d) = self.heat_date {
             date_not_future(d, "Дата охоты")?;
         }
+        opt_max_len(&self.confirmation_method, 30, "Метод подтверждения")?;
         Ok(())
     }
 }

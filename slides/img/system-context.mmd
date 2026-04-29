@@ -2,17 +2,24 @@ flowchart LR
     Farmer["Фермер\nпросмотр отчётов,\nданных о животных"]
     Admin["Администратор\nуправление поголовьем,\nнастройки, пользователи"]
     LelyCloud[("Lely Cloud API\nроботизированные\nсистемы доения")]
+    MLSvc[("Analytics-ML\nFastAPI + XGBoost\nпрогнозы и ML")]
 
     subgraph System["Milk Farm System"]
-        App["Веб-приложение\nуправления\nмолочной фермой"]
+        direction TB
+        Web["Веб-приложение\nSvelteKit + Rust/Axum"]
+        Monitoring[" Мониторинг\nPrometheus + Grafana\nTempo + Loki"]
     end
 
-    Farmer -->|"просмотр отчётов\nи данных"| App
-    Admin -->|"CRUD, настройки,\nуправление"| App
-    LelyCloud -.->|"синхронизация\нданных каждые 5 мин"| App
+    Farmer -->|"просмотр отчётов\nи данных"| Web
+    Admin -->|"CRUD, настройки,\nуправление"| Web
+    LelyCloud -.->|"синхронизация\нданных"| Web
+    Web -.->|"HTTP /predict/*"| MLSvc
+    Web -->|"метрики и логи"| Monitoring
 
     style Farmer fill:#2e7d32,stroke:#1b5e20,color:#fff
     style Admin fill:#1565c0,stroke:#0d47a1,color:#fff
     style LelyCloud fill:#6a1b9a,stroke:#4a148c,color:#fff
+    style MLSvc fill:#ff6f00,stroke:#e65100,color:#fff
     style System fill:#f5f5f5,stroke:#424242,color:#333
-    style App fill:#fff,stroke:#424242,color:#333
+    style Web fill:#fff,stroke:#424242,color:#333
+    style Monitoring fill:#e0f7fa,stroke:#00838f,color:#006064

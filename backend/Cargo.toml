@@ -13,8 +13,8 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 jsonwebtoken = "9"
 bcrypt = "0.17"
-tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
-tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip", "limit"] }
+tower = { version = "0.5", features = ["util", "limit"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 dotenvy = "0.15"
@@ -28,13 +28,37 @@ utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
 genpdf = "0.2.0"
 prometheus = "0.13"
 tokio-util = { version = "0.7", features = ["rt"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 reqwest = { version = "0.12", features = ["rustls-tls", "json"] }
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
 futures = "0.3"
 url = "2"
 base64 = "0.22"
 aes-gcm = "0.10"
 sha2 = "0.10"
 
+opentelemetry = "0.29"
+opentelemetry_sdk = { version = "0.29", features = ["rt-tokio"] }
+opentelemetry-otlp = { version = "0.29", features = ["grpc-tonic"] }
+tracing-opentelemetry = "0.30"
+
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+[[bench]]
+name = "bench_sql"
+harness = false
+
+[[bench]]
+name = "bench_pdf"
+harness = false
+
+[[bench]]
+name = "bench_auth"
+harness = false
+
+[[bench]]
+name = "bench_rate_limit"
+harness = false

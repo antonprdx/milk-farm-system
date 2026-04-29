@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     model_dir: str = "models"
     retrain_day_of_week: str = "mon"
     retrain_hour: int = 3
+    api_key: str = ""
+    mlflow_tracking_uri: str = ""
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

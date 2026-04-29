@@ -1,13 +1,45 @@
-fastapi>=0.115
-uvicorn[standard]>=0.34
-sqlalchemy[asyncio]>=2.0
-asyncpg>=0.30
-pydantic>=2.10
-pydantic-settings>=2.7
-xgboost>=2.1
-scikit-learn>=1.6
-pandas>=2.2
-numpy>=2.2
-joblib>=1.4
-httpx>=0.28
-apscheduler>=3.10
+fastapi==0.135.3
+uvicorn[standard]==0.44.0
+sqlalchemy[asyncio]==2.0.49
+asyncpg==0.31.0
+pydantic==2.13.0
+pydantic-settings==2.13.1
+xgboost==3.2.0
+scikit-learn==1.8.0
+pandas==2.3.3
+numpy==2.4.4
+joblib==1.5.3
+httpx==0.28.1
+apscheduler==3.11.2
+
+# Optional: Prophet for herd-level forecasting (pip install separately)
+# prophet
+
+# Optional: Optuna for hyperparameter tuning (pip install separately)
+# optuna
+
+# Optional: Alternative GBM backends for algorithm selection
+# lightgbm
+# catboost
+
+# Optional: SHAP explainability
+# shap
+
+# Optional: HDBSCAN for advanced clustering
+# hdbscan
+
+# Optional: Statistical tests for drift monitoring
+# scipy
+
+# Optional: ML pipeline (pip install separately if needed)
+# mlflow
+# onnxmltools
+# onnxruntime
+# onnx
+# skl2onnx
+
+# Optional: OpenTelemetry tracing (pip install separately if needed)
+# opentelemetry-api
+# opentelemetry-sdk
+# opentelemetry-instrumentation-fastapi
+# opentelemetry-exporter-otlp-proto-grpc

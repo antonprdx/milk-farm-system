@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use milk_farm_backend::{
-    config, create_app, seed_admin, services::{ml_client::MlClient, system_settings_service}, state::AppStateInner,
+    config, create_app, handlers::events::create_event_bus, seed_admin, services::{ml_client::MlClient, system_settings_service}, state::AppStateInner,
 };
 
 use tracing_subscriber::EnvFilter;
@@ -11,7 +11,11 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
 
     let log_format = std::env::var("LOG_FORMAT").unwrap_or_default();
-    if log_format == "json" {
+    let otlp_endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").unwrap_or_default();
+
+    if !otlp_endpoint.is_empty() {
+        init_tracing_with_otel(&log_format, &otlp_endpoint)?;
+    } else if log_format == "json" {
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(EnvFilter::from_default_env())
@@ -48,6 +52,34 @@ async fn main() -> anyhow::Result<()> {
     system_settings_service::start_time();
     milk_farm_backend::middleware::metrics::init();
 
+    let redis = match redis::Client::open(cfg.redis_url.as_str()) {
+        Ok(client) => {
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                client.get_connection_manager(),
+            )
+            .await
+            {
+                Ok(Ok(mgr)) => {
+                    tracing::info!("Connected to Redis at {}", cfg.redis_url);
+                    Some(mgr)
+                }
+                Ok(Err(e)) => {
+                    tracing::warn!("Redis connection failed: {}. Running without cache.", e);
+                    None
+                }
+                Err(_) => {
+                    tracing::warn!("Redis connection timed out. Running without cache.");
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            tracing::warn!("Redis config invalid: {}. Running without cache.", e);
+            None
+        }
+    };
+
     let lely_runtime = milk_farm_backend::state::LelyRuntime::new(
         milk_farm_backend::lely::service::load_config(&pool, &cfg.lely_encryption_key)
             .await
@@ -62,15 +94,34 @@ async fn main() -> anyhow::Result<()> {
         config: cfg.clone(),
         lely: Arc::new(lely_runtime),
         ml: MlClient::from_env(),
+        redis,
+        event_bus: create_event_bus(),
     });
 
     {
-        let lc = state.lely.get_config();
+        let lc = state.lely.get_config().await;
         if lc.enabled {
             milk_farm_backend::lely::sync::start_sync_scheduler(state.clone());
         } else {
             tracing::info!("Интеграция Lely отключена");
         }
+    }
+
+    {
+        let cleanup_pool = state.pool.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+                if let Err(e) =
+                    milk_farm_backend::services::token_revocation_service::cleanup_expired(
+                        &cleanup_pool,
+                    )
+                    .await
+                {
+                    tracing::warn!(error = %e, "Token cleanup failed");
+                }
+            }
+        });
     }
 
     let app = create_app(state);
@@ -81,10 +132,7 @@ async fn main() -> anyhow::Result<()> {
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
-            let timeout_secs = cfg.shutdown_timeout_secs;
             shutdown_signal().await;
-            tokio::time::sleep(std::time::Duration::from_secs(timeout_secs)).await;
-            tracing::warn!("Graceful shutdown timed out after {}s", timeout_secs);
         })
         .await?;
 
@@ -115,4 +163,41 @@ async fn shutdown_signal() {
     }
 
     tracing::info!("Shutting down gracefully...");
+}
+
+fn init_tracing_with_otel(log_format: &str, endpoint: &str) -> anyhow::Result<()> {
+    use opentelemetry::trace::TracerProvider as _;
+    use opentelemetry_otlp::WithExportConfig;
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+
+    let span_exporter = opentelemetry_otlp::SpanExporter::builder()
+        .with_tonic()
+        .with_endpoint(endpoint.to_string())
+        .build()?;
+
+    let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
+        .with_simple_exporter(span_exporter)
+        .build();
+
+    let tracer = tracer_provider.tracer("milk-farm-backend");
+    let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+
+    let env_filter = EnvFilter::from_default_env();
+
+    if log_format == "json" {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(otel_layer)
+            .with(tracing_subscriber::fmt::layer().json())
+            .init();
+    } else {
+        tracing_subscriber::registry()
+            .with(env_filter)
+            .with(otel_layer)
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+    }
+
+    Ok(())
 }

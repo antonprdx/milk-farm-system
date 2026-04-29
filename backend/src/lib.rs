@@ -75,14 +75,18 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
     }
 
     let rate_limit =
-        crate::middleware::rate_limit::RateLimitLayer::new(state.config.rate_limit_max, state.config.rate_limit_window_secs, state.config.trust_proxy);
+        crate::middleware::rate_limit::RateLimitLayer::new(state.config.rate_limit_max, state.config.rate_limit_window_secs, state.config.trust_proxy, state.redis.clone());
     let request_id = crate::middleware::request_id::RequestIdLayer;
     let metrics_layer = crate::middleware::metrics::MetricsLayer;
+    let csrf_layer = crate::middleware::csrf::CsrfLayer::new(&state.config);
+    let body_limit = tower_http::limit::RequestBodyLimitLayer::new(10 * 1024 * 1024);
 
     router
         .layer(metrics_layer)
         .layer(request_id)
         .layer(rate_limit)
+        .layer(csrf_layer)
+        .layer(body_limit)
         .layer(cors)
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
@@ -90,7 +94,6 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
 }
 
 async fn metrics_endpoint(
-    _admin: crate::middleware::auth::AdminGuard,
 ) -> Result<String, crate::errors::AppError> {
     Ok(crate::middleware::metrics::gather())
 }

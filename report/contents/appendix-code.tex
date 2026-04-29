@@ -1,0 +1,120 @@
+\appendixsection{Листинги исходного кода}
+
+В данном приложении приведены фрагменты исходного кода основных компонентов системы.
+
+\subsubsection{Создание приложения и маршрутизация (Rust)}
+
+Ниже приведён фрагмент файла \texttt{backend/src/lib.rs}, отвечающий за создание экземпляра приложения Axum с маршрутизацией и middleware.
+
+\begin{lstlisting}[language=C,basicstyle=\small\ttfamily]
+pub fn create_app(state: AppState) -> Router {
+    let api_routes = Router::new()
+        .nest("/auth",       handlers::auth::router())
+        .nest("/animals",    handlers::animals::router())
+        .nest("/milk",       handlers::milk::router())
+        .nest("/reproduction",
+                                handlers::reproduction::router())
+        .nest("/feed",       handlers::feed::router())
+        .nest("/fitness",    handlers::fitness::router())
+        .nest("/reports",    handlers::reports::router())
+        .nest("/analytics",  handlers::analytics::router())
+        .nest("/settings",   handlers::settings::router())
+        .nest("/lely",       handlers::lely::router());
+
+    Router::new()
+        .nest("/api/v1", api_routes)
+        .layer(CsrfLayer)
+        .layer(RateLimitLayer)
+        .layer(MetricsLayer)
+        .layer(CompressionLayer)
+        .layer(CorsLayer)
+        .with_state(state)
+}
+\end{lstlisting}
+
+\subsubsection{Экстрактор авторизации (Rust)}
+
+Ниже приведена реализация экстрактора \texttt{Claims}, извлекающего и проверяющего JWT-токен из запроса.
+
+\begin{lstlisting}[language=C,basicstyle=\small\ttfamily]
+pub struct Claims {
+    pub sub: String,
+    pub role: String,
+    pub must_change_password: bool,
+    pub jti: String,
+    pub exp: i64,
+}
+
+#[async_trait]
+impl<S: Send + Sync> FromRequestParts<S> for Claims {
+    type Rejection = AppError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let token = extract_token(parts)?;
+        let claims = decode_jwt(&token)?;
+        if claims.must_change_password {
+            return Err(AppError::Forbidden);
+        }
+        check_revoked(&claims.jti).await?;
+        Ok(claims)
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Обучение модели XGBoost (Python)}
+
+Ниже приведён фрагмент сервиса обучения модели прогнозирования надоев.
+
+\begin{lstlisting}[language=Python,basicstyle=\small\ttfamily]
+def train_milk_forecast(df: pd.DataFrame) -> dict:
+    features = [
+        "milk_7d_avg", "milk_14d_avg", "milk_30d_avg",
+        "milk_7d_std", "milk_14d_std",
+        "dim", "lactation_number", "fpr",
+        "month", "day_of_week",
+    ]
+    X = df[features]
+    y = df["milk_kg"]
+
+    models = {}
+    for q in [0.1, 0.5, 0.9]:
+        model = xgb.XGBRegressor(
+            objective="reg:quantileerror",
+            quantile_alpha=q,
+            n_estimators=200,
+            max_depth=6,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+        )
+        model.fit(X, y)
+        models[q] = model
+
+    return models
+\end{lstlisting}
+
+\subsubsection{API-клиент (TypeScript)}
+
+Ниже приведён фрагмент типизированного API-клиента на стороне frontend.
+
+\begin{lstlisting}[language=Java,basicstyle=\small\ttfamily]
+export const animalsApi = {
+  list: (params: AnimalFilter) =>
+    get<PaginatedResponse<Animal>>(
+      "/animals?" + buildQuery(params)
+    ),
+  getById: (id: number) =>
+    get<Animal>(`/animals/${id}`),
+  create: (data: CreateAnimal) =>
+    post<Animal>("/animals", data),
+  update: (id: number, data: UpdateAnimal) =>
+    put<Animal>(`/animals/${id}`, data),
+  deactivate: (id: number) =>
+    del(`/animals/${id}`),
+  batchDeactivate: (ids: number[]) =>
+    post("/animals/batch/deactivate", { ids }),
+};
+\end{lstlisting}

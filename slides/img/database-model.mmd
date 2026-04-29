@@ -1,0 +1,55 @@
+flowchart TB
+    subgraph Users["Пользователи"]
+        direction LR
+        users["users · user_preferences"]
+        settings["system_settings · revoked_tokens"]
+    end
+
+    animals["animals\nid · life_number · name · gender\nbirth_date · location · active\n(центральная сущность — 15+ FK)"]
+
+    subgraph Repro["Воспроизводство"]
+        direction LR
+        calv["calvings → calves"]
+        insm["inseminations · pregnancies"]
+        heat["heats · dry_offs"]
+    end
+
+    subgraph Milk["Молоко ⏱"]
+        direction LR
+        mday["milk_day_productions\nmilk_visits · milk_quality"]
+        mrob["milk_visit_quality\nrobot_milk_data · bulk_tank_tests"]
+    end
+
+    subgraph Feed["Кормление ⏱"]
+        direction LR
+        ft["feed_types · feed_groups"]
+        fv["feed_day_amounts · feed_visits"]
+    end
+
+    subgraph Health["Здоровье ⏱"]
+        direction LR
+        fit["activities · ruminations\ngrazing_data"]
+        vet["vet_records · weight_records"]
+    end
+
+    subgraph Side["Оповещения · Операции · Lely"]
+        direction LR
+        alrt["alerts · notifications\nchannels · rules"]
+        ops["tasks · audit_log\ntransactions · inventory"]
+        lely["lely_config\nlely_sync_state"]
+    end
+
+    Users --> animals
+    animals --> Repro
+    animals --> Milk
+    animals --> Feed
+    animals --> Health
+    animals --> Side
+
+    style Users fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style animals fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Repro fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    style Milk fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style Feed fill:#e0f7fa,stroke:#00838f,color:#006064
+    style Health fill:#fce4ec,stroke:#c62828,color:#b71c1c
+    style Side fill:#efebe9,stroke:#5d4037,color:#3e2723

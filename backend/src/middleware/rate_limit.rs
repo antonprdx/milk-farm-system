@@ -8,39 +8,70 @@ use tower::{Layer, Service};
 
 use crate::errors::AppError;
 
+struct RateLimitEntry {
+    count: u32,
+    window_start: std::time::Instant,
+}
+
 pub struct RateLimiter {
     max: u32,
     window_secs: u64,
-    state: std::sync::Mutex<RateLimitState>,
-}
-
-struct RateLimitState {
-    entries: std::collections::HashMap<String, RateLimitEntry>,
-}
-
-pub struct RateLimitEntry {
-    pub count: u32,
-    pub window_start: std::time::Instant,
+    redis: Option<redis::aio::ConnectionManager>,
+    fallback: tokio::sync::Mutex<std::collections::HashMap<String, RateLimitEntry>>,
 }
 
 impl RateLimiter {
-    pub fn new(max: u32, window_secs: u64) -> Self {
+    pub fn new(max: u32, window_secs: u64, redis: Option<redis::aio::ConnectionManager>) -> Self {
         Self {
             max,
             window_secs,
-            state: std::sync::Mutex::new(RateLimitState {
-                entries: std::collections::HashMap::new(),
-            }),
+            redis,
+            fallback: tokio::sync::Mutex::new(std::collections::HashMap::new()),
         }
     }
 
-    pub fn check(&self, key: &str) -> Result<(), AppError> {
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|e| AppError::Internal(anyhow::anyhow!("{}", e)))?;
+    pub async fn check(&self, key: &str) -> Result<(), AppError> {
+        if let Some(conn) = &self.redis {
+            return self.check_redis(conn, key).await;
+        }
+        self.check_fallback(key).await
+    }
+
+    async fn check_redis(
+        &self,
+        conn: &redis::aio::ConnectionManager,
+        key: &str,
+    ) -> Result<(), AppError> {
+        let redis_key = format!("rl:{key}");
+        let mut conn = conn.clone();
+        let count: i64 = redis::cmd("INCR")
+            .arg(&redis_key)
+            .query_async(&mut conn)
+            .await
+            .map_err(|e| {
+                tracing::warn!("Redis rate limit error: {e}");
+                AppError::Internal(anyhow::anyhow!(e.to_string()))
+            })?;
+
+        if count == 1 {
+            let _: () = redis::cmd("EXPIRE")
+                .arg(&redis_key)
+                .arg(self.window_secs)
+                .query_async(&mut conn)
+                .await
+                .unwrap_or(());
+        }
+
+        if count > self.max as i64 {
+            return Err(AppError::RateLimited);
+        }
+        Ok(())
+    }
+
+    async fn check_fallback(&self, key: &str) -> Result<(), AppError> {
+        let mut state = self.fallback.lock().await;
         let now = std::time::Instant::now();
-        if let Some(entry) = state.entries.get_mut(key) {
+        if let Some(entry) = state.get_mut(key) {
             if now.duration_since(entry.window_start).as_secs() > self.window_secs {
                 entry.count = 1;
                 entry.window_start = now;
@@ -50,7 +81,7 @@ impl RateLimiter {
                 entry.count += 1;
             }
         } else {
-            state.entries.insert(
+            state.insert(
                 key.to_string(),
                 RateLimitEntry {
                     count: 1,
@@ -58,9 +89,7 @@ impl RateLimiter {
                 },
             );
         }
-        state
-            .entries
-            .retain(|_, v| now.duration_since(v.window_start).as_secs() <= self.window_secs * 2);
+        state.retain(|_, v| now.duration_since(v.window_start).as_secs() <= self.window_secs * 2);
         Ok(())
     }
 }
@@ -95,9 +124,14 @@ pub struct RateLimitLayer {
 }
 
 impl RateLimitLayer {
-    pub fn new(max_requests: u32, window_secs: u64, trust_proxy: bool) -> Self {
+    pub fn new(
+        max_requests: u32,
+        window_secs: u64,
+        trust_proxy: bool,
+        redis: Option<redis::aio::ConnectionManager>,
+    ) -> Self {
         Self {
-            limiter: Arc::new(RateLimiter::new(max_requests, window_secs)),
+            limiter: Arc::new(RateLimiter::new(max_requests, window_secs, redis)),
             trust_proxy,
         }
     }
@@ -154,13 +188,15 @@ where
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
         let key = extract_client_ip(req.headers(), self.trust_proxy);
-
-        if self.limiter.check(&key).is_err() {
-            return Box::pin(async { Ok(StatusCode::TOO_MANY_REQUESTS.into_response()) });
-        }
+        let limiter = self.limiter.clone();
 
         let inner = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, inner);
-        Box::pin(async move { inner.call(req).await })
+        Box::pin(async move {
+            if limiter.check(&key).await.is_err() {
+                return Ok(StatusCode::TOO_MANY_REQUESTS.into_response());
+            }
+            inner.call(req).await
+        })
     }
 }

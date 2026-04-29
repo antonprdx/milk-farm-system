@@ -1,0 +1,120 @@
+\appendixsection{Описание таблиц базы данных}
+\label{app-db}
+
+В данном приложении приведён перечень основных таблиц базы данных PostgreSQL с указанием назначения и ключевых полей.
+
+В таблице~\ref{dbtables1} представлены таблицы учёта и воспроизводства.
+
+\begin{table}
+  \caption{Таблицы учёта животных и воспроизводства}
+  \begin{tabular}{|l|p{8cm}|}
+    \hline
+    \textbf{Таблица} & \textbf{Назначение} \\
+    \hline
+    users & Пользователи: username, password\_hash, role \\
+    \hline
+    animals & Реестр животных: life\_number, name, gender, birth\_date, active \\
+    \hline
+    sires & Быки-производители: name, code, breed \\
+    \hline
+    calvings & Отёлы: animal\_id, date, calf\_id \\
+    \hline
+    calves & Телята: calving\_id, life\_number, gender \\
+    \hline
+    inseminations & Осеменения: animal\_id, date, sire\_id \\
+    \hline
+    pregnancies & Стельности: animal\_id, date, expected\_due\_date \\
+    \hline
+    heats & Охоты: animal\_id, date, activity\_level \\
+    \hline
+    dry\_offs & Запуски: animal\_id, date \\
+    \hline
+    transfers & Переводы: animal\_id, from\_location, to\_location \\
+    \hline
+    bloodlines & Кровные линии: animal\_id, sire\_id, dam\_id \\
+    \hline
+    locations & Местоположения: name, type, capacity \\
+    \hline
+    contacts & Контакты: name, phone, role \\
+    \hline
+  \end{tabular}
+  \label{dbtables1}
+\end{table}
+
+В таблице~\ref{dbtables2} представлены таблицы надоев, кормления и мониторинга.
+
+\begin{table}
+  \caption{Таблицы надоев, кормления и мониторинга}
+  \begin{tabular}{|l|p{8cm}|}
+    \hline
+    \textbf{Таблица} & \textbf{Назначение} \\
+    \hline
+    milk\_day\_productions & Суточные надои: animal\_id, date, milk\_kg, fat, protein, scc \\
+    \hline
+    milk\_visits & Визиты на доение: animal\_id, start\_time, milk\_kg, robot\_id \\
+    \hline
+    milk\_quality & Качество молока: animal\_id, date, scc, fat, protein \\
+    \hline
+    milk\_visit\_quality & Качество по визитам: visit\_id, scc, conductivity \\
+    \hline
+    robot\_milk\_data & Данные роботов: visit\_id, quarter\_times \\
+    \hline
+    feed\_types & Типы кормов: name, cost, unit \\
+    \hline
+    feed\_groups & Группы кормов: type\_id, group\_name \\
+    \hline
+    feed\_day\_amounts & Дневные объёмы: animal\_id, planned\_kg, actual\_kg \\
+    \hline
+    feed\_visits & Визиты на кормление: animal\_id, time, amount\_kg \\
+    \hline
+    activities & Активность: animal\_id, date, steps \\
+    \hline
+    ruminations & Жвачка: animal\_id, date, minutes \\
+    \hline
+    grazing\_data & Пастьба: animal\_id, date, hours \\
+    \hline
+    bulk\_tank\_tests & Резервуар: date, volume, temperature \\
+    \hline
+  \end{tabular}
+  \label{dbtables2}
+\end{table}
+
+В таблице~\ref{dbtables3} представлены системные таблицы.
+
+\begin{table}
+  \caption{Системные таблицы}
+  \begin{tabular}{|l|p{8cm}|}
+    \hline
+    \textbf{Таблица} & \textbf{Назначение} \\
+    \hline
+    alerts & Оповещения: animal\_id, category, severity, status \\
+    \hline
+    tasks & Задачи: title, assignee, status, priority \\
+    \hline
+    audit\_log & Аудит: user\_id, action, entity, timestamp \\
+    \hline
+    inventory\_items & Запасы: name, quantity, unit \\
+    \hline
+    inventory\_transactions & Операции с запасами: item\_id, type, quantity \\
+    \hline
+    vet\_records & Ветеринария: animal\_id, date, diagnosis \\
+    \hline
+    lely\_config & Конфигурация Lely: base\_url, encrypted\_credentials \\
+    \hline
+    lely\_sync\_state & Состояние синхронизации: entity\_type, last\_sync\_at \\
+    \hline
+    system\_settings & Настройки: key, value \\
+    \hline
+    user\_preferences & Предпочтения: user\_id, theme, page\_size \\
+    \hline
+    revoked\_tokens & Отозванные токены: jti, expires\_at \\
+    \hline
+    weather\_cache & Кэш погоды: date, temperature \\
+    \hline
+    farm\_zones & Зоны фермы: name, type, boundaries \\
+    \hline
+    culling\_events & Выбраковки: animal\_id, date, reason \\
+    \hline
+  \end{tabular}
+  \label{dbtables3}
+\end{table}

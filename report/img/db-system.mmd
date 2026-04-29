@@ -1,0 +1,41 @@
+erDiagram
+    lely_config {
+        int id PK
+        bool enabled
+        text base_url
+        text username
+        text password_encrypted
+        text farm_key_encrypted
+        int sync_interval_secs
+    }
+    lely_sync_state {
+        serial id PK
+        text entity_type UK
+        timestamptz last_synced_at
+        text status
+        bigint records_synced
+        text error_message
+    }
+    sync_log {
+        serial id PK
+        text entity_type
+        timestamptz last_synced_at
+        text status
+        bigint records_synced
+    }
+    farm_zones {
+        serial id PK
+        text name
+        text zone_type
+        int capacity
+        jsonb position_data
+    }
+    weather_cache {
+        date date PK
+        float temp_c
+        float humidity
+        float precipitation_mm
+        float wind_speed
+        text weather_main
+        timestamptz fetched_at
+    }

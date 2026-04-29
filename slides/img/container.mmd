@@ -1,35 +1,51 @@
 flowchart TB
     Browser["Браузер"]
 
-    subgraph Docker["Docker Compose"]
+    subgraph Docker["Docker Compose — 7 сервисов"]
         direction TB
 
-        Nginx["Nginx\nreverse proxy\nSSL termination\n:80 → :443"]
+        Nginx["Nginx — reverse proxy · SSL · SSE\n:80 → :443"]
 
-        Frontend["Frontend\nSvelteKit 5 + SSR\nNode.js 20\n:3000"]
+        subgraph Apps["Приложения"]
+            direction LR
+            Frontend["Frontend\nSvelteKit 5 + SSR\nNode.js 20 :3000"]
+            Backend["Backend\nRust / Axum 0.8\nREST API :3000"]
+            ML["Analytics-ML\nFastAPI · XGBoost\n:8001"]
+        end
 
-        Backend["Backend\nRust / Axum 0.8\nREST API\n:3000"]
+        subgraph Stores["Хранилища"]
+            direction LR
+            Postgres[("TimescaleDB Pg16\n25+ таблиц :5432")]
+            Redis[("Redis 7\ncache + rate limit\n:6379")]
+        end
 
-        Postgres[("PostgreSQL 16\n25+ таблиц\n:5432")]
+        MLflow["MLflow — experiment tracking :5000"]
     end
 
-    LelyAPI[("Lely Cloud\nfarmauth.lely.com")]
-    GHCR[("GHCR\nDocker Registry")]
+    LelyAPI[("Lely Cloud")]
+    GHCR[("GHCR Registry")]
 
     Browser -->|"HTTPS"| Nginx
     Nginx -->|"/*"| Frontend
     Nginx -->|"/api/*"| Backend
-    Frontend -->|"SSR fetch /api"| Backend
-    Backend -->|"sqlx PgPool\n2-20 conn"| Postgres
-    Backend -.->|"reqwest HTTPS\nsync"| LelyAPI
-    GHCR -.->|"CI/CD"| Frontend
-    GHCR -.->|"CI/CD"| Backend
+    Frontend -->|"SSR fetch"| Backend
+    Backend --> Postgres
+    Backend --> Redis
+    Backend -.-> ML
+    ML --> Postgres
+    Backend -.->|"sync"| LelyAPI
+    GHCR -.->|"CI/CD"| Apps
 
     style Browser fill:#757575,stroke:#424242,color:#fff
     style Nginx fill:#00838f,stroke:#006064,color:#fff
     style Frontend fill:#2e7d32,stroke:#1b5e20,color:#fff
     style Backend fill:#c62828,stroke:#b71c1c,color:#fff
+    style ML fill:#ff6f00,stroke:#e65100,color:#fff
     style Postgres fill:#1565c0,stroke:#0d47a1,color:#fff
+    style Redis fill:#d32f2f,stroke:#b71c1c,color:#fff
+    style MLflow fill:#7b1fa2,stroke:#4a148c,color:#fff
     style LelyAPI fill:#6a1b9a,stroke:#4a148c,color:#fff
     style GHCR fill:#546e7a,stroke:#37474f,color:#fff
     style Docker fill:#fafafa,stroke:#bdbdbd,color:#333
+    style Apps fill:#f5f5f5,stroke:#9e9e9e,color:#333
+    style Stores fill:#f5f5f5,stroke:#9e9e9e,color:#333

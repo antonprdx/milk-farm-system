@@ -85,15 +85,17 @@ pub async fn create_vet_record(
 
     sqlx::query_as::<_, VetRecord>(
         "INSERT INTO vet_records (animal_id, record_type, status, event_date,
-         diagnosis, treatment, medication, dosage, withdrawal_days, withdrawal_end_date,
+         diagnosis, diagnosis_code, confirmed, treatment, medication, dosage, withdrawal_days, withdrawal_end_date,
          veterinarian, notes, follow_up_date)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *",
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *",
     )
     .bind(req.animal_id)
     .bind(&req.record_type)
     .bind(&status)
     .bind(req.event_date)
     .bind(&req.diagnosis)
+    .bind(&req.diagnosis_code)
+    .bind(req.confirmed.unwrap_or(false))
     .bind(&req.treatment)
     .bind(&req.medication)
     .bind(&req.dosage)
@@ -131,14 +133,16 @@ pub async fn update_vet_record(
          status = COALESCE($3, status),
          event_date = COALESCE($4, event_date),
          diagnosis = COALESCE($5, diagnosis),
-         treatment = COALESCE($6, treatment),
-         medication = COALESCE($7, medication),
-         dosage = COALESCE($8, dosage),
-         withdrawal_days = COALESCE($9, withdrawal_days),
-         withdrawal_end_date = $10,
-         veterinarian = COALESCE($11, veterinarian),
-         notes = COALESCE($12, notes),
-         follow_up_date = COALESCE($13, follow_up_date),
+         diagnosis_code = COALESCE($6, diagnosis_code),
+         confirmed = COALESCE($7, confirmed),
+         treatment = COALESCE($8, treatment),
+         medication = COALESCE($9, medication),
+         dosage = COALESCE($10, dosage),
+         withdrawal_days = COALESCE($11, withdrawal_days),
+         withdrawal_end_date = $12,
+         veterinarian = COALESCE($13, veterinarian),
+         notes = COALESCE($14, notes),
+         follow_up_date = COALESCE($15, follow_up_date),
          updated_at = NOW()
          WHERE id = $1 RETURNING *",
     )
@@ -147,6 +151,8 @@ pub async fn update_vet_record(
     .bind(&req.status)
     .bind(req.event_date)
     .bind(&req.diagnosis)
+    .bind(&req.diagnosis_code)
+    .bind(req.confirmed)
     .bind(&req.treatment)
     .bind(&req.medication)
     .bind(&req.dosage)

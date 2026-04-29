@@ -33,3 +33,25 @@ Thumbs.db
 
 # Misc
 swagger_api.json
+
+# LaTeX
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.glg
+*.glg-abr
+*.glo
+*.glo-abr
+*.gls
+*.gls-abr
+*.xdv
+*.xdy
+*.run.xml
+*.synctex.gz
+*.nav
+*.snm
+*.vrb
+report/diploma-latex-template/

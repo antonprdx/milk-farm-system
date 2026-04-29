@@ -1,0 +1,70 @@
+erDiagram
+    alerts {
+        serial id PK
+        alert_category category
+        alert_severity severity
+        alert_status status
+        int animal_id FK
+        text message
+        jsonb details
+        timestamptz detected_at
+    }
+    notification_channels {
+        serial id PK
+        int user_id FK
+        text channel_type
+        text channel_token
+        bool enabled
+    }
+    notification_rules {
+        serial id PK
+        int user_id FK
+        text event_type
+        int channel_id FK
+        bool enabled
+    }
+    tasks {
+        serial id PK
+        text title
+        task_category category
+        task_priority priority
+        task_status status
+        int animal_id FK
+        date due_date
+        int created_by FK
+    }
+    audit_log {
+        serial id PK
+        int user_id FK
+        text action
+        text entity_type
+        int entity_id
+        jsonb details
+    }
+    transactions {
+        serial id PK
+        text transaction_type
+        text category
+        float amount
+        int animal_id FK
+        date transaction_date
+    }
+    inventory_items {
+        serial id PK
+        text name
+        text category
+        text unit
+        float quantity
+        float min_quantity
+        float cost_per_unit
+    }
+    inventory_transactions {
+        serial id PK
+        int item_id FK
+        text transaction_type
+        float quantity
+        date transaction_date
+    }
+
+    notification_channels ||--o{ notification_rules : has
+    inventory_items ||--o{ inventory_transactions : has

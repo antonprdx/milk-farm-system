@@ -74,7 +74,7 @@ jobs:
         run: npm ci
 
       - name: Security audit
-        run: npm audit --production --audit-level=high || true
+        run: npm audit --production --audit-level=high
 
       - name: Lint
         run: npm run lint
@@ -87,3 +87,22 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  analytics-ml:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: analytics-ml
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest pytest-asyncio
+
+      - name: Run tests
+        run: python -m pytest tests/ -v

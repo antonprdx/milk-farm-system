@@ -6,13 +6,14 @@ use serde::Deserialize;
 use crate::errors::AppError;
 use crate::middleware::auth::Claims;
 use crate::models::analytics::{
-    AlertsResponse, AnimalSummaryResponse, CowClusterResponse, CullingSurvivalResponse,
+    AnimalSummaryResponse, CowClusterResponse, CullingSurvivalResponse,
     DryOffOptimizerResponse, EnergyBalanceResponse, EquipmentAnomalyResponse,
-    EstrusResponse, FeedEfficiencyResponse, FeedForecastResponse, FeedRecommendationResponse,
-    FertilityWindowResponse, HealthIndexResponse, KetosisWarningResponse, KpiResponse,
-    LactationCurveResponse, LifetimeValueResponse, MastitisRiskResponse, MilkForecastDataResponse,
-    MilkTrendResponse, ProfitabilityResponse, QuarterHealthResponse, ReproductionForecastResponse,
-    SeasonalResponse,
+    EnsembleForecastResponse, EstrusResponse, FeedEfficiencyResponse, FeedForecastResponse,
+    FeedRecommendationResponse, FertilityWindowResponse, HealthIndexResponse,
+    HealthTimelineResponse, KetosisWarningResponse, KpiResponse, LactationCurveResponse,
+    LifetimeValueResponse, MastitisRiskResponse, MilkForecastDataResponse, MilkTrendResponse,
+    QuarterHealthResponse, ReproductionForecastResponse, SeasonalResponse,
+    TimeSeriesComparisonResponse,
 };
 use crate::services::{analytics_service, predictive_service};
 use crate::state::AppState;
@@ -29,12 +30,6 @@ pub struct LactationQuery {
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
-pub struct ProfitQuery {
-    pub milk_price: Option<f64>,
-    pub feed_price: Option<f64>,
-}
-
-#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
 pub struct ForecastQuery {
     pub animal_id: i32,
     pub days: Option<i32>,
@@ -48,7 +43,6 @@ pub struct ClusterQuery {
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/analytics/kpi", get(kpi))
-        .route("/analytics/alerts", get(alerts))
         .route("/analytics/milk-trend", get(milk_trend))
         .route(
             "/analytics/reproduction-forecast",
@@ -59,7 +53,6 @@ pub fn routes() -> Router<AppState> {
         .route("/analytics/lactation-curves", get(lactation_curves))
         .route("/analytics/health-index", get(health_index))
         .route("/analytics/fertility-window", get(fertility_window))
-        .route("/analytics/profitability", get(profitability))
         .route("/analytics/seasonal", get(seasonal))
         .route("/analytics/mastitis-risk", get(mastitis_risk))
         .route("/analytics/culling-survival", get(culling_survival))
@@ -75,6 +68,45 @@ pub fn routes() -> Router<AppState> {
         .route("/analytics/dry-off-optimizer", get(dry_off_optimizer))
         .route("/analytics/lifetime-value", get(lifetime_value))
         .route("/analytics/animal-summary", get(animal_summary))
+        .route("/analytics/health-timeline", get(health_timeline))
+        .route("/analytics/time-series-comparison", get(time_series_comparison))
+        .route("/analytics/ensemble-forecast", get(ensemble_forecast))
+        .route("/analytics/dashboard", get(dashboard))
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
+pub struct DashboardQuery {
+    pub trend_days: Option<i64>,
+    pub forecast_days: Option<i64>,
+}
+
+async fn dashboard(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Query(params): Query<DashboardQuery>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let trend_days = params.trend_days.unwrap_or(30).clamp(1, 365);
+    let forecast_days = params.forecast_days.unwrap_or(14).clamp(1, 90);
+
+    let (kpi_res, trend_res, repro_res, feed_res, milk_res, vet_res, withdrawals_res) = tokio::try_join!(
+        analytics_service::kpi(&state.pool),
+        analytics_service::milk_trend(&state.pool, trend_days, forecast_days),
+        analytics_service::reproduction_forecast(&state.pool),
+        analytics_service::feed_forecast(&state.pool),
+        analytics_service::latest_milk(&state.pool),
+        crate::services::vet_service::upcoming_follow_ups(&state.pool, 7),
+        crate::services::vet_service::active_withdrawals(&state.pool),
+    )?;
+
+    Ok(Json(serde_json::json!({
+        "kpi": kpi_res,
+        "trend": trend_res,
+        "reproduction": repro_res,
+        "feed": feed_res,
+        "latest_milk": milk_res,
+        "vet_follow_ups": vet_res,
+        "active_withdrawals": withdrawals_res,
+    })))
 }
 
 #[utoipa::path(
@@ -91,23 +123,6 @@ async fn kpi(
     State(state): State<AppState>,
 ) -> Result<Json<crate::models::analytics::KpiResponse>, AppError> {
     let data = analytics_service::kpi(&state.pool).await?;
-    Ok(Json(data))
-}
-
-#[utoipa::path(
-    get,
-    path = "/api/v1/analytics/alerts",
-    responses(
-        (status = 200, description = "Alerts", body = AlertsResponse),
-        (status = 401, description = "Unauthorized")
-    ),
-    security(("cookie_auth" = []))
-)]
-async fn alerts(
-    _claims: Claims,
-    State(state): State<AppState>,
-) -> Result<Json<crate::models::analytics::AlertsResponse>, AppError> {
-    let data = analytics_service::alerts(&state.pool).await?;
     Ok(Json(data))
 }
 
@@ -238,27 +253,6 @@ async fn fertility_window(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/analytics/profitability",
-    responses(
-        (status = 200, description = "Per-cow profitability analysis", body = ProfitabilityResponse),
-        (status = 401, description = "Unauthorized")
-    ),
-    params(ProfitQuery),
-    security(("cookie_auth" = []))
-)]
-async fn profitability(
-    _claims: Claims,
-    State(state): State<AppState>,
-    Query(params): Query<ProfitQuery>,
-) -> Result<Json<ProfitabilityResponse>, AppError> {
-    let milk_price = params.milk_price.unwrap_or(25.0).clamp(1.0, 200.0);
-    let feed_price = params.feed_price.unwrap_or(12.0).clamp(1.0, 200.0);
-    let data = predictive_service::profitability(&state.pool, milk_price, feed_price).await?;
-    Ok(Json(data))
-}
-
-#[utoipa::path(
-    get,
     path = "/api/v1/analytics/seasonal",
     responses(
         (status = 200, description = "Seasonal decomposition of milk production", body = SeasonalResponse),
@@ -377,6 +371,110 @@ async fn milk_forecast(
             "ML service unavailable"
         ))),
     }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/analytics/ensemble-forecast",
+    responses(
+        (status = 200, description = "Ensemble forecast combining ML and Rust models", body = EnsembleForecastResponse),
+        (status = 401, description = "Unauthorized")
+    ),
+    params(ForecastQuery),
+    security(("cookie_auth" = []))
+)]
+async fn ensemble_forecast(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Query(params): Query<ForecastQuery>,
+) -> Result<Json<EnsembleForecastResponse>, AppError> {
+    let days = params.days.unwrap_or(30).clamp(7, 90);
+    let pool = &state.pool;
+
+    let ts = analytics_service::time_series_comparison(pool, params.animal_id, 90, days as i64).await?;
+
+    let rust_model = ts.models.iter().find(|m| m.model_name == ts.best_model);
+    let rust_mape = rust_model.map(|m| m.mape).unwrap_or(f64::MAX);
+    let rust_forecast: std::collections::HashMap<i32, f64> = rust_model
+        .map(|m| m.forecast.iter().enumerate().map(|(i, p)| ((i + 1) as i32, p.value)).collect())
+        .unwrap_or_default();
+
+    let rust_weight = if rust_mape > 0.0 { 1.0 / (rust_mape + 1.0) } else { 0.0 };
+
+    let (_ml_data, _shap) = match &state.ml {
+        Some(ml) => match ml.milk_forecast(params.animal_id, days).await {
+            Ok(data) => {
+                let shap = data.shap_explanation.clone();
+                let ml_mape = 8.0;
+                let ml_weight = 1.0 / (ml_mape + 1.0);
+                let total = ml_weight + rust_weight;
+
+                let forecast: Vec<_> = data
+                    .forecast
+                    .into_iter()
+                    .map(|d| {
+                        let rust_val = rust_forecast.get(&d.day_offset).copied();
+                        let (pred, ml_c, rust_c) = if let Some(rv) = rust_val {
+                            let mw = ml_weight / total;
+                            let rw = rust_weight / total;
+                            (d.predicted_milk * mw + rv * rw, mw, rw)
+                        } else {
+                            (d.predicted_milk, 1.0, 0.0)
+                        };
+                        crate::models::analytics::EnsembleForecastDay {
+                            day_offset: d.day_offset,
+                            predicted_milk: pred,
+                            lower_bound: d.lower_bound.min(pred * 0.9),
+                            upper_bound: d.upper_bound.max(pred * 1.1),
+                            ml_contribution: ml_c,
+                            rust_contribution: rust_c,
+                        }
+                    })
+                    .collect();
+
+                let result = EnsembleForecastResponse {
+                    animal_id: params.animal_id,
+                    animal_name: data.animal_name,
+                    current_daily_avg: data.current_daily_avg,
+                    forecast,
+                    ml_model_version: data.model_version,
+                    rust_best_model: ts.best_model.clone(),
+                    ml_weight: if total > 0.0 { ml_weight / total } else { 0.5 },
+                    rust_weight: if total > 0.0 { rust_weight / total } else { 0.5 },
+                    rust_mape,
+                    shap_explanation: shap,
+                };
+                return Ok(Json(result));
+            }
+            Err(_) => (None::<MilkForecastDataResponse>, None::<crate::models::analytics::ShapExplanation>),
+        },
+        None => (None::<MilkForecastDataResponse>, None::<crate::models::analytics::ShapExplanation>),
+    };
+
+    let forecast: Vec<_> = rust_forecast
+        .into_iter()
+        .map(|(offset, val)| crate::models::analytics::EnsembleForecastDay {
+            day_offset: offset,
+            predicted_milk: val,
+            lower_bound: val * 0.9,
+            upper_bound: val * 1.1,
+            ml_contribution: 0.0,
+            rust_contribution: 1.0,
+        })
+        .collect();
+
+    Ok(Json(EnsembleForecastResponse {
+        animal_id: params.animal_id,
+        animal_name: ts.animal_name,
+        current_daily_avg: None,
+        forecast,
+        ml_model_version: "unavailable".to_string(),
+        rust_best_model: ts.best_model,
+        ml_weight: 0.0,
+        rust_weight: 1.0,
+        rust_mape,
+        shap_explanation: None,
+    }))
 }
 
 #[utoipa::path(
@@ -505,5 +603,39 @@ async fn animal_summary(
     Query(params): Query<AnimalSummaryQuery>,
 ) -> Result<Json<AnimalSummaryResponse>, AppError> {
     let data = predictive_service::animal_summary(&state.pool, params.animal_id).await?;
+    Ok(Json(data))
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
+pub struct HealthTimelineQuery {
+    pub animal_id: i32,
+    pub days: Option<i64>,
+}
+
+async fn health_timeline(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Query(params): Query<HealthTimelineQuery>,
+) -> Result<Json<HealthTimelineResponse>, AppError> {
+    let days = params.days.unwrap_or(90).clamp(7, 365);
+    let data = predictive_service::health_timeline(&state.pool, params.animal_id, days).await?;
+    Ok(Json(data))
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
+pub struct TimeSeriesComparisonQuery {
+    pub animal_id: i32,
+    pub days: Option<i64>,
+    pub forecast_days: Option<i64>,
+}
+
+async fn time_series_comparison(
+    _claims: Claims,
+    State(state): State<AppState>,
+    Query(params): Query<TimeSeriesComparisonQuery>,
+) -> Result<Json<TimeSeriesComparisonResponse>, AppError> {
+    let days = params.days.unwrap_or(90).clamp(30, 365);
+    let forecast_days = params.forecast_days.unwrap_or(14).clamp(7, 90);
+    let data = analytics_service::time_series_comparison(&state.pool, params.animal_id, days, forecast_days).await?;
     Ok(Json(data))
 }

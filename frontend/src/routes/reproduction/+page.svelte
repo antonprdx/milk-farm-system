@@ -89,7 +89,7 @@
 		pregnancy_type: '',
 		insemination_date: '',
 	});
-	let heatForm = $state({ animal_id: undefined as number | undefined, heat_date: today });
+	let heatForm = $state({ animal_id: undefined as number | undefined, heat_date: today, confirmed: false, confirmation_method: '' as string });
 	let dryoffForm = $state({ animal_id: undefined as number | undefined, dry_off_date: today });
 
 	let editCalvingForm = $state({ calving_date: '', remarks: '', lac_number: '' });
@@ -100,7 +100,7 @@
 		charge_number: '',
 	});
 	let editPregnancyForm = $state({ pregnancy_date: '', pregnancy_type: '', insemination_date: '' });
-	let editHeatForm = $state({ heat_date: '' });
+	let editHeatForm = $state({ heat_date: '', confirmed: false, confirmation_method: '' as string });
 	let editDryoffForm = $state({ dry_off_date: '' });
 
 	const v = useFormValidation();
@@ -215,7 +215,7 @@
 			pregnancy_type: '',
 			insemination_date: '',
 		};
-		heatForm = { animal_id: undefined, heat_date: today };
+		heatForm = { animal_id: undefined, heat_date: today, confirmed: false, confirmation_method: '' };
 		dryoffForm = { animal_id: undefined, dry_off_date: today };
 	}
 
@@ -254,7 +254,7 @@
 		crud.openEdit(p.id);
 	}
 	function openEditHeat(h: Heat) {
-		editHeatForm = { heat_date: h.heat_date };
+		editHeatForm = { heat_date: h.heat_date, confirmed: h.confirmed, confirmation_method: h.confirmation_method ?? '' };
 		v.clear();
 		crud.openEdit(h.id);
 	}
@@ -292,7 +292,12 @@
 				});
 				break;
 			case 'heats':
-				await createHeat({ animal_id: heatForm.animal_id!, heat_date: heatForm.heat_date });
+				await createHeat({
+					animal_id: heatForm.animal_id!,
+					heat_date: heatForm.heat_date,
+					confirmed: heatForm.confirmed || undefined,
+					confirmation_method: heatForm.confirmation_method || undefined,
+				});
 				break;
 			case 'dryoffs':
 				await createDryOff({
@@ -328,7 +333,11 @@
 				});
 				break;
 			case 'heats':
-				await updateHeat(crud.editingId, { heat_date: editHeatForm.heat_date || undefined });
+				await updateHeat(crud.editingId, {
+					heat_date: editHeatForm.heat_date || undefined,
+					confirmed: editHeatForm.confirmed,
+					confirmation_method: editHeatForm.confirmation_method || undefined,
+				});
 				break;
 			case 'dryoffs':
 				await updateDryOff(crud.editingId, {
@@ -615,6 +624,7 @@
 			{ key: 'id', label: 'ID' },
 			{ key: 'animal_id', label: 'Животное' },
 			{ key: 'heat_date', label: 'Дата охоты' },
+			{ key: 'confirmed', label: '' },
 			{ key: 'actions', label: '', align: 'right' },
 		]}
 		loading={list.loading}
@@ -634,6 +644,13 @@
 					></td
 				>
 				<td class="px-4 py-3 text-slate-600 dark:text-slate-400">{h.heat_date}</td>
+				<td class="px-4 py-3">
+					{#if h.confirmed}
+						<span class="px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400"
+							>Подтв.{h.confirmation_method ? ` (${h.confirmation_method})` : ''}</span
+						>
+					{/if}
+				</td>
 				<td class="px-4 py-3 text-right">
 					<button
 						onclick={() => openEditHeat(h)}
@@ -785,6 +802,30 @@
 					required
 					error={v.getError('heat_date')}
 				/>
+				<div class="grid grid-cols-2 gap-3">
+					<label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+						<input
+							type="checkbox"
+							bind:checked={heatForm.confirmed}
+							class="w-4 h-4 rounded border-slate-300"
+						/>
+						Подтверждённая охота
+					</label>
+					<div>
+						<label class="block text-sm text-slate-500 dark:text-slate-400 mb-1"
+							>Метод подтверждения</label
+						>
+						<select
+							bind:value={heatForm.confirmation_method}
+							class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+						>
+							<option value="">—</option>
+							<option value="visual">Визуально</option>
+							<option value="sensor">Датчик</option>
+							<option value="insemination_result">Результат осеменения</option>
+						</select>
+					</div>
+				</div>
 			{:else}
 				<AnimalSelect
 					id="m-animal"
@@ -863,6 +904,30 @@
 				required
 				error={v.getError('heat_date')}
 			/>
+			<div class="grid grid-cols-2 gap-3">
+				<label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+					<input
+						type="checkbox"
+						bind:checked={editHeatForm.confirmed}
+						class="w-4 h-4 rounded border-slate-300"
+					/>
+					Подтверждённая охота
+				</label>
+				<div>
+					<label class="block text-sm text-slate-500 dark:text-slate-400 mb-1"
+						>Метод подтверждения</label
+					>
+					<select
+						bind:value={editHeatForm.confirmation_method}
+						class="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+					>
+						<option value="">—</option>
+						<option value="visual">Визуально</option>
+						<option value="sensor">Датчик</option>
+						<option value="insemination_result">Результат осеменения</option>
+					</select>
+				</div>
+			</div>
 		{:else}
 			<FormField
 				id="e-date"

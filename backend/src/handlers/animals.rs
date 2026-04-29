@@ -19,6 +19,8 @@ use crate::state::AppState;
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct BatchDeactivateRequest {
     pub ids: Vec<i32>,
+    pub reason: Option<String>,
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -30,6 +32,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/animals", get(list).post(create))
         .route("/animals/batch/deactivate", post(batch_deactivate))
+        .route("/animals/batch/update", post(batch_update))
         .route("/animals/import/csv", post(import_csv))
         .route("/animals/{id}", get(get_by_id).put(update).delete(remove))
         .route("/animals/{id}/timeline", get(timeline))
@@ -177,8 +180,39 @@ async fn batch_deactivate(
             "Максимум 500 записей за один запрос".into(),
         ));
     }
-    let count = animal_service::batch_deactivate(&state.pool, &req.ids).await?;
+    let count = animal_service::batch_deactivate(
+        &state.pool,
+        &req.ids,
+        req.reason.as_deref(),
+        req.notes.as_deref(),
+    )
+    .await?;
     Ok(Json(json!({ "message": format!("Деактивировано {} животных", count), "count": count })))
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct BatchUpdateRequest {
+    pub ids: Vec<i32>,
+    pub location: Option<String>,
+    pub group_number: Option<i32>,
+}
+
+async fn batch_update(
+    _admin: AdminGuard,
+    State(state): State<AppState>,
+    Json(req): Json<BatchUpdateRequest>,
+) -> Result<Json<Value>, AppError> {
+    if req.ids.is_empty() {
+        return Err(AppError::BadRequest("Список ID пуст".into()));
+    }
+    if req.ids.len() > 500 {
+        return Err(AppError::BadRequest("Максимум 500 записей".into()));
+    }
+    if req.location.is_none() && req.group_number.is_none() {
+        return Err(AppError::BadRequest("Укажите хотя бы одно поле для обновления".into()));
+    }
+    let count = animal_service::batch_update(&state.pool, &req.ids, req.location.as_deref(), req.group_number).await?;
+    Ok(Json(json!({ "message": format!("Обновлено {} животных", count), "count": count })))
 }
 
 #[utoipa::path(

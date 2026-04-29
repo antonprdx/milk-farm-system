@@ -6,6 +6,7 @@ use http_body_util::BodyExt;
 use milk_farm_backend::config::{Config, LelyConfig};
 use milk_farm_backend::middleware::auth::create_access_token;
 use milk_farm_backend::state::{AppStateInner, LelyRuntime};
+use milk_farm_backend::handlers::events::create_event_bus;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -26,6 +27,8 @@ pub fn test_config() -> Config {
         rate_limit_max: 100,
         rate_limit_window_secs: 60,
         shutdown_timeout_secs: 30,
+        swagger_enabled: false,
+        redis_url: String::new(),
         lely_env: LelyConfig {
             enabled: false,
             base_url: String::new(),
@@ -42,6 +45,9 @@ pub fn app_state(pool: PgPool) -> Arc<AppStateInner> {
         pool,
         config: test_config(),
         lely: Arc::new(LelyRuntime::new(test_config().lely_env)),
+        ml: None,
+        redis: None,
+        event_bus: create_event_bus(),
     })
 }
 

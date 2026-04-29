@@ -1,0 +1,44 @@
+flowchart TB
+    Backend["Backend (Rust)\nml_client / ml_cache"]
+
+    subgraph API["FastAPI — :8001"]
+        direction TB
+        Predict["POST /predict/*\nmastitis · culling · milk-forecast\nestrus · ketosis · bcs\nclusters · feed-recommendation\nequipment-anomaly · herd-milk"]
+        Train["POST /train\nручное обучение моделей"]
+        Drift["GET /drift-status\nGET /feature-drift\nмониторинг дрифта"]
+        Health["GET /health\nстатус моделей"]
+    end
+
+    subgraph Models["ML Models — 10 моделей"]
+        direction LR
+        XGB["XGBoost\nmastitis · culling · estrus\nketosis · milk_forecast\nfeed_recommendation"]
+        Other["Prophet (herd_milk)\nKMeans (clustering)\nCustom (bcs · equipment)"]
+    end
+
+    subgraph MLServices["ML Services — 14 модулей"]
+        direction TB
+        Pipeline["data_loader · feature_engineering\nfillna · feature_store"]
+        MLOps["model_versioning · champion_challenger\nhyperopt · mlflow_utils"]
+        Advanced["shap_explain (SHAP)\nonnx_utils · pu_learning\ndrift_monitor"]
+    end
+
+    subgraph Infra["Инфраструктура"]
+        direction LR
+        MLflow["MLflow :5000\nexperiment tracking"]
+        ModelFiles["models/*.pkl\n8 предобученных моделей"]
+        DB[("TimescaleDB\nSQLAlchemy async")]
+    end
+
+    Backend -->|"HTTP"| API
+    API --> Models
+    API --> MLServices
+    MLServices --> Infra
+    Models --> ModelFiles
+
+    style Backend fill:#c62828,stroke:#b71c1c,color:#fff
+    style API fill:#fff3e0,stroke:#e65100,color:#bf360c
+    style Models fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    style MLServices fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
+    style Infra fill:#f3e5f5,stroke:#7b1fa2,color:#4a148c
+    style MLflow fill:#7b1fa2,stroke:#4a148c,color:#fff
+    style DB fill:#1565c0,stroke:#0d47a1,color:#fff

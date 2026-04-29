@@ -1,0 +1,83 @@
+erDiagram
+    animals {
+        serial id PK
+        text life_number UK
+        bool active
+    }
+    feed_types {
+        serial id PK
+        int number_of_feed_type
+        text name
+        float dry_matter_percentage
+        float price
+    }
+    feed_groups {
+        serial id PK
+        text name
+        float min_milk_yield
+        float max_milk_yield
+        int number_of_cows
+    }
+    feed_day_amounts {
+        serial id PK
+        int animal_id FK
+        date feed_date
+        int feed_number FK
+        float total
+        int rest_feed
+    }
+    feed_visits {
+        serial id PK
+        int animal_id FK
+        timestamptz visit_datetime
+        float amount
+        int duration_seconds
+    }
+    activities {
+        serial id PK
+        int animal_id FK
+        timestamptz activity_datetime
+        int activity_counter
+        bool heat_attention
+    }
+    ruminations {
+        serial id PK
+        int animal_id FK
+        date date
+        int eating_seconds
+        int rumination_minutes
+    }
+    vet_records {
+        serial id PK
+        int animal_id FK
+        vet_record_type record_type
+        vet_record_status status
+        date event_date
+        text diagnosis
+        text diagnosis_code
+        text medication
+        int withdrawal_days
+        bool confirmed
+    }
+    weight_records {
+        serial id PK
+        int animal_id FK
+        float weight_kg
+        float bcs
+        date measure_date
+    }
+    grazing_data {
+        serial id PK
+        date date
+        int animal_count
+        int pasture_time
+        int total_milking_cows
+    }
+
+    animals ||--o{ feed_day_amounts : has
+    feed_types ||--o{ feed_day_amounts : used_in
+    animals ||--o{ feed_visits : has
+    animals ||--o{ activities : has
+    animals ||--o{ ruminations : has
+    animals ||--o{ vet_records : has
+    animals ||--o{ weight_records : has

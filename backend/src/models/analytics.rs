@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct KpiResponse {
@@ -298,6 +298,19 @@ pub struct CowQuarterHealth {
     pub risk_level: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ShapFeatureContribution {
+    pub feature: String,
+    pub value: f64,
+    pub shap_value: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ShapExplanation {
+    pub top_features: Vec<ShapFeatureContribution>,
+    pub base_value: f64,
+}
+
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct MilkForecastDay {
     pub day_offset: i32,
@@ -313,6 +326,7 @@ pub struct MilkForecastDataResponse {
     pub current_daily_avg: Option<f64>,
     pub forecast: Vec<MilkForecastDay>,
     pub model_version: String,
+    pub shap_explanation: Option<ShapExplanation>,
 }
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
@@ -470,4 +484,72 @@ pub struct AnimalSummaryResponse {
     pub lifetime_value: Option<LifetimeValueEntry>,
     pub culling_risk: Option<CullingSurvivalEntry>,
     pub cluster: Option<ClusterCowEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct HealthTimelinePoint {
+    pub date: String,
+    pub health_score: f64,
+    pub risk_level: String,
+    pub milk_deviation_zscore: Option<f64>,
+    pub rumination_deviation_zscore: Option<f64>,
+    pub activity_deviation_zscore: Option<f64>,
+    pub scc_deviation_zscore: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct HealthTimelineResponse {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub timeline: Vec<HealthTimelinePoint>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct ModelForecastPoint {
+    pub date: String,
+    pub value: f64,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct ModelResult {
+    pub model_name: String,
+    pub description: String,
+    pub mape: f64,
+    pub rmse: f64,
+    pub forecast: Vec<ModelForecastPoint>,
+    pub fitted: Vec<ModelForecastPoint>,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct TimeSeriesComparisonResponse {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub actual_dates: Vec<String>,
+    pub actual_values: Vec<f64>,
+    pub models: Vec<ModelResult>,
+    pub best_model: String,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct EnsembleForecastDay {
+    pub day_offset: i32,
+    pub predicted_milk: f64,
+    pub lower_bound: f64,
+    pub upper_bound: f64,
+    pub ml_contribution: f64,
+    pub rust_contribution: f64,
+}
+
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
+pub struct EnsembleForecastResponse {
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub current_daily_avg: Option<f64>,
+    pub forecast: Vec<EnsembleForecastDay>,
+    pub ml_model_version: String,
+    pub rust_best_model: String,
+    pub ml_weight: f64,
+    pub rust_weight: f64,
+    pub rust_mape: f64,
+    pub shap_explanation: Option<ShapExplanation>,
 }

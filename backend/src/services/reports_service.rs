@@ -414,7 +414,7 @@ pub async fn herd_overview(
 ) -> Result<HerdOverviewResponse, AppError> {
     let rows: Vec<HerdOverviewDbRow> = sqlx::query_as(
         "SELECT d.date::text,
-                COALESCE(d.cow_count, 0),
+                COALESCE(d.cow_count, 0) as cow_count,
                 d.total_milk,
                 d.avg_milk as avg_day_production,
                 mq.milkings as total_milkings,
@@ -824,13 +824,13 @@ pub async fn milk_day_production_time(
     till_date: Option<NaiveDate>,
 ) -> Result<Vec<MilkDayProductionTimeRow>, AppError> {
     let rows: Vec<MilkDayProductionTimeDbRow> = sqlx::query_as(
-        "SELECT d.date::text, day_milk.total as total_milk, day_milk.avg_per_cow, day_milk.cnt as cow_count,
+        "SELECT d.date::text, day_milk.total as total_milk, day_milk.avg_milk_per_cow, day_milk.cnt as cow_count,
                 mq_sum.milkings, mq_sum.refusals, mq_sum.failures,
                 day_milk.avg_weight, feed_sum.total_feed, feed_sum.rest_feed as total_rest_feed
          FROM (SELECT DISTINCT date FROM milk_day_productions
                WHERE ($1::date IS NULL OR date >= $1) AND ($2::date IS NULL OR date <= $2)) d
          LEFT JOIN LATERAL (
-             SELECT SUM(milk_amount)::float8 as total, AVG(milk_amount)::float8 as avg_per_cow,
+              SELECT SUM(milk_amount)::float8 as total, AVG(milk_amount)::float8 as avg_milk_per_cow,
                     COUNT(DISTINCT animal_id)::int8 as cnt, AVG(avg_weight)::float8 as avg_weight
              FROM milk_day_productions WHERE date = d.date
          ) day_milk ON true

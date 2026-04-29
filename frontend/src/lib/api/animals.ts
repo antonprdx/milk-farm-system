@@ -91,8 +91,26 @@ export function deleteAnimal(id: number) {
 	return del<{ message: string }>(`/animals/${id}`);
 }
 
-export function batchDeactivateAnimals(ids: number[]) {
-	return post<{ message: string; count: number }>('/animals/batch/deactivate', { ids });
+export function batchDeactivateAnimals(ids: number[], reason?: string, notes?: string) {
+	return post<{ message: string; count: number }>('/animals/batch/deactivate', { ids, reason, notes });
+}
+
+export function batchUpdateAnimals(ids: number[], data: { location?: string; group_number?: number }) {
+	return post<{ message: string; count: number }>('/animals/batch/update', { ids, ...data });
+}
+
+export function getAnimalAuditLog(id: number) {
+	return api<{ data: AuditLogEntry[] }>(`/animals/${id}/audit`);
+}
+
+export interface AuditLogEntry {
+	id: number;
+	user_id: number | null;
+	action: string;
+	entity_type: string;
+	entity_id: number | null;
+	details: Record<string, unknown> | null;
+	created_at: string;
 }
 
 export interface CsvImportResult {
