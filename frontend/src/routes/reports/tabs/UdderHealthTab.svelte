@@ -19,7 +19,7 @@
 		<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 			{#each rows as row (row.animal_id + '-' + row.visit_datetime)}
 				<tr>
-					<td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
+					<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td>
 					<td class={tdCls}>{new Date(row.visit_datetime).toLocaleString('ru-RU')}</td>
 					<td class={tdHidden}><span class={row.lf_conductivity && row.lf_conductivity > 80 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{row.lf_conductivity ?? '—'}</span></td>
 					<td class={tdHidden}><span class={row.lr_conductivity && row.lr_conductivity > 80 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{row.lr_conductivity ?? '—'}</span></td>

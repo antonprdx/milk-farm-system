@@ -9,50 +9,136 @@
     {
       "title": "Request Rate",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "targets": [
-        {
-          "expr": "sum(rate(http_requests_total[5m])) by (route)",
-          "legendFormat": "{{route}}"
-        }
+        { "expr": "sum(rate(http_requests_total{route=~\"$route\",method=~\"$method\"}[5m])) by (route)", "legendFormat": "{{route}}" }
       ]
     },
     {
       "title": "Request Latency (p50, p95, p99)",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
-        { "expr": "histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
-        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95" },
-        { "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99" }
+        { "expr": "histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket{route=~\"$route\"}[5m])) by (le))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{route=~\"$route\"}[5m])) by (le))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{route=~\"$route\"}[5m])) by (le))", "legendFormat": "p99" }
       ]
     },
     {
       "title": "Error Rate",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "targets": [
-        {
-          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
-          "legendFormat": "error rate"
-        }
+        { "expr": "(sum(rate(http_requests_total{status=~\"5..\",route=~\"$route\"}[5m])) or vector(0)) / sum(rate(http_requests_total{route=~\"$route\"}[5m]))", "legendFormat": "error rate" }
       ]
     },
     {
       "title": "Requests by Status Code",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "targets": [
-        {
-          "expr": "sum(rate(http_requests_total[5m])) by (status)",
-          "legendFormat": "{{status}}"
-        }
+        { "expr": "sum(rate(http_requests_total{route=~\"$route\"}[5m])) by (status)", "legendFormat": "{{status}}" }
+      ]
+    },
+    {
+      "title": "DB Pool",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "db_pool_size", "legendFormat": "total" },
+        { "expr": "db_pool_idle", "legendFormat": "idle" }
+      ]
+    },
+    {
+      "title": "Rate Limit Rejections",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "expr": "rate(rate_limit_rejections_total[5m])", "legendFormat": "{{ip}}" }
+      ]
+    },
+    {
+      "title": "Auth Events",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        { "expr": "rate(auth_events_total[5m])", "legendFormat": "{{event}}" }
+      ]
+    },
+    {
+      "title": "Lely Sync",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        { "expr": "rate(lely_sync_total[5m])", "legendFormat": "{{status}}" }
+      ]
+    },
+    {
+      "title": "ML Models",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 32 },
+      "targets": [
+        { "expr": "ml_models_trained", "legendFormat": "Trained" },
+        { "expr": "ml_models_total", "legendFormat": "Total" }
+      ]
+    },
+    {
+      "title": "ML Uptime",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 32 },
+      "targets": [
+        { "expr": "ml_uptime_seconds", "legendFormat": "uptime" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "ML Requests",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 32 },
+      "targets": [
+        { "expr": "ml_http_requests_total", "legendFormat": "total" }
       ]
     }
   ],
   "schemaVersion": 39,
   "tags": ["milk-farm", "backend"],
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "selected": true, "text": "Prometheus", "value": "Prometheus" }
+      },
+      {
+        "name": "route",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "query": "label_values(http_requests_total, route)",
+        "includeAll": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "method",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "query": "label_values(http_requests_total, method)",
+        "includeAll": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
   "time": { "from": "now-1h", "to": "now" },
   "title": "Milk Farm - Backend Overview",
   "uid": "milk-backend"

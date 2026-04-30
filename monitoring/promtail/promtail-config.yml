@@ -34,3 +34,24 @@ scrape_configs:
       - timestamp:
           source: time
           format: RFC3339Nano
+
+  - job_name: backend_native
+    static_configs:
+      - targets: ["localhost"]
+        labels:
+          job: "backend"
+          host: "dev"
+        __path__: "/host-logs/backend.json"
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            message: fields.message
+            target: target
+            timestamp: timestamp
+      - labels:
+          level:
+          target:
+      - timestamp:
+          source: timestamp
+          format: RFC3339

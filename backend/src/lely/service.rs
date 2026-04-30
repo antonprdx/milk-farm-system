@@ -576,6 +576,7 @@ pub async fn upsert_feed_visits(
 ) -> Result<u64, anyhow::Error> {
     let mut total = 0u64;
     for chunk in records.chunks(BATCH_SIZE) {
+        let mut seen = std::collections::HashSet::<(i32, chrono::DateTime<chrono::Utc>)>::new();
         let mut animal_ids = Vec::new();
         let mut dts = Vec::new();
         let mut feed_numbers = Vec::new();
@@ -584,6 +585,7 @@ pub async fn upsert_feed_visits(
         for r in chunk {
             let Some(aid) = cache.resolve_or_warn(&r.life_number, "feed_visits") else { continue };
             let Some(dt) = parse_lely_datetime(&r.feed_date) else { continue };
+            if !seen.insert((aid, dt)) { continue; }
             animal_ids.push(aid);
             dts.push(dt);
             feed_numbers.push(r.number_of_feed_type);

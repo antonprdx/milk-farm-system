@@ -38,7 +38,7 @@
 \contentsline {subsection}{\numberline {3.3}Тестирование клиентского приложения}{51}{subsection.3.3}%
 \contentsline {subsection}{\numberline {3.4}Тестирование модуля машинного обучения}{52}{subsection.3.4}%
 \contentsline {subsection}{\numberline {3.5}Нагрузочное тестирование}{52}{subsection.3.5}%
-\contentsline {subsection}{\numberline {3.6}Демонстрация системы}{52}{subsection.3.6}%
+\contentsline {subsection}{\numberline {3.6}Демонстрация системы}{53}{subsection.3.6}%
 \contentsline {subsubsection}{\numberline {3.6.1}Аутентификация}{53}{subsubsection.3.6.1}%
 \contentsline {subsubsection}{\numberline {3.6.2}Дашборд}{54}{subsubsection.3.6.2}%
 \contentsline {subsubsection}{\numberline {3.6.3}Управление животными}{55}{subsubsection.3.6.3}%
@@ -48,8 +48,8 @@
 \contentsline {subsection}{\numberline {3.7}Мониторинг работоспособности}{58}{subsection.3.7}%
 \contentsline {structure}{\numberline {}ЗАКЛЮЧЕНИЕ}{60}{structure.4}%
 \contentsline {structure}{\numberline {}СПИСОК~ИСПОЛЬЗОВАННЫХ~ИСТОЧНИКОВ}{63}{structure.5}%
-\contentsline {section}{ПРИЛОЖЕНИЕ~А~{Исходный код}}{67}{section*.17}%
-\contentsline {section}{ПРИЛОЖЕНИЕ~Б~{Описание таблиц базы данных}}{68}{section*.19}%
-\contentsline {section}{ПРИЛОЖЕНИЕ~В~{Визуализация модели данных}}{71}{section*.23}%
-\contentsline {section}{ПРИЛОЖЕНИЕ~Г~{Примеры API-запросов и ответов}}{75}{section*.30}%
+\contentsline {section}{ПРИЛОЖЕНИЕ~А~{Исходный код}}{67}{section*.18}%
+\contentsline {section}{ПРИЛОЖЕНИЕ~Б~{Описание таблиц базы данных}}{68}{section*.20}%
+\contentsline {section}{ПРИЛОЖЕНИЕ~В~{Визуализация модели данных}}{71}{section*.24}%
+\contentsline {section}{ПРИЛОЖЕНИЕ~Г~{Примеры API-запросов и ответов}}{75}{section*.31}%
 \contentsfinish 

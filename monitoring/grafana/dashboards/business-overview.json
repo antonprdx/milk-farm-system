@@ -1,0 +1,128 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Lely Sync Status",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "increase(lely_sync_total{status=\"success\"}[1h])", "legendFormat": "Success" },
+        { "expr": "increase(lely_sync_total{status=\"error\"}[1h])", "legendFormat": "Errors" }
+      ]
+    },
+    {
+      "title": "Login Success / Fail",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "increase(auth_events_total{event=\"login_success\"}[1h])", "legendFormat": "Logins" },
+        { "expr": "increase(auth_events_total{event=\"login_failed\"}[1h])", "legendFormat": "Failures" }
+      ]
+    },
+    {
+      "title": "Rate Limited IPs",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "increase(rate_limit_rejections_total[1h])", "legendFormat": "rejections" }
+      ]
+    },
+    {
+      "title": "DB Pool Usage",
+      "type": "gauge",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
+      "targets": [
+        { "expr": "1 - (db_pool_idle / db_pool_size)", "legendFormat": "usage" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.7 },
+              { "color": "red", "value": 0.9 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "ML Service Health",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 4 },
+      "targets": [
+        { "expr": "up{job=\"analytics-ml\"}", "legendFormat": "Up" },
+        { "expr": "ml_models_trained / ml_models_total * 100", "legendFormat": "Models %" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "title": "Request Rate by Route (top 10)",
+      "type": "barchart",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "topk(10, sum(rate(http_requests_total[5m])) by (route))", "legendFormat": "{{route}}" }
+      ],
+      "options": { "orientation": "horizontal" }
+    },
+    {
+      "title": "Latency Heatmap",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, route))", "legendFormat": "{{route}} p50" },
+        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "overall p95" }
+      ]
+    },
+    {
+      "title": "Error Rate Trend",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        { "expr": "(sum(rate(http_requests_total{status=~\"5..\"}[5m])) or vector(0)) / sum(rate(http_requests_total[5m])) * 100", "legendFormat": "error %" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    },
+    {
+      "title": "Lely Sync Trend",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        { "expr": "increase(lely_sync_total{status=\"success\"}[5m])", "legendFormat": "success" },
+        { "expr": "increase(lely_sync_total{status=\"error\"}[5m])", "legendFormat": "error" }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["milk-farm", "business"],
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "selected": true, "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Milk Farm - Business Overview",
+  "uid": "milk-business"
+}

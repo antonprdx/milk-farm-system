@@ -172,8 +172,11 @@ async fn login(
 
     if !valid {
         tracing::warn!(username = %req.username, ip = %ip, "Login failed: invalid password");
+        crate::middleware::metrics::AUTH_EVENTS.with_label_values(&["login_failed"]).inc();
         return Err(AppError::Unauthorized("Неверные учётные данные".into()));
     }
+
+    crate::middleware::metrics::AUTH_EVENTS.with_label_values(&["login_success"]).inc();
 
     let ttl = system_settings_service::get_jwt_ttl(&state.pool)
         .await
@@ -231,6 +234,7 @@ async fn logout(
     if let Some(token_str) = extract_token_from_headers(&headers)
         && let Ok(claims) = verify_token(&token_str, &state.config.jwt_secret)
     {
+        crate::middleware::metrics::AUTH_EVENTS.with_label_values(&["logout"]).inc();
         let exp =
             chrono::DateTime::from_timestamp(claims.exp as i64, 0).unwrap_or(chrono::Utc::now());
         if let Err(e) = token_revocation_service::revoke(&state.pool, &claims.jti, exp).await {

@@ -1,11 +1,12 @@
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::LazyLock;
+
 use std::time::Instant;
 
 use axum::body::Body;
 use axum::http::Request;
-use prometheus::{Encoder, HistogramVec, IntCounterVec, Opts, Registry, TextEncoder};
+use prometheus::{Encoder, Gauge, HistogramVec, IntCounterVec, Opts, Registry, TextEncoder};
 use tower::Service;
 
 type BoxFuture<T, E> = Pin<Box<dyn std::future::Future<Output = Result<T, E>> + Send>>;
@@ -34,13 +35,51 @@ pub static HTTP_REQUEST_DURATION: LazyLock<HistogramVec> = LazyLock::new(|| {
     .unwrap()
 });
 
+pub static RATE_LIMIT_REJECTIONS: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    IntCounterVec::new(
+        Opts::new("rate_limit_rejections_total", "Rate limit rejections"),
+        &["ip"],
+    )
+    .unwrap()
+});
+
+pub static AUTH_EVENTS: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    IntCounterVec::new(
+        Opts::new("auth_events_total", "Authentication events"),
+        &["event"],
+    )
+    .unwrap()
+});
+
+pub static LELY_SYNC_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    IntCounterVec::new(
+        Opts::new("lely_sync_total", "Lely synchronization attempts"),
+        &["status"],
+    )
+    .unwrap()
+});
+
+pub static DB_POOL_SIZE: LazyLock<Gauge> = LazyLock::new(|| {
+    Gauge::new("db_pool_size", "Total DB connections in pool").unwrap()
+});
+
+pub static DB_POOL_IDLE: LazyLock<Gauge> = LazyLock::new(|| {
+    Gauge::new("db_pool_idle", "Idle DB connections").unwrap()
+});
+
 pub fn init() {
-    REGISTRY
-        .register(Box::new(HTTP_REQUESTS_TOTAL.clone()))
-        .unwrap();
-    REGISTRY
-        .register(Box::new(HTTP_REQUEST_DURATION.clone()))
-        .unwrap();
+    REGISTRY.register(Box::new(HTTP_REQUESTS_TOTAL.clone())).unwrap();
+    REGISTRY.register(Box::new(HTTP_REQUEST_DURATION.clone())).unwrap();
+    REGISTRY.register(Box::new(RATE_LIMIT_REJECTIONS.clone())).unwrap();
+    REGISTRY.register(Box::new(AUTH_EVENTS.clone())).unwrap();
+    REGISTRY.register(Box::new(LELY_SYNC_TOTAL.clone())).unwrap();
+    REGISTRY.register(Box::new(DB_POOL_SIZE.clone())).unwrap();
+    REGISTRY.register(Box::new(DB_POOL_IDLE.clone())).unwrap();
+}
+
+pub fn update_db_pool_metrics(pool: &sqlx::PgPool) {
+    DB_POOL_SIZE.set(pool.size() as f64);
+    DB_POOL_IDLE.set(pool.num_idle() as f64);
 }
 
 pub fn gather() -> String {

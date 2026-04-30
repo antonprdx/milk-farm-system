@@ -9,6 +9,7 @@ import {
 	LineController,
 	LineElement,
 	PointElement,
+	ScatterController,
 	Tooltip,
 } from 'chart.js';
 
@@ -27,6 +28,7 @@ export function ensureChartRegistered(): void {
 		Tooltip,
 		Legend,
 		LineController,
+		ScatterController,
 	);
 	registered = true;
 }

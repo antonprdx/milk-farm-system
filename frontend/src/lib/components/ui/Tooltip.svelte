@@ -32,7 +32,7 @@
 	onmouseleave={hide}
 	onfocus={(e: FocusEvent) => show(e)}
 	onblur={hide}
-	role="img"
+	role="button"
 	aria-label={text}
 	tabindex="0"
 >

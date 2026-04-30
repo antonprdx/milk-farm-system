@@ -18,7 +18,7 @@
 		<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 			{#each rows as row (row.animal_id)}
 				<tr>
-					<td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
+					<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td>
 					<td class={tdCls}><span class={row.milk_per_box_time_week && row.milk_per_box_time_week < 0.5 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{fmtNum(row.milk_per_box_time_week, 3)}</span></td>
 					<td class={tdHidden}>{fmtNum(row.avg_milk_speed)}</td>
 					<td class={tdHidden}>{fmtNum(row.avg_treatment_time)} мин</td>

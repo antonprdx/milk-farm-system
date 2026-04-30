@@ -2279,7 +2279,7 @@ pub async fn health_timeline(
         .flatten();
 
     let rows: Vec<(String, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT d.dt::text,
+        "SELECT d.dt::date::text,
                 short_m.milk, long_m.milk, long_m.std as milk_std,
                 short_r.rum, long_r.rum, long_r.std as rum_std
          FROM generate_series(CURRENT_DATE - ($2 || ' days')::interval, CURRENT_DATE, '1 day') d(dt)
@@ -2308,7 +2308,7 @@ pub async fn health_timeline(
     .map_err(AppError::Database)?;
 
     let act_rows: Vec<(String, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT d.dt::text, short_a.act, long_a.act, long_a.std
+        "SELECT d.dt::date::text, short_a.act, long_a.act, long_a.std
          FROM generate_series(CURRENT_DATE - ($2 || ' days')::interval, CURRENT_DATE, '1 day') d(dt)
          LEFT JOIN LATERAL (
              SELECT AVG(act.activity_counter)::float8 as act
@@ -2328,7 +2328,7 @@ pub async fn health_timeline(
     .map_err(AppError::Database)?;
 
     let scc_rows: Vec<(String, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT d.dt::text, recent.scc, baseline.avg_scc
+        "SELECT d.dt::date::text, recent.scc, baseline.avg_scc
          FROM generate_series(CURRENT_DATE - ($2 || ' days')::interval, CURRENT_DATE, '1 day') d(dt)
          LEFT JOIN LATERAL (
              SELECT AVG(q.scc)::float8 as scc FROM milk_quality q

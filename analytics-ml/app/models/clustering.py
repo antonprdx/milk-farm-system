@@ -267,6 +267,7 @@ def predict(df: pd.DataFrame) -> list[dict]:
     if algorithm == "hdbscan":
         cluster_ids = model.fit_predict(X_scaled)
         probabilities = model.probabilities_ if hasattr(model, "probabilities_") else np.ones(len(X_scaled))
+        distances = np.zeros(len(X_scaled))
     else:
         cluster_ids = model.predict(X_scaled)
         distances = model.transform(X_scaled).min(axis=1)
@@ -282,7 +283,7 @@ def predict(df: pd.DataFrame) -> list[dict]:
             "cluster_name": labels.get(cid, f"Кластер {cid}"),
             "avg_milk": round(float(row["avg_milk"]), 2),
             "avg_rumination": round(float(row["avg_rumination"]), 1),
-            "membership_probability": round(float(probabilities[i]), 4),
+            "distance_to_center": round(float(distances[i]), 4),
             "model_version": version,
         })
 

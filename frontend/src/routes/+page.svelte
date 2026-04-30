@@ -97,22 +97,24 @@
 	let showSettings = $state(false);
 	let settingsSaving = $state(false);
 
-	if (data.error) error = data.error;
+	$effect(() => {
+		if (data.error) error = data.error;
 
-	if (data.initialData) {
-		kpi = data.initialData.kpi;
-		trend = data.initialData.trend;
-		repro = data.initialData.repro;
-		feed = data.initialData.feed;
-		latestMilk = data.initialData.latestMilk ?? [];
-		vetFollowUps = data.initialData.vetFollowUps ?? [];
-		activeWithdrawals = data.initialData.activeWithdrawals ?? [];
-		loading = false;
-	}
+		if (data.initialData) {
+			kpi = data.initialData.kpi;
+			trend = data.initialData.trend;
+			repro = data.initialData.repro;
+			feed = data.initialData.feed;
+			latestMilk = data.initialData.latestMilk ?? [];
+			vetFollowUps = data.initialData.vetFollowUps ?? [];
+			activeWithdrawals = data.initialData.activeWithdrawals ?? [];
+			loading = false;
+		}
 
-	if (data.dashboardWidgets && Array.isArray(data.dashboardWidgets)) {
-		widgets = data.dashboardWidgets;
-	}
+		if (data.dashboardWidgets && Array.isArray(data.dashboardWidgets)) {
+			widgets = data.dashboardWidgets;
+		}
+	});
 
 	function hasWidget(id: WidgetId): boolean {
 		return widgets.includes(id);
@@ -401,7 +403,9 @@
 	>
 		<div
 			class="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 w-full max-w-md mx-4 p-6"
+			role="document"
 			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
 		>
 			<div class="flex items-center justify-between mb-4">
 				<h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Настройка виджетов</h2>

@@ -63,6 +63,7 @@ impl RateLimiter {
         }
 
         if count > self.max as i64 {
+            crate::middleware::metrics::RATE_LIMIT_REJECTIONS.with_label_values(&[key]).inc();
             return Err(AppError::RateLimited);
         }
         Ok(())
@@ -76,6 +77,7 @@ impl RateLimiter {
                 entry.count = 1;
                 entry.window_start = now;
             } else if entry.count >= self.max {
+                crate::middleware::metrics::RATE_LIMIT_REJECTIONS.with_label_values(&[key]).inc();
                 return Err(AppError::RateLimited);
             } else {
                 entry.count += 1;

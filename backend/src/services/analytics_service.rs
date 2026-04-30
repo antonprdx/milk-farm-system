@@ -1023,16 +1023,17 @@ pub async fn time_series_comparison(
 
     let mut models = Vec::new();
 
-    models.push(fit_ses(train, test, &dates_clean, forecast_days, last_date.ok()));
-    models.push(fit_sma(train, test, &dates_clean, forecast_days, last_date.ok(), 7));
-    models.push(fit_wma(train, test, &dates_clean, forecast_days, last_date.ok(), 7));
-    models.push(fit_linear_regression(train, test, &dates_clean, forecast_days, last_date.ok()));
-    models.push(fit_double_exponential(train, test, &dates_clean, forecast_days, last_date.ok()));
+    let total_len = train.len() + test.len();
+    models.push(add_seasonal(fit_ses(train, test, &dates_clean, forecast_days, last_date.ok()), train, period, total_len));
+    models.push(add_seasonal(fit_sma(train, test, &dates_clean, forecast_days, last_date.ok(), 7), train, period, total_len));
+    models.push(add_seasonal(fit_wma(train, test, &dates_clean, forecast_days, last_date.ok(), 7), train, period, total_len));
+    models.push(add_seasonal(fit_linear_regression(train, test, &dates_clean, forecast_days, last_date.ok()), train, period, total_len));
+    models.push(add_seasonal(fit_double_exponential(train, test, &dates_clean, forecast_days, last_date.ok()), train, period, total_len));
     if values.len() >= 2 * period {
         models.push(fit_holt_winters_model(train, test, &dates_clean, forecast_days, last_date.ok(), period));
     }
     models.push(fit_fourier(train, test, &dates_clean, forecast_days, last_date.ok(), 3));
-    models.push(fit_arima_011(train, test, &dates_clean, forecast_days, last_date.ok()));
+    models.push(add_seasonal(fit_arima_011(train, test, &dates_clean, forecast_days, last_date.ok()), train, period, total_len));
 
     let best = models
         .iter()
@@ -1074,6 +1075,54 @@ fn calc_metrics(actual: &[f64], fitted: &[f64]) -> (f64, f64) {
     (r2(mape), r2(rmse))
 }
 
+fn compute_seasonal_indices(actual: &[f64], fitted: &[f64], period: usize) -> Option<Vec<f64>> {
+    if actual.len() < period * 2 || fitted.len() < period { return None; }
+    let min_len = actual.len().min(fitted.len());
+    let mut seasonal_sums = vec![0.0_f64; period];
+    let mut seasonal_counts = vec![0usize; period];
+    for i in 0..min_len {
+        seasonal_sums[i % period] += actual[i] - fitted[i];
+        seasonal_counts[i % period] += 1;
+    }
+    let mut seasonal = vec![0.0; period];
+    for k in 0..period {
+        if seasonal_counts[k] > 0 {
+            seasonal[k] = seasonal_sums[k] / seasonal_counts[k] as f64;
+        }
+    }
+    let mean_s: f64 = seasonal.iter().sum::<f64>() / period as f64;
+    for s in seasonal.iter_mut() { *s -= mean_s; }
+    Some(seasonal)
+}
+
+fn add_seasonal(mut result: ModelResult, train: &[f64], period: usize, total_len: usize) -> ModelResult {
+    let fitted_vals: Vec<f64> = result.fitted.iter().map(|p| p.value).collect();
+    if let Some(seasonal) = compute_seasonal_indices(train, &fitted_vals, period) {
+        for (i, pt) in result.fitted.iter_mut().enumerate() {
+            pt.value = r2(pt.value + seasonal[i % period]);
+        }
+        for (h, pt) in result.forecast.iter_mut().enumerate() {
+            pt.value = r2(pt.value + seasonal[(total_len + h) % period]);
+        }
+    }
+    result
+}
+
+fn compute_trend_slope(values: &[f64], min_points: usize) -> f64 {
+    let n = values.len();
+    if n < 2 { return 0.0; }
+    let window = min_points.min(n);
+    let data = &values[n - window..];
+    let len = data.len() as f64;
+    let sum_x: f64 = (0..data.len()).map(|i| i as f64).sum();
+    let sum_y: f64 = data.iter().sum();
+    let sum_xy: f64 = (0..data.len()).map(|i| i as f64 * data[i]).sum();
+    let sum_x2: f64 = (0..data.len()).map(|i| (i as f64).powi(2)).sum();
+    let denom = len * sum_x2 - sum_x * sum_x;
+    if denom.abs() < 1e-12 { return 0.0; }
+    (len * sum_xy - sum_x * sum_y) / denom
+}
+
 fn fit_ses(
     train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>,
 ) -> ModelResult {
@@ -1110,12 +1159,7 @@ fn fit_ses(
     let test_fitted: Vec<f64> = test.iter().map(|_| level).collect();
     let (mape, rmse) = calc_metrics(test, &test_fitted);
 
-    let implied_slope = if fitted_vals.len() >= 3 {
-        let recent = &fitted_vals[fitted_vals.len() - 3..];
-        (recent[2] - recent[0]) / 2.0
-    } else {
-        0.0
-    };
+    let implied_slope = compute_trend_slope(&fitted_vals, 14);
 
     let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
     let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| ModelForecastPoint {
@@ -1158,15 +1202,7 @@ fn fit_sma(
     let test_fitted: Vec<f64> = test.iter().map(|_| last_avg).collect();
     let (mape, rmse) = calc_metrics(test, &test_fitted);
 
-    let implied_slope = if fitted_vals.len() >= window * 2 {
-        let recent_a = fitted_vals[fitted_vals.len() - window..].iter().sum::<f64>() / window as f64;
-        let prev_a = fitted_vals[fitted_vals.len() - window * 2..fitted_vals.len() - window].iter().sum::<f64>() / window as f64;
-        (recent_a - prev_a) / window as f64
-    } else if fitted_vals.len() >= 2 {
-        fitted_vals[fitted_vals.len() - 1] - fitted_vals[fitted_vals.len() - 2]
-    } else {
-        0.0
-    };
+    let implied_slope = compute_trend_slope(&fitted_vals, window * 2);
 
     let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
     let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| ModelForecastPoint {
@@ -1212,15 +1248,7 @@ fn fit_wma(
     let test_fitted: Vec<f64> = test.iter().map(|_| last_val).collect();
     let (mape, rmse) = calc_metrics(test, &test_fitted);
 
-    let implied_slope = if fitted_vals.len() >= window * 2 {
-        let recent_a = fitted_vals[fitted_vals.len() - window..].iter().sum::<f64>() / window as f64;
-        let prev_a = fitted_vals[fitted_vals.len() - window * 2..fitted_vals.len() - window].iter().sum::<f64>() / window as f64;
-        (recent_a - prev_a) / window as f64
-    } else if fitted_vals.len() >= 2 {
-        fitted_vals[fitted_vals.len() - 1] - fitted_vals[fitted_vals.len() - 2]
-    } else {
-        0.0
-    };
+    let implied_slope = compute_trend_slope(&fitted_vals, window * 2);
 
     let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
     let forecast: Vec<ModelForecastPoint> = fc_dates.iter().enumerate().map(|(h, d)| ModelForecastPoint {
@@ -1358,7 +1386,7 @@ fn fit_fourier(
     let mut sin_coeffs = vec![0.0_f64; harmonics];
 
     for k in 0..harmonics {
-        let period = base_period / (k as f64 + 1.0).min(1.0);
+        let period = base_period / (k as f64 + 1.0);
         let mut cc = 0.0_f64;
         let mut sc = 0.0_f64;
         for (i, &v) in detrended.iter().enumerate() {
@@ -1374,7 +1402,7 @@ fn fit_fourier(
         let mut val = intercept + slope * idx as f64;
         let t = idx as f64;
         for k in 0..harmonics {
-            let period = base_period / (k as f64 + 1.0).min(1.0);
+            let period = base_period / (k as f64 + 1.0);
             let angle = 2.0 * std::f64::consts::PI * t / period;
             val += cos_coeffs[k] * angle.cos() + sin_coeffs[k] * angle.sin();
         }

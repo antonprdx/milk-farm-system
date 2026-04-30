@@ -2,11 +2,13 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from logging import getLogger
 import os
+import time
 
 import joblib
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -90,8 +92,11 @@ MODEL_FILES = {
     "cow_clusters": "cow_clusters.pkl",
     "estrus": "estrus_xgb.pkl",
     "equipment_anomaly": "equipment_anomaly.pkl",
-    "ketosis_warning": "ketosis_warning_xgb.pkl",
+    "ketosis_warning": "ketosis_warning.pkl",
 }
+
+_start_time = time.time()
+_request_count = {"total": 0}
 
 
 def _check_model(name: str) -> str | None:
@@ -202,6 +207,32 @@ async def health():
         models=_model_timestamps.copy(),
         database_connected=db_ok,
     )
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics():
+    _request_count["total"] += 1
+    uptime = time.time() - _start_time
+    trained = sum(1 for v in _model_timestamps.values() if v is not None)
+    total_models = len(MODEL_FILES)
+    lines = [
+        "# HELP ml_http_requests_total Total HTTP requests to ML service",
+        "# TYPE ml_http_requests_total counter",
+        f"ml_http_requests_total {_request_count['total']}",
+        "",
+        "# HELP ml_uptime_seconds Service uptime in seconds",
+        "# TYPE ml_uptime_seconds gauge",
+        f"ml_uptime_seconds {uptime:.0f}",
+        "",
+        "# HELP ml_models_trained Number of trained models",
+        "# TYPE ml_models_trained gauge",
+        f"ml_models_trained {trained}",
+        "",
+        "# HELP ml_models_total Total number of ML models",
+        "# TYPE ml_models_total gauge",
+        f"ml_models_total {total_models}",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 @app.post("/predict/mastitis", response_model=MastitisRiskResponse)

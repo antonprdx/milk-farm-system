@@ -64,8 +64,11 @@ if ! "$ML_VENV/bin/python" -c "import fastapi" 2>/dev/null; then
         2>/dev/null || true
     echo "  Done."
 fi
-DATABASE_URL="postgresql+asyncpg://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME" \
-    "$ML_VENV/bin/uvicorn" app.main:app --host 0.0.0.0 --port $ML_PORT --app-dir analytics-ml || true &
+ML_ENV="DATABASE_URL=postgresql+asyncpg://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME"
+if [ "$ENABLE_MONITORING" = true ]; then
+    ML_ENV="$ML_ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317"
+fi
+env $ML_ENV "$ML_VENV/bin/uvicorn" app.main:app --host 0.0.0.0 --port $ML_PORT --app-dir analytics-ml || true &
 ML_PID=$!
 sleep 2
 if ! kill -0 $ML_PID 2>/dev/null; then
@@ -114,9 +117,10 @@ cleanup() {
     if [ "$ENABLE_MONITORING" = true ]; then
         docker compose -f docker-compose.monitoring.yml -f docker-compose.monitoring.dev.yml down 2>/dev/null || true
     fi
-    kill $BACKEND_PID $FRONTEND_PID $ML_PID 2>/dev/null
+    kill $BACKEND_PID $FRONTEND_PID $ML_PID $MOCK_LELY_PID 2>/dev/null
     wait $BACKEND_PID $FRONTEND_PID 2>/dev/null
     [ -n "$ML_PID" ] && wait $ML_PID 2>/dev/null
+    [ -n "$MOCK_LELY_PID" ] && wait $MOCK_LELY_PID 2>/dev/null
     exit 0
 }
 trap cleanup INT TERM
@@ -127,9 +131,33 @@ if [ "$ENABLE_MONITORING" = true ]; then
     echo "Monitoring: http://localhost:3001 (admin/admin)"
 fi
 
+MOCK_LELY_PORT=1988
+echo "Starting mock Lely server on port $MOCK_LELY_PORT..."
+fuser -k $MOCK_LELY_PORT/tcp 2>/dev/null || true
+(cd backend && cargo run --bin mock_lely -- --port $MOCK_LELY_PORT --cows "$SEED_COWS") &
+MOCK_LELY_PID=$!
+
 echo "Starting backend..."
 fuser -k 3000/tcp 2>/dev/null || true
-(cd backend && cargo run --bin milk-farm-backend) &
+OTEL_EXPORTER_OTLP_ENDPOINT=""
+LOG_DIR="/tmp/milk-farm-logs"
+mkdir -p "$LOG_DIR"
+if [ "$ENABLE_MONITORING" = true ]; then
+    OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
+fi
+LOG_FILE="$LOG_DIR/backend.json"
+env \
+    LELY_ENABLED=true \
+    LELY_BASE_URL="http://localhost:$MOCK_LELY_PORT" \
+    LELY_USERNAME=mock \
+    LELY_PASSWORD=mock \
+    LELY_FARM_KEY=mock-farm \
+    LELY_ENCRYPTION_KEY="01234567890123456789012345678901" \
+    LELY_SYNC_INTERVAL_SECS=60 \
+    OTEL_EXPORTER_OTLP_ENDPOINT="$OTEL_EXPORTER_OTLP_ENDPOINT" \
+    RUST_LOG="info,milk_farm_backend=debug" \
+    RUST_LOG_FORMAT="json" \
+    bash -c 'cd backend && cargo run --bin milk-farm-backend 2>&1 | tee "$0"' "$LOG_FILE" &
 BACKEND_PID=$!
 
 echo "Waiting for backend to be ready..."
@@ -155,10 +183,19 @@ echo "Starting frontend..."
 (cd frontend && npm run dev) &
 FRONTEND_PID=$!
 
+OPEN_BROWSER=true
+for arg in "$@"; do
+    case $arg in
+        --no-open|-n) OPEN_BROWSER=false ;;
+    esac
+done
+
 echo ""
 echo "    Running!"
 echo "    Frontend:   http://localhost:5173"
 echo "    Backend:    http://localhost:3000"
+echo "    Swagger:    http://localhost:3000/api/v1/docs"
+echo "    Mock Lely:  http://localhost:$MOCK_LELY_PORT"
 echo "    ML service: http://localhost:$ML_PORT"
 echo "    Login: admin / admin"
 if [ "$ENABLE_MONITORING" = true ]; then
@@ -166,5 +203,15 @@ echo "    Grafana:    http://localhost:3001 (admin/admin)"
 echo "    Prometheus: http://localhost:9090"
 fi
 echo ""
+
+if [ "$OPEN_BROWSER" = true ]; then
+    sleep 3
+    xdg-open "http://localhost:5173" 2>/dev/null &
+    xdg-open "http://localhost:3000/api/v1/docs" 2>/dev/null &
+    if [ "$ENABLE_MONITORING" = true ]; then
+        xdg-open "http://localhost:3001" 2>/dev/null &
+        xdg-open "http://localhost:9090" 2>/dev/null &
+    fi
+fi
 
 wait

@@ -5,6 +5,7 @@
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
 	import LactationCurveChart from '$lib/components/LactationCurveChart.svelte';
 	import SeasonalChart from '$lib/components/SeasonalChart.svelte';
+	import ClusterChart from '$lib/components/ClusterChart.svelte';
 	import {
 		getLactationCurves,
 		getHealthIndex,
@@ -375,7 +376,7 @@
 					class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 mb-4"
 				>
 					<h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2"
-						>{curve.animal_name ?? `#${curve.animal_id}`}
+						><a href="/animals/{curve.animal_id}" class="hover:underline">{curve.animal_name ?? `#${curve.animal_id}`}</a>
 						— Лактация {curve.lac_number} (DIM {curve.current_dim})</h3
 					>
 					<div
@@ -423,7 +424,7 @@
 								class="hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
 								onclick={() => (lactationDetailAnimal = c.animal_id)}
 							>
-								<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+								<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 								<td class={tdCls}>{c.lac_number}</td>
 								<td class={tdCls}>{c.current_dim}</td>
 								<td class={tdCls}>{c.peak_milk?.toFixed(1) ?? '—'}</td>
@@ -457,7 +458,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(healthData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={`${tdCls} font-semibold ${scoreColor(c.health_score)}`}>{c.health_score.toFixed(1)}</td>
 							<td class={tdCls}>
 								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.risk_level)}">{riskLabel(c.risk_level)}</span>
@@ -492,7 +493,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(fertilityData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={tdCls}>{c.days_since_calving ?? '—'}</td>
 							<td class={tdCls}>{c.activity_signal !== null ? (c.activity_signal > 1 ? `↑${c.activity_signal.toFixed(2)}` : c.activity_signal.toFixed(2)) : '—'}</td>
 							<td class={tdCls}>{c.rumination_signal !== null ? (c.rumination_signal < 1 ? `↓${c.rumination_signal.toFixed(2)}` : c.rumination_signal.toFixed(2)) : '—'}</td>
@@ -564,7 +565,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(profitData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={tdCls}>{c.avg_daily_milk?.toFixed(1) ?? '—'}</td>
 							<td class={tdCls}>{c.avg_daily_feed?.toFixed(1) ?? '—'}</td>
 							<td class={tdCls}>{c.estimated_milk_revenue_day?.toFixed(1) ?? '—'}</td>
@@ -652,7 +653,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(mastitisData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={`${tdCls} font-semibold ${(c.risk_score) >= 0.6 ? 'text-red-600 dark:text-red-400' : (c.risk_score >= 0.3 ? 'text-orange-600 dark:text-orange-400' : 'text-yellow-600 dark:text-yellow-400')}`}>{(c.risk_score * 100).toFixed(0)}%</td>
 							<td class={tdCls}>
 								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(c.risk_level)}">{riskLabel(c.risk_level)}</span>
@@ -688,7 +689,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(cullingData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={`${tdCls} font-semibold ${(c.risk_score) >= 0.6 ? 'text-red-600 dark:text-red-400' : (c.risk_score >= 0.3 ? 'text-orange-600 dark:text-orange-400' : 'text-yellow-600 dark:text-yellow-400')}`}>{(c.risk_score * 100).toFixed(0)}%</td>
 							<td class={tdCls}>{c.expected_days_remaining !== null ? `${c.expected_days_remaining} д` : '—'}</td>
 							<td class={tdCls}>
@@ -722,7 +723,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(energyData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={tdCls}>{c.avg_fat_pct?.toFixed(2) ?? '—'}</td>
 							<td class={tdCls}>{c.avg_protein_pct?.toFixed(2) ?? '—'}</td>
 							<td class={`${tdCls} font-semibold`}>{c.fat_protein_ratio?.toFixed(2) ?? '—'}</td>
@@ -758,7 +759,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(udderData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={tdCls}>{c.lf_conductivity?.toFixed(1) ?? '—'}</td>
 							<td class={tdCls}>{c.lr_conductivity?.toFixed(1) ?? '—'}</td>
 							<td class={tdCls}>{c.rf_conductivity?.toFixed(1) ?? '—'}</td>
@@ -801,7 +802,7 @@
 				</div>
 				<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4">
 					<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Корова</div>
-					<div class="text-lg font-bold">{forecastData.animal_name ?? `#${forecastData.animal_id}`}</div>
+					<div class="text-lg font-bold"><a href="/animals/{forecastData.animal_id}" class="hover:underline">{forecastData.animal_name ?? `#${forecastData.animal_id}`}</a></div>
 				</div>
 				<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 p-4">
 					<div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Модель</div>
@@ -837,6 +838,10 @@
 	<!-- COW CLUSTERS -->
 	{:else if activeTab === 'clusters'}
 		{#if clusterData && clusterData.clusters.length > 0}
+			<div class="mb-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
+				<h3 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Распределение стада по кластерам</h3>
+				<ClusterChart data={clusterData} />
+			</div>
 			{#if Object.keys(clusterData.cluster_names).length > 0}
 				<div class="mb-4 flex flex-wrap gap-2">
 					{#each Object.entries(clusterData.cluster_names) as [id, name] (id)}
@@ -861,7 +866,7 @@
 					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 						{#each paginate(clusterData.clusters.toSorted((a, b) => a.cluster_id - b.cluster_id)) as c (c.animal_id)}
 							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-								<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+								<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 								<td class={tdCls}>
 									<span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">{c.cluster_name}</span>
 								</td>
@@ -896,7 +901,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(estrusData.predictions.toSorted((a, b) => b.estrus_probability - a.estrus_probability)) as p (p.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{p.animal_name ?? `#${p.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{p.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{p.animal_name ?? `#${p.animal_id}`}</a></td>
 							<td class={`${tdCls} font-semibold ${p.estrus_probability >= 0.7 ? 'text-red-600 dark:text-red-400' : p.estrus_probability >= 0.4 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{(p.estrus_probability * 100).toFixed(0)}%</td>
 							<td class={tdCls}>
 								<span class="px-2 py-0.5 rounded-full text-xs font-medium {riskBadge(p.status === 'in_heat' ? 'high' : p.status === 'approaching' ? 'medium' : 'low')}">{estrStatusLabel(p.status)}</span>
@@ -937,7 +942,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(equipmentData.entries.filter(e => e.is_anomaly).toSorted((a, b) => a.anomaly_score - b.anomaly_score)) as e (e.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 bg-red-50/50 dark:bg-red-900/10">
-								<td class={tdCls}>{e.animal_name ?? `#${e.animal_id}`}</td>
+								<td class={tdCls}><a href="/animals/{e.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{e.animal_name ?? `#${e.animal_id}`}</a></td>
 								<td class={tdCls}>#{e.device_address ?? '—'}</td>
 								<td class={`${tdCls} font-semibold text-red-600 dark:text-red-400`}>Да</td>
 								<td class={tdCls}>{e.anomaly_score.toFixed(4)}</td>
@@ -975,7 +980,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(feedRecData.recommendations.toSorted((a, b) => Math.abs(b.difference_kg) - Math.abs(a.difference_kg))) as r (r.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{r.animal_name ?? `#${r.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{r.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{r.animal_name ?? `#${r.animal_id}`}</a></td>
 							<td class={tdCls}>{r.dim_days}</td>
 							<td class={tdCls}>{r.lactation_number}</td>
 							<td class={tdCls}>{r.current_feed_avg.toFixed(1)} кг</td>
@@ -1009,7 +1014,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(ketosisData.predictions.toSorted((a, b) => b.risk_probability - a.risk_probability)) as k (k.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{k.animal_name ?? `#${k.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{k.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{k.animal_name ?? `#${k.animal_id}`}</a></td>
 							<td class={`${tdCls} font-semibold ${k.risk_probability >= 0.7 ? 'text-red-600 dark:text-red-400' : k.risk_probability >= 0.4 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{(k.risk_probability * 100).toFixed(0)}%</td>
 							<td class={tdCls}>
 								<span class="px-2 py-0.5 rounded-full text-xs font-medium {k.risk_type === 'ketosis_risk' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-400' : k.risk_type === 'acidosis_risk' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}">{k.risk_type}</span>
@@ -1057,7 +1062,7 @@
 					{#each paginate(feedEffData.cows) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}>{c.efficiency_rank ?? '—'}</td>
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={tdCls}>{c.avg_daily_milk?.toFixed(1) ?? '—'}</td>
 							<td class={tdCls}>{c.avg_daily_feed?.toFixed(1) ?? '—'}</td>
 							<td class={`${tdCls} font-semibold ${scoreColor((c.feed_efficiency ?? 0) * 2, 100)}`}>{c.feed_efficiency?.toFixed(3) ?? '—'}</td>
@@ -1089,7 +1094,7 @@
 					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 						{#each paginate(dryOffData.cows.toSorted((a, b) => (a.days_until_dry_off ?? 999) - (b.days_until_dry_off ?? 999))) as c (c.animal_id)}
 							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-								<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+								<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 								<td class={tdCls}>{c.expected_calving_date ?? '—'}</td>
 								<td class={tdCls}>{c.current_daily_milk?.toFixed(1) ?? '—'}</td>
 								<td class={tdCls}>{c.recommended_dry_off_date ?? '—'}</td>
@@ -1128,7 +1133,7 @@
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
 					{#each paginate(lifetimeData.cows.toSorted((a, b) => (b.projected_net_value ?? 0) - (a.projected_net_value ?? 0))) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-							<td class={tdCls}>{c.animal_name ?? `#${c.animal_id}`}</td>
+							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={tdCls}>{c.age_years?.toFixed(1) ?? '—'}</td>
 							<td class={tdCls}>{c.lactation_count}</td>
 							<td class={tdCls}>{c.total_milk_produced?.toFixed(0) ?? '—'}</td>

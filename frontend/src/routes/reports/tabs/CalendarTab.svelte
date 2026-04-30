@@ -19,7 +19,7 @@
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 					{#each data.expected_calvings as row (row.animal_id)}
 						<tr>
-							<td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdHidden}>{row.lac_number ?? '—'}</td>
+							<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td><td class={tdHidden}>{row.lac_number ?? '—'}</td>
 							<td class={tdHidden}>{row.last_insemination_date ?? '—'}</td><td class={tdCls}>{row.expected_calving_date ?? '—'}</td>
 							<td class={tdCls}><span class={row.days_until_calving && row.days_until_calving < 14 ? badgeRed : row.days_until_calving && row.days_until_calving < 30 ? badgeYellow : ''}>{row.days_until_calving ?? '—'}</span></td>
 							<td class={tdHidden}>{row.sire_code ?? '—'}</td><td class={tdHidden}>{row.days_pregnant ?? '—'}</td>
@@ -42,7 +42,7 @@
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 					{#each data.expected_dry_offs as row (row.animal_id)}
 						<tr>
-							<td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
+							<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td>
 							<td class={tdCls}>{row.expected_calving_date ?? '—'}</td>
 							<td class={tdCls}>{row.recommended_dry_off_date ?? '—'}</td>
 							<td class={tdCls}><span class={row.days_until_dry_off && row.days_until_dry_off < 7 ? badgeRed : row.days_until_dry_off && row.days_until_dry_off < 14 ? badgeYellow : ''}>{row.days_until_dry_off ?? '—'}</span></td>
@@ -65,7 +65,7 @@
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 					{#each data.expected_heats as row (row.animal_id)}
 						<tr>
-							<td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
+							<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td>
 							<td class={tdCls}>{row.last_heat_date ?? '—'}</td>
 							<td class={tdCls}>{row.expected_heat_date ?? '—'}</td>
 							<td class={tdCls}><span class={row.overdue ? badgeRed : row.days_until_heat && row.days_until_heat < 3 ? badgeYellow : ''}>{row.days_until_heat ?? '—'}</span></td>
@@ -90,7 +90,7 @@
 				<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 					{#each data.pregnancy_checks as row (row.animal_id)}
 						<tr>
-							<td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
+							<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td>
 							<td class={tdCls}>{row.insemination_date ?? '—'}</td>
 							<td class={tdCls}>{row.sire_code ?? '—'}</td>
 							<td class={tdCls}><span class={badgeYellow}>{row.days_since_insemination ?? '—'}</span></td>

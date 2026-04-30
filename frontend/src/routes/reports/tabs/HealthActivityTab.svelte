@@ -41,7 +41,7 @@
 			<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 				{#each rows as row (row.animal_id)}
 					<tr>
-						<td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
+						<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td>
 						<td class={tdCls}><span class={row.health_index && row.health_index < 75 ? badgeRed : row.health_index && row.health_index < 80 ? badgeYellow : ''}>{fmtNum(row.health_index, 0)}</span></td>
 						<td class={tdHidden}>{fmtNum(row.activity_deviation, 0)}</td>
 						<td class={tdCls}>{row.rumination_minutes ?? '—'}</td>

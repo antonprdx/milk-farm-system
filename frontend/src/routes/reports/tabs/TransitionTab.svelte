@@ -18,7 +18,7 @@
 		<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 			{#each data.rows as row (row.animal_id)}
 				<tr>
-					<td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
+					<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td>
 					<td class={tdCls}><span class={row.days_relative === 0 ? badgeYellow : row.days_relative < 0 ? 'text-blue-600 dark:text-blue-400' : ''}>{row.days_relative > 0 ? '+' : ''}{row.days_relative}</span></td>
 					<td class={tdCls}>{fmtNum(row.milk_24h)}</td>
 					<td class={tdCls}><span class={row.rumination_3day_diff && row.rumination_3day_diff < -60 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>{row.rumination_3day_diff ?? '—'}</span></td>

@@ -10,6 +10,7 @@ pub mod services;
 pub mod state;
 pub mod validation;
 
+use state::AppState;
 use state::AppStateInner;
 use utoipa::OpenApi;
 
@@ -94,6 +95,8 @@ pub fn create_app(state: std::sync::Arc<AppStateInner>) -> axum::Router {
 }
 
 async fn metrics_endpoint(
+    axum::extract::State(state): axum::extract::State<AppState>,
 ) -> Result<String, crate::errors::AppError> {
+    crate::middleware::metrics::update_db_pool_metrics(&state.pool);
     Ok(crate::middleware::metrics::gather())
 }

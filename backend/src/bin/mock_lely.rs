@@ -960,8 +960,8 @@ async fn get_feed_visits(
     while d <= till {
         for a in &animals {
             let num_visits = rng.random_range(3..=8);
-            for _ in 0..num_visits {
-                let hour = rng.random_range(5..=21);
+            for vi in 0..num_visits {
+                let hour = 5 + ((vi * 18 / num_visits.max(1)) % 17);
                 let dt = Utc
                     .with_ymd_and_hms(
                         d.year(),
@@ -969,7 +969,7 @@ async fn get_feed_visits(
                         d.day(),
                         hour as u32,
                         rng.random_range(0..59),
-                        0,
+                        rng.random_range(0..59),
                     )
                     .single()
                     .unwrap_or_default();
@@ -1429,9 +1429,9 @@ async fn main() {
 
     let addr = format!("0.0.0.0:{}", args.port);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    tracing::info!("🤖 Mock Lely API сервер запущено на http://{}", addr);
-    tracing::info!("   FarmKey: будь-яке значення");
-    tracing::info!("   Username/Password: будь-які значення");
+    tracing::info!("Mock Lely API сервер запущен на http://{}", addr);
+    tracing::info!("   FarmKey: любое значение");
+    tracing::info!("   Username/Password: любые значения");
     tracing::info!("   Коров: {}", args.cows);
 
     axum::serve(listener, app).await.unwrap();

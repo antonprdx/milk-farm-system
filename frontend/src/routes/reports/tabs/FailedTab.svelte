@@ -18,7 +18,7 @@
 		<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 			{#each rows as row (row.animal_id + '-' + row.visit_datetime)}
 				<tr>
-					<td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
+					<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td>
 					<td class={tdCls}>{new Date(row.visit_datetime).toLocaleString('ru-RU')}</td>
 					<td class={tdHidden}>{row.device_address ?? '—'}</td>
 					<td class={tdCls}>{fmtNum(row.milk_yield)}</td>

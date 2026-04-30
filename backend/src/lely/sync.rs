@@ -33,9 +33,11 @@ pub fn start_sync_scheduler(state: Arc<AppStateInner>) {
 
             match run_sync(&state_clone).await {
                 Ok(()) => {
+                    crate::middleware::metrics::LELY_SYNC_TOTAL.with_label_values(&["success"]).inc();
                     tracing::info!("Цикл синхронизации Lely завершён");
                 }
                 Err(e) => {
+                    crate::middleware::metrics::LELY_SYNC_TOTAL.with_label_values(&["error"]).inc();
                     tracing::error!(error = %e, "Ошибка цикла синхронизации Lely");
                 }
             }

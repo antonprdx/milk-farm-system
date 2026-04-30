@@ -20,7 +20,7 @@
 		<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 			{#each data.rows as row (row.animal_id)}
 				<tr>
-					<td class={tdCls}>{row.animal_name ?? row.animal_id}</td>
+					<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td>
 					<td class={tdCls}><span class={statusBadge(row.sick_chance_status)}>{fmtNum(row.sick_chance, 0)}</span></td>
 					<td class={tdCls}><span class={statusBadge(row.sick_chance_status)}>{row.sick_chance_status}</span></td>
 					<td class={tdHidden}>{fmtNum(row.milk_drop_kg)}</td>

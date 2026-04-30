@@ -29,7 +29,7 @@
 		<tbody class="divide-y divide-slate-200 dark:divide-slate-700">
 			{#each data.rows as row (row.animal_id + '-' + row.feed_date + '-' + row.feed_number)}
 				<tr>
-					<td class={tdCls}>{row.animal_name ?? row.animal_id}</td><td class={tdCls}>{row.feed_date}</td>
+					<td class={tdCls}><a href="/animals/{row.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{row.animal_name ?? row.animal_id}</a></td><td class={tdCls}>{row.feed_date}</td>
 					<td class={tdCls}>{row.feed_number}</td><td class={tdCls}>{fmtNum(row.total_planned)}</td>
 					<td class={tdCls}>{row.rest_feed ?? '—'}</td>
 					<td class={tdCls}>
