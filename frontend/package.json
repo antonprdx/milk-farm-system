@@ -45,6 +45,7 @@
 	},
 	"dependencies": {
 		"chart.js": "^4.5.1",
-		"lucide-svelte": "^1.0.1"
+		"lucide-svelte": "^1.0.1",
+		"svelte-tiny-virtual-list": "^3.0.1"
 	}
 }

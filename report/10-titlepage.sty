@@ -61,16 +61,16 @@
 
 \newcommand\makeHeader{
     \noindent\begin{minipage}{0.05\textwidth}
-        \includegraphics[scale=0.4]{inc/mai.pdf}
+        \includegraphics[scale=0.4]{mai.pdf}
     \end{minipage}
     \hfill
     \begin{minipage}{0.85\textwidth}\raggedleft
         \begin{center}
-            \fontsize{11pt}{10pt}\selectfont 
+            \fontsize{11pt}{13pt}\selectfont 
             \textbf{МИНИСТЕРСТВО НАУКИ И ВЫСШЕГО ОБРАЗОВАНИЯ \\
                 РОССИЙСКОЙ ФЕДЕРАЦИИ \\ 
                 \hfill\break
-                ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ БЮДЖЕТНОЕ \\
+                ФЕДЕРАЛЬНОЕ ГОСУДАРСТВЕННОЕ АВТОНОМНОЕ \\
                 ОБРАЗОВАТЕЛЬНОЕ УЧРЕЖДЕНИЕ ВЫСШЕГО ОБРАЗОВАНИЯ \\ 
                 <<МОСКОВСКИЙ АВИАЦИОННЫЙ ИНСТИТУТ
             } \\
@@ -83,7 +83,7 @@
     \begingroup
         \fontsize{12pt}{16pt}\selectfont
         \noindent
-        \textbf{Институт (Филиал)} \uline{\@faculty\hfill} \textbf{Кафедра} \uline{\@department\hfill} \\
+        \textbf{Институт (Филиал)} \uline{\@faculty\hfill} \textbf{Образовательный центр} \uline{\@department\hfill} \\
         \textbf{Группа} \uline{\@group} \textbf{Направление подготовки} \expandafter\uline\expandafter{\expanded{\@speciality}\hfill} \\
         \textbf{\profileType} \uline{\@profile\hfill} \\
         \textbf{Квалификация:} \uline{\textbf{\degree}\hfill} 
@@ -91,8 +91,8 @@
 }
 
 \newcommand\makeTheme[1]{
-    \noindent на тему:
-    #1
+    \noindent На тему:
+    \expandafter\uline\expandafter{\expanded{#1}\hfill}
 }
 
 \newcommand\signature[1]{
@@ -116,14 +116,14 @@
     \vspace{2cm}
     
     \begingroup
-        \setlength{\tabcolsep}{3em}
-        \renewcommand{\arraystretch}{1.4}
-        \noindent\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}Xr@{}}
-            Автор \workNameShort: & \@student          & \signature{2cm} \\
-            \supervisorType:      & \@supervisor       & \signature{2cm} \\
-            Консультант:          & \@firstConsultant  & \signature{2cm} \\
-            Консультант:          & \@secondConsultant & \signature{2cm} \\
-            Рецензент:            & \@reviewer         & \signature{2cm} \\
+        \setlength{\tabcolsep}{0pt}
+        \renewcommand{\arraystretch}{1.2}
+        \noindent\begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}Xr}
+            \noindent Автор \workNameShort: \uline{\hfill} & \uline{\hspace{2cm} \@student          \hfill} & \signature{2cm} \\
+            \noindent \supervisorType:      \uline{\hfill} & \uline{\hspace{2cm} \@supervisor       \hfill} & \signature{2cm} \\
+            \noindent Консультант:          \uline{\hfill} & \uline{\hspace{2cm} \@firstConsultant  \hfill} & \signature{2cm} \\
+            \noindent Консультант:          \uline{\hfill} & \uline{\hspace{2cm} \@secondConsultant \hfill} & \signature{2cm} \\
+            \noindent Рецензент:            \uline{\hfill} & \uline{\hspace{2cm} \@reviewer         \hfill} & \signature{2cm} \\
         \end{tabularx}
     \endgroup
 
@@ -133,13 +133,7 @@
 
     \vspace{0.5cm}
     
-    \begingroup
-        \setlength{\tabcolsep}{1.5em}
-        \renewcommand{\arraystretch}{1.4}
-        \noindent\begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}Xr@{}}
-            Заведующий кафедрой \@departmentFullName & \@headOfDepartment & \signature{} \\
-        \end{tabularx}
-    \endgroup
+    \noindent Заведующий кафедрой \@departmentFullName\ \uline{\hfill \@headOfDepartment \hfill}\ \signature{2cm}
     
     \noindent \@date
 

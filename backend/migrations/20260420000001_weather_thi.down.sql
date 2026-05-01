@@ -1,0 +1,1 @@
+ALTER TABLE weather_cache DROP COLUMN IF EXISTS thi;

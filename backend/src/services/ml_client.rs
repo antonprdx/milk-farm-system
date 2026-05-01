@@ -112,6 +112,30 @@ struct MlForecastDay {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct AdvancedForecastDay {
+    pub date: String,
+    pub value: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdvancedForecastResponse {
+    #[allow(dead_code)]
+    pub animal_id: i32,
+    pub animal_name: Option<String>,
+    pub arima: Option<AdvancedModelBlock>,
+    pub nbeats: Option<AdvancedModelBlock>,
+    #[allow(dead_code)]
+    pub tsfresh_features: std::collections::HashMap<String, f64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdvancedModelBlock {
+    #[allow(dead_code)]
+    pub model_type: Option<String>,
+    pub forecast: Vec<AdvancedForecastDay>,
+}
+
+#[derive(Debug, Deserialize)]
 struct MlClusterEntry {
     animal_id: i32,
     animal_name: Option<String>,
@@ -153,7 +177,10 @@ struct MlEstrusResponse {
 }
 
 #[derive(Debug, Serialize)]
-struct EmptyRequest {}
+struct EquipmentMLRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    animal_id: Option<i32>,
+}
 
 #[derive(Debug, Deserialize)]
 struct MlEquipmentEntry {
@@ -351,6 +378,30 @@ impl MlClient {
         })
     }
 
+    pub async fn advanced_forecast(
+        &self,
+        animal_id: i32,
+        days: i32,
+    ) -> Result<AdvancedForecastResponse, AppError> {
+        let resp = self
+            .post_request("/predict/advanced-forecast")
+            .json(&ForecastRequest { animal_id, days })
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
+
+        if !resp.status().is_success() {
+            return Err(AppError::Internal(anyhow::anyhow!(
+                "ML advanced-forecast returned {}",
+                resp.status()
+            )));
+        }
+
+        resp.json()
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))
+    }
+
     pub async fn cow_clusters(
         &self,
         days: i32,
@@ -481,10 +532,11 @@ impl MlClient {
 
     pub async fn estrus_detection(
         &self,
+        animal_id: Option<i32>,
         fallback_pool: &PgPool,
     ) -> Result<EstrusResponse, AppError> {
         if self.is_healthy().await {
-            match self.try_ml_estrus().await {
+            match self.try_ml_estrus(animal_id).await {
                 Ok(resp) => return Ok(resp),
                 Err(e) => {
                     tracing::warn!("ML estrus failed, falling back to rule-based: {}", e);
@@ -496,10 +548,11 @@ impl MlClient {
 
     pub async fn equipment_anomaly(
         &self,
+        animal_id: Option<i32>,
         fallback_pool: &PgPool,
     ) -> Result<EquipmentAnomalyResponse, AppError> {
         if self.is_healthy().await {
-            match self.try_ml_equipment().await {
+            match self.try_ml_equipment(animal_id).await {
                 Ok(resp) => return Ok(resp),
                 Err(e) => {
                     tracing::warn!("ML equipment anomaly failed, falling back to rule-based: {}", e);
@@ -511,10 +564,11 @@ impl MlClient {
 
     pub async fn feed_recommendation(
         &self,
+        animal_id: Option<i32>,
         fallback_pool: &PgPool,
     ) -> Result<FeedRecommendationResponse, AppError> {
         if self.is_healthy().await {
-            match self.try_ml_feed_rec().await {
+            match self.try_ml_feed_rec(animal_id).await {
                 Ok(resp) => return Ok(resp),
                 Err(e) => {
                     tracing::warn!("ML feed recommendation failed, falling back to rule-based: {}", e);
@@ -526,10 +580,11 @@ impl MlClient {
 
     pub async fn ketosis_warning(
         &self,
+        animal_id: Option<i32>,
         fallback_pool: &PgPool,
     ) -> Result<KetosisWarningResponse, AppError> {
         if self.is_healthy().await {
-            match self.try_ml_ketosis().await {
+            match self.try_ml_ketosis(animal_id).await {
                 Ok(resp) => return Ok(resp),
                 Err(e) => {
                     tracing::warn!("ML ketosis warning failed, falling back to rule-based: {}", e);
@@ -539,10 +594,10 @@ impl MlClient {
         super::predictive_service::ketosis_warning(fallback_pool).await
     }
 
-    async fn try_ml_estrus(&self) -> Result<EstrusResponse, AppError> {
+    async fn try_ml_estrus(&self, animal_id: Option<i32>) -> Result<EstrusResponse, AppError> {
         let resp = self
             .post_request("/predict/estrus")
-            .json(&EstrusMLRequest { animal_id: None })
+            .json(&EstrusMLRequest { animal_id })
             .send()
             .await
             .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
@@ -565,10 +620,10 @@ impl MlClient {
         })
     }
 
-    async fn try_ml_equipment(&self) -> Result<EquipmentAnomalyResponse, AppError> {
+    async fn try_ml_equipment(&self, animal_id: Option<i32>) -> Result<EquipmentAnomalyResponse, AppError> {
         let resp = self
             .post_request("/predict/equipment-anomaly")
-            .json(&EmptyRequest {})
+            .json(&EquipmentMLRequest { animal_id })
             .send()
             .await
             .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
@@ -592,10 +647,10 @@ impl MlClient {
         })
     }
 
-    async fn try_ml_feed_rec(&self) -> Result<FeedRecommendationResponse, AppError> {
+    async fn try_ml_feed_rec(&self, animal_id: Option<i32>) -> Result<FeedRecommendationResponse, AppError> {
         let resp = self
             .post_request("/predict/feed-recommendation")
-            .json(&FeedRecMLRequest { animal_id: None })
+            .json(&FeedRecMLRequest { animal_id })
             .send()
             .await
             .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;
@@ -620,10 +675,10 @@ impl MlClient {
         })
     }
 
-    async fn try_ml_ketosis(&self) -> Result<KetosisWarningResponse, AppError> {
+    async fn try_ml_ketosis(&self, animal_id: Option<i32>) -> Result<KetosisWarningResponse, AppError> {
         let resp = self
             .post_request("/predict/ketosis-warning")
-            .json(&KetosisMLRequest { animal_id: None })
+            .json(&KetosisMLRequest { animal_id })
             .send()
             .await
             .map_err(|e| AppError::Internal(anyhow::anyhow!(e.to_string())))?;

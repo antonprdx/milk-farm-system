@@ -1,0 +1,32 @@
+graph LR
+    subgraph PG ["PostgreSQL / TimescaleDB"]
+        M1[milk_day_productions]
+        M2[milk_quality]
+        M3[ruminations]
+        M4[feed_day_amounts]
+        M5[activities]
+    end
+
+    subgraph Backend ["Rust Backend"]
+        SYNC[clickhouse_sync.rs]
+        SYNC --> |"batch 50 000"| HTTP
+    end
+
+    subgraph CH ["ClickHouse"]
+        C1[milk_day_productions]
+        C2[milk_quality]
+        C3[ruminations]
+        C4[feed_day_amounts]
+        C5[activities]
+    end
+
+    subgraph API ["Analytics API"]
+        DASH["/analytics/dashboard"]
+        PRED["ML predictions"]
+    end
+
+    PG -->|"INSERT/UPDATE"| SYNC
+    SYNC -->|"HTTP :8123"| HTTP["ClickHouse\nHTTP API"]
+    HTTP --> C1 & C2 & C3 & C4 & C5
+    C1 & C2 & C3 & C4 & C5 -->|"GROUP BY\n12M rows"| DASH
+    C1 & C2 & C3 & C4 & C5 -->|"Feature vectors\n210K animals"| PRED

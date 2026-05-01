@@ -40,6 +40,11 @@ pub struct ClusterQuery {
     pub days: Option<i32>,
 }
 
+#[derive(Debug, Deserialize, utoipa::ToSchema, utoipa::IntoParams)]
+pub struct AnimalQuery {
+    pub animal_id: Option<i32>,
+}
+
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/analytics/kpi", get(kpi))
@@ -88,6 +93,12 @@ async fn dashboard(
     let trend_days = params.trend_days.unwrap_or(30).clamp(1, 365);
     let forecast_days = params.forecast_days.unwrap_or(14).clamp(1, 90);
 
+    if let Some(ref cache) = state.ml_cache {
+        if let Some(cached) = cache.get::<serde_json::Value>("dashboard").await {
+            return Ok(Json(cached));
+        }
+    }
+
     let (kpi_res, trend_res, repro_res, feed_res, milk_res, vet_res, withdrawals_res) = tokio::try_join!(
         analytics_service::kpi(&state.pool),
         analytics_service::milk_trend(&state.pool, trend_days, forecast_days),
@@ -98,7 +109,7 @@ async fn dashboard(
         crate::services::vet_service::active_withdrawals(&state.pool),
     )?;
 
-    Ok(Json(serde_json::json!({
+    let result = serde_json::json!({
         "kpi": kpi_res,
         "trend": trend_res,
         "reproduction": repro_res,
@@ -106,7 +117,13 @@ async fn dashboard(
         "latest_milk": milk_res,
         "vet_follow_ups": vet_res,
         "active_withdrawals": withdrawals_res,
-    })))
+    });
+
+    if let Some(ref cache) = state.ml_cache {
+        cache.set("dashboard", &result).await;
+    }
+
+    Ok(Json(result))
 }
 
 #[utoipa::path(
@@ -280,9 +297,10 @@ async fn seasonal(
 async fn mastitis_risk(
     _claims: Claims,
     State(state): State<AppState>,
+    Query(params): Query<AnimalQuery>,
 ) -> Result<Json<MastitisRiskResponse>, AppError> {
     if let Some(ref ml) = state.ml {
-        let data = ml.mastitis_risk(None, &state.pool).await?;
+        let data = ml.mastitis_risk(params.animal_id, &state.pool).await?;
         Ok(Json(data))
     } else {
         let data = predictive_service::mastitis_risk(&state.pool).await?;
@@ -302,9 +320,10 @@ async fn mastitis_risk(
 async fn culling_survival(
     _claims: Claims,
     State(state): State<AppState>,
+    Query(params): Query<AnimalQuery>,
 ) -> Result<Json<CullingSurvivalResponse>, AppError> {
     if let Some(ref ml) = state.ml {
-        let data = ml.culling_survival(None, &state.pool).await?;
+        let data = ml.culling_survival(params.animal_id, &state.pool).await?;
         Ok(Json(data))
     } else {
         let data = predictive_service::culling_survival(&state.pool).await?;
@@ -401,55 +420,85 @@ async fn ensemble_forecast(
 
     let rust_weight = if rust_mape > 0.0 { 1.0 / (rust_mape + 1.0) } else { 0.0 };
 
-    let (_ml_data, _shap) = match &state.ml {
-        Some(ml) => match ml.milk_forecast(params.animal_id, days).await {
-            Ok(data) => {
-                let shap = data.shap_explanation.clone();
-                let ml_mape = 8.0;
-                let ml_weight = 1.0 / (ml_mape + 1.0);
-                let total = ml_weight + rust_weight;
-
-                let forecast: Vec<_> = data
-                    .forecast
-                    .into_iter()
-                    .map(|d| {
-                        let rust_val = rust_forecast.get(&d.day_offset).copied();
-                        let (pred, ml_c, rust_c) = if let Some(rv) = rust_val {
-                            let mw = ml_weight / total;
-                            let rw = rust_weight / total;
-                            (d.predicted_milk * mw + rv * rw, mw, rw)
-                        } else {
-                            (d.predicted_milk, 1.0, 0.0)
-                        };
-                        crate::models::analytics::EnsembleForecastDay {
-                            day_offset: d.day_offset,
-                            predicted_milk: pred,
-                            lower_bound: d.lower_bound.min(pred * 0.9),
-                            upper_bound: d.upper_bound.max(pred * 1.1),
-                            ml_contribution: ml_c,
-                            rust_contribution: rust_c,
-                        }
-                    })
-                    .collect();
-
-                let result = EnsembleForecastResponse {
-                    animal_id: params.animal_id,
-                    animal_name: data.animal_name,
-                    current_daily_avg: data.current_daily_avg,
-                    forecast,
-                    ml_model_version: data.model_version,
-                    rust_best_model: ts.best_model.clone(),
-                    ml_weight: if total > 0.0 { ml_weight / total } else { 0.5 },
-                    rust_weight: if total > 0.0 { rust_weight / total } else { 0.5 },
-                    rust_mape,
-                    shap_explanation: shap,
-                };
-                return Ok(Json(result));
-            }
-            Err(_) => (None::<MilkForecastDataResponse>, None::<crate::models::analytics::ShapExplanation>),
-        },
-        None => (None::<MilkForecastDataResponse>, None::<crate::models::analytics::ShapExplanation>),
+    let ml_result = match &state.ml {
+        Some(ml) => ml.milk_forecast(params.animal_id, days).await.ok(),
+        None => None,
     };
+
+    let nbeats_result = match &state.ml {
+        Some(ml) => ml.advanced_forecast(params.animal_id, days).await.ok(),
+        None => None,
+    };
+
+    let nbeats_forecast: std::collections::HashMap<i32, f64> = nbeats_result
+        .as_ref()
+        .and_then(|r| r.nbeats.as_ref())
+        .map(|b| b.forecast.iter().enumerate().map(|(i, p)| ((i + 1) as i32, p.value)).collect())
+        .unwrap_or_default();
+
+    let ml_mape = 8.0_f64;
+    let nbeats_mape = 10.0_f64;
+    let ml_weight = if ml_result.is_some() { 1.0 / (ml_mape + 1.0) } else { 0.0 };
+    let nbeats_w = if !nbeats_forecast.is_empty() { 1.0 / (nbeats_mape + 1.0) } else { 0.0 };
+
+    let total = ml_weight + rust_weight + nbeats_w;
+
+    if let Some(data) = ml_result {
+        let shap = data.shap_explanation.clone();
+        let forecast: Vec<_> = data
+            .forecast
+            .iter()
+            .map(|d| {
+                let rust_val = rust_forecast.get(&d.day_offset).copied();
+                let nb_val = nbeats_forecast.get(&d.day_offset).copied();
+                let mw = ml_weight / total;
+                let rw = rust_weight / total;
+                let nw = nbeats_w / total;
+
+                let (pred, ml_c, rust_c, nb_c) = match (rust_val, nb_val) {
+                    (Some(rv), Some(nv)) => (d.predicted_milk * mw + rv * rw + nv * nw, mw, rw, nw),
+                    (Some(rv), None) => {
+                        let t = ml_weight + rust_weight;
+                        let m = ml_weight / t;
+                        let r = rust_weight / t;
+                        (d.predicted_milk * m + rv * r, m, r, 0.0)
+                    }
+                    (None, Some(nv)) => {
+                        let t = ml_weight + nbeats_w;
+                        let m = ml_weight / t;
+                        let n = nbeats_w / t;
+                        (d.predicted_milk * m + nv * n, m, 0.0, n)
+                    }
+                    (None, None) => (d.predicted_milk, 1.0, 0.0, 0.0),
+                };
+
+                crate::models::analytics::EnsembleForecastDay {
+                    day_offset: d.day_offset,
+                    predicted_milk: pred,
+                    lower_bound: d.lower_bound.min(pred * 0.9),
+                    upper_bound: d.upper_bound.max(pred * 1.1),
+                    ml_contribution: ml_c,
+                    rust_contribution: rust_c,
+                    nbeats_contribution: nb_c,
+                }
+            })
+            .collect();
+
+        let result = EnsembleForecastResponse {
+            animal_id: params.animal_id,
+            animal_name: data.animal_name,
+            current_daily_avg: data.current_daily_avg,
+            forecast,
+            ml_model_version: data.model_version,
+            rust_best_model: ts.best_model.clone(),
+            ml_weight: if total > 0.0 { ml_weight / total } else { 0.0 },
+            rust_weight: if total > 0.0 { rust_weight / total } else { 0.0 },
+            nbeats_weight: if total > 0.0 { nbeats_w / total } else { 0.0 },
+            rust_mape,
+            shap_explanation: shap,
+        };
+        return Ok(Json(result));
+    }
 
     let forecast: Vec<_> = rust_forecast
         .into_iter()
@@ -460,6 +509,7 @@ async fn ensemble_forecast(
             upper_bound: val * 1.1,
             ml_contribution: 0.0,
             rust_contribution: 1.0,
+            nbeats_contribution: 0.0,
         })
         .collect();
 
@@ -472,6 +522,7 @@ async fn ensemble_forecast(
         rust_best_model: ts.best_model,
         ml_weight: 0.0,
         rust_weight: 1.0,
+        nbeats_weight: 0.0,
         rust_mape,
         shap_explanation: None,
     }))
@@ -507,10 +558,11 @@ async fn cow_clusters(
 async fn estrus_detection(
     _claims: Claims,
     State(state): State<AppState>,
+    Query(params): Query<AnimalQuery>,
 ) -> Result<Json<EstrusResponse>, AppError> {
     match &state.ml {
         Some(ml) => {
-            let data = ml.estrus_detection(&state.pool).await?;
+            let data = ml.estrus_detection(params.animal_id, &state.pool).await?;
             Ok(Json(data))
         }
         None => {
@@ -523,10 +575,11 @@ async fn estrus_detection(
 async fn equipment_anomaly(
     _claims: Claims,
     State(state): State<AppState>,
+    Query(params): Query<AnimalQuery>,
 ) -> Result<Json<EquipmentAnomalyResponse>, AppError> {
     match &state.ml {
         Some(ml) => {
-            let data = ml.equipment_anomaly(&state.pool).await?;
+            let data = ml.equipment_anomaly(params.animal_id, &state.pool).await?;
             Ok(Json(data))
         }
         None => {
@@ -539,10 +592,11 @@ async fn equipment_anomaly(
 async fn feed_recommendation(
     _claims: Claims,
     State(state): State<AppState>,
+    Query(params): Query<AnimalQuery>,
 ) -> Result<Json<FeedRecommendationResponse>, AppError> {
     match &state.ml {
         Some(ml) => {
-            let data = ml.feed_recommendation(&state.pool).await?;
+            let data = ml.feed_recommendation(params.animal_id, &state.pool).await?;
             Ok(Json(data))
         }
         None => {
@@ -555,10 +609,11 @@ async fn feed_recommendation(
 async fn ketosis_warning(
     _claims: Claims,
     State(state): State<AppState>,
+    Query(params): Query<AnimalQuery>,
 ) -> Result<Json<KetosisWarningResponse>, AppError> {
     match &state.ml {
         Some(ml) => {
-            let data = ml.ketosis_warning(&state.pool).await?;
+            let data = ml.ketosis_warning(params.animal_id, &state.pool).await?;
             Ok(Json(data))
         }
         None => {

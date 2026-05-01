@@ -538,6 +538,7 @@ pub struct EnsembleForecastDay {
     pub upper_bound: f64,
     pub ml_contribution: f64,
     pub rust_contribution: f64,
+    pub nbeats_contribution: f64,
 }
 
 #[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
@@ -550,6 +551,7 @@ pub struct EnsembleForecastResponse {
     pub rust_best_model: String,
     pub ml_weight: f64,
     pub rust_weight: f64,
+    pub nbeats_weight: f64,
     pub rust_mape: f64,
     pub shap_explanation: Option<ShapExplanation>,
 }

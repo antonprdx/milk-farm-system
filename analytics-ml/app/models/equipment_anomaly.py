@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import time
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
@@ -129,12 +128,13 @@ def train(df: pd.DataFrame) -> dict:
     }
 
 
-def predict(df: pd.DataFrame) -> list[dict]:
+def predict(df: pd.DataFrame, include_shap: bool = False) -> list[dict]:
     path = os.path.join(settings.model_dir, MODEL_FILENAME)
-    if not os.path.exists(path):
+    from app.services.model_cache import get_model
+    model_data = get_model("equipment_anomaly", path)
+    if model_data is None:
         raise FileNotFoundError(f"Model not found: {path}")
 
-    model_data = joblib.load(path)
     model = model_data["model"]
     scaler = model_data["scaler"]
     calibrator = model_data.get("calibrator")
@@ -155,33 +155,41 @@ def predict(df: pd.DataFrame) -> list[dict]:
         score_range = score_max - score_min or 1.0
         calibrated_probs = 1.0 - (scores - score_min) / score_range
 
+    animal_ids = df["animal_id"].values
+    names = df["animal_name"].values if "animal_name" in df.columns else [""] * len(df)
+    conductivity = df["avg_conductivity"].values if "avg_conductivity" in df.columns else np.full(len(df), 0)
+    asymmetry = df["max_quarter_asymmetry"].values if "max_quarter_asymmetry" in df.columns else np.full(len(df), 0)
+    milk_temp = df["avg_milk_temperature"].values if "avg_milk_temperature" in df.columns else np.full(len(df), 37.0)
+    milk_speed = df["avg_milk_speed"].values if "avg_milk_speed" in df.columns else np.full(len(df), 2.0)
+    device_addr = df["device_address"].values if "device_address" in df.columns else np.full(len(df), 0)
+
     results = []
-    for i, row in df.iterrows():
+    for i in range(len(df)):
         is_anomaly = preds[i] == -1
         score = float(scores[i])
         prob = float(calibrated_probs[i])
 
         flags = []
-        if row.get("avg_conductivity", 0) > 75:
+        if conductivity[i] > 75:
             flags.append("проводимость↑")
-        if row.get("max_quarter_asymmetry", 0) > 10:
+        if asymmetry[i] > 10:
             flags.append("асимметрия↑")
-        if row.get("avg_milk_temperature", 37) > 38.5:
+        if milk_temp[i] > 38.5:
             flags.append("температура↑")
-        if row.get("avg_milk_speed", 2) < 1.0:
+        if milk_speed[i] < 1.0:
             flags.append("скорость↓")
 
         severity = "critical" if prob >= 0.8 else "warning" if prob >= 0.5 else "normal"
 
         results.append({
-            "animal_id": int(row["animal_id"]),
-            "animal_name": row.get("animal_name"),
+            "animal_id": int(animal_ids[i]),
+            "animal_name": names[i],
             "is_anomaly": is_anomaly,
             "anomaly_score": round(score, 4),
             "anomaly_probability": round(prob, 4),
             "severity": severity if is_anomaly else "normal",
             "flags": flags,
-            "device_address": int(row.get("device_address", 0)) or None,
+            "device_address": int(device_addr[i]) or None,
             "model_version": version,
         })
 

@@ -192,7 +192,7 @@ pub async fn generate_animal_card(pool: &PgPool, animal_id: i32) -> Result<Vec<u
     }
 
     let milk_stats: (Option<f64>, Option<f64>) = sqlx::query_as(
-        "SELECT AVG(milk_amount)::double precision, MAX(milk_amount)::double precision FROM milk_day_productions WHERE animal_id = $1 AND date >= CURRENT_DATE - INTERVAL '30 days'",
+        "SELECT AVG(milk_amount)::double precision, MAX(milk_amount)::double precision FROM milk_day_productions WHERE animal_id = $1 AND date >= get_ref_date() - INTERVAL '30 days'",
     )
     .bind(animal_id)
     .fetch_one(pool)

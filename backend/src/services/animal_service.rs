@@ -188,7 +188,7 @@ pub async fn delete_with_reason(
         let details = serde_json::json!({ "notes": notes.unwrap_or("") });
         if let Err(e) = sqlx::query(
             "INSERT INTO culling_events (animal_id, culling_date, reason, details)
-             VALUES ($1, CURRENT_DATE, $2, $3)",
+             VALUES ($1, get_ref_date(), $2, $3)",
         )
         .bind(id)
         .bind(reason)
@@ -221,7 +221,7 @@ pub async fn batch_deactivate(
         });
         if let Err(e) = sqlx::query(
             "INSERT INTO culling_events (animal_id, culling_date, reason, details)
-             SELECT u.id, CURRENT_DATE, $2, $3 FROM UNNEST($1::int[]) AS u(id)
+             SELECT u.id, get_ref_date(), $2, $3 FROM UNNEST($1::int[]) AS u(id)
              ON CONFLICT DO NOTHING",
         )
         .bind(ids)

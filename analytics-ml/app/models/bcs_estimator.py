@@ -4,7 +4,6 @@ import logging
 import os
 import time
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import cross_val_score
@@ -129,11 +128,13 @@ def train(df: pd.DataFrame) -> dict:
     }
 
 
-def predict(df: pd.DataFrame) -> list[dict]:
+def predict(df: pd.DataFrame, include_shap: bool = False) -> list[dict]:
     path = os.path.join(settings.model_dir, MODEL_FILENAME)
 
-    if os.path.exists(path):
-        model_data = joblib.load(path)
+    from app.services.model_cache import get_model
+    model_data = get_model("bcs_estimator", path)
+
+    if model_data is not None:
         model = model_data["model"]
         features = model_data["features"]
         medians = model_data.get("medians", {})
@@ -143,10 +144,13 @@ def predict(df: pd.DataFrame) -> list[dict]:
         X = df_filled[features].values
         preds = model.predict(X)
 
-        try:
-            from app.services.shap_explain import explain_prediction
-            shap_explanations = explain_prediction(model, X, features)
-        except Exception:
+        if include_shap:
+            try:
+                from app.services.shap_explain import explain_prediction
+                shap_explanations = explain_prediction(model, X, features)
+            except Exception:
+                shap_explanations = []
+        else:
             shap_explanations = []
     else:
         features = FEATURE_COLUMNS
@@ -154,8 +158,11 @@ def predict(df: pd.DataFrame) -> list[dict]:
         preds = df.apply(_estimate_bcs, axis=1).values
         shap_explanations = []
 
+    animal_ids = df["animal_id"].values
+    names = df["animal_name"].values if "animal_name" in df.columns else [""] * len(df)
+
     results = []
-    for i, (_, row) in enumerate(df.iterrows()):
+    for i in range(len(df)):
         bcs_est = round(max(1.0, min(5.0, float(preds[i]))), 2)
 
         if bcs_est < 2.5:
@@ -166,8 +173,8 @@ def predict(df: pd.DataFrame) -> list[dict]:
             status = "optimal"
 
         result = {
-            "animal_id": int(row["animal_id"]),
-            "animal_name": row.get("animal_name"),
+            "animal_id": int(animal_ids[i]),
+            "animal_name": names[i],
             "estimated_bcs": bcs_est,
             "status": status,
             "model_version": version,

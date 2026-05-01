@@ -30,17 +30,17 @@ pub async fn dashboard_stats(pool: &PgPool) -> Result<DashboardStats, AppError> 
                     Ok::<_, AppError>(v)
                 },
                 async {
-                    let (v,): (Option<f64>,) = sqlx::query_as("SELECT SUM(milk_amount) FROM milk_day_productions WHERE date = CURRENT_DATE")
+                    let (v,): (Option<f64>,) = sqlx::query_as("SELECT SUM(milk_amount) FROM milk_day_productions WHERE date = get_ref_date()")
                         .fetch_one(&pool).await.map_err(AppError::Database)?;
                     Ok::<_, AppError>(v)
                 },
                 async {
-                    let (v,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM heats WHERE heat_date = CURRENT_DATE")
+                    let (v,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM heats WHERE heat_date = get_ref_date()")
                         .fetch_one(&pool).await.map_err(AppError::Database)?;
                     Ok::<_, AppError>(v)
                 },
                 async {
-                    let (v,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM pregnancies WHERE pregnancy_date = CURRENT_DATE")
+                    let (v,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM pregnancies WHERE pregnancy_date = get_ref_date()")
                         .fetch_one(&pool).await.map_err(AppError::Database)?;
                     Ok::<_, AppError>(v)
                 },

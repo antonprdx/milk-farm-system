@@ -10,6 +10,7 @@ SEED_YEARS="${SEED_YEARS:-1}"
 ENABLE_MONITORING=false
 RUN_BENCH=false
 K6_TEST=""
+SKIP_SEED=false
 
 for arg in "$@"; do
     case $arg in
@@ -22,6 +23,7 @@ for arg in "$@"; do
         --k6-smoke) K6_TEST="smoke" ;;
         --k6-load) K6_TEST="load" ;;
         --k6-stress) K6_TEST="stress" ;;
+        --no-seed) SKIP_SEED=true ;;
     esac
 done
 
@@ -34,8 +36,13 @@ sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | gr
 sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw $DB_NAME || \
     sudo -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
 
-echo "Seeding mock data (${SEED_COWS} cows, ${SEED_YEARS} years)..."
-(cd backend && cargo run --bin seed -- --cows "$SEED_COWS" --years "$SEED_YEARS")
+if [ "$SKIP_SEED" = true ]; then
+    echo "Skipping seed (--no-seed). Running migrations only..."
+    (cd backend && DATABASE_URL="postgresql://$DB_USER:$DB_PASS@localhost:5432/$DB_NAME" "$HOME/.cargo/bin/sqlx" migrate run --source ./migrations)
+else
+    echo "Seeding mock data (${SEED_COWS} cows, ${SEED_YEARS} years)..."
+    (cd backend && cargo run --bin seed -- --cows "$SEED_COWS" --years "$SEED_YEARS")
+fi
 
 ML_PORT=8001
 ML_VENV="analytics-ml/.venv"
@@ -140,7 +147,7 @@ MOCK_LELY_PID=$!
 echo "Starting backend..."
 fuser -k 3000/tcp 2>/dev/null || true
 OTEL_EXPORTER_OTLP_ENDPOINT=""
-LOG_DIR="/tmp/milk-farm-logs"
+LOG_DIR="/tmp/milk-farm-logs-$(id -u)"
 mkdir -p "$LOG_DIR"
 if [ "$ENABLE_MONITORING" = true ]; then
     OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"

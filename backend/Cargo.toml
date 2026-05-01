@@ -36,6 +36,7 @@ url = "2"
 base64 = "0.22"
 aes-gcm = "0.10"
 sha2 = "0.10"
+clickhouse = "0.13"
 
 opentelemetry = "0.29"
 opentelemetry_sdk = { version = "0.29", features = ["rt-tokio"] }

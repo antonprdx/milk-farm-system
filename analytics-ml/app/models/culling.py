@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import time
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import cross_val_score
@@ -25,12 +24,25 @@ FEATURE_COLUMNS = [
     "avg_milk_7d",
     "avg_activity_30d",
     "current_dim",
+    "weather_temp",
+    "weather_humidity",
+    "thi",
+    "vet_tx_count_180d",
+    "days_since_any_tx",
+    "holstein_percentage",
 ]
 
 BASE_DAYS = 730.0
 
 
 def _create_target(df: pd.DataFrame) -> pd.Series:
+    if "was_culled" in df.columns and "days_to_culling" in df.columns:
+        real = df["was_culled"].fillna(False)
+        if real.any():
+            days = df["days_to_culling"].fillna(BASE_DAYS).clip(lower=0)
+            days[~real] = BASE_DAYS
+            return days
+
     risk = pd.Series(0.0, index=df.index)
     risk[df["age_years"] >= 10] += 0.4
     risk[(df["age_years"] >= 8) & (df["age_years"] < 10)] += 0.25
@@ -107,25 +119,29 @@ def train(df: pd.DataFrame) -> dict:
     }
 
 
-def predict(df: pd.DataFrame, model_data: dict | None = None) -> list[dict]:
+def predict(df: pd.DataFrame, model_data: dict | None = None, include_shap: bool = False) -> list[dict]:
     onnx_path = os.path.join(settings.model_dir, ONNX_FILENAME)
-    if model_data is None and os.path.exists(onnx_path):
+    if model_data is None:
         try:
-            from app.services.onnx_utils import load_model_onnx, predict_onnx
-            session, features, task = load_model_onnx(onnx_path)
-            df_filled, _ = fillna_with_medians(df, features)
-            X = df_filled[features].values
-            predicted_days = predict_onnx(session, X).flatten()
-            shap_explanations = _compute_shap(None, X, features)
-            return _build_results(df, predicted_days, "xgboost-v2", shap_explanations)
+            from app.services.model_cache import get_onnx_session
+            result = get_onnx_session(onnx_path)
+            if result is not None:
+                session, features, task = result
+                from app.services.onnx_utils import predict_onnx
+                df_filled, _ = fillna_with_medians(df, features)
+                X = df_filled[features].values
+                predicted_days = predict_onnx(session, X).flatten()
+                shap_explanations = _compute_shap(None, X, features) if include_shap else []
+                return _build_results(df, predicted_days, "xgboost-v2", shap_explanations)
         except Exception:
             pass
 
     if model_data is None:
         path = os.path.join(settings.model_dir, MODEL_FILENAME)
-        if not os.path.exists(path):
+        from app.services.model_cache import get_model
+        model_data = get_model("culling", path)
+        if model_data is None:
             raise FileNotFoundError(f"Model not found: {path}")
-        model_data = joblib.load(path)
 
     model = model_data["model"]
     features = model_data["features"]
@@ -136,7 +152,7 @@ def predict(df: pd.DataFrame, model_data: dict | None = None) -> list[dict]:
     X = df_filled[features].values
     predicted_days = model.predict(X)
 
-    shap_explanations = _compute_shap(model, X, features)
+    shap_explanations = _compute_shap(model, X, features) if include_shap else []
     return _build_results(df, predicted_days, version, shap_explanations)
 
 
@@ -151,28 +167,36 @@ def _compute_shap(model, X, features):
 
 
 def _build_results(df, predicted_days, version, shap_explanations=None):
+    animal_ids = df["animal_id"].values
+    names = df["animal_name"].values if "animal_name" in df.columns else [""] * len(df)
+    age_years = df["age_years"].values if "age_years" in df.columns else np.full(len(df), 0)
+    avg_milk_30d = df["avg_milk_30d"].values if "avg_milk_30d" in df.columns else np.full(len(df), 0)
+    avg_scc_90d = df["avg_scc_90d"].values if "avg_scc_90d" in df.columns else np.full(len(df), 0)
+    calving_interval = df["calving_interval"].values if "calving_interval" in df.columns else np.full(len(df), 0)
+    lactation_count = df["lactation_count"].values if "lactation_count" in df.columns else np.full(len(df), 0)
+
     results = []
-    for i, row in df.iterrows():
+    for i in range(len(df)):
         expected_days = float(predicted_days[i])
         risk_prob = 1.0 - min(expected_days / BASE_DAYS, 1.0)
 
         risk_factors = []
-        if row.get("age_years", 0) >= 8:
-            risk_factors.append(f"age>={int(row['age_years'])}yr")
-        if row.get("avg_milk_30d", 0) < 20:
+        if age_years[i] >= 8:
+            risk_factors.append(f"age>={int(age_years[i])}yr")
+        if avg_milk_30d[i] < 20:
             risk_factors.append("milk<20L")
-        if row.get("avg_scc_90d", 0) > 200000:
+        if avg_scc_90d[i] > 200000:
             risk_factors.append("SCC>200k")
-        if row.get("calving_interval", 0) > 400:
+        if calving_interval[i] > 400:
             risk_factors.append("interval>400d")
-        if row.get("lactation_count", 0) >= 6:
+        if lactation_count[i] >= 6:
             risk_factors.append("lac>=6")
 
         risk_level = "high" if risk_prob >= 0.6 else "medium" if risk_prob >= 0.3 else "low"
 
         result = {
-            "animal_id": int(row["animal_id"]),
-            "animal_name": row.get("animal_name"),
+            "animal_id": int(animal_ids[i]),
+            "animal_name": names[i],
             "risk_probability": round(risk_prob, 4),
             "expected_days_remaining": max(int(expected_days), 0),
             "risk_factors": risk_factors,

@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import time
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
@@ -247,12 +246,13 @@ def train(df: pd.DataFrame) -> dict:
     }
 
 
-def predict(df: pd.DataFrame) -> list[dict]:
+def predict(df: pd.DataFrame, include_shap: bool = False) -> list[dict]:
     path = os.path.join(settings.model_dir, MODEL_FILENAME)
-    if not os.path.exists(path):
+    from app.services.model_cache import get_model
+    model_data = get_model("cow_clusters", path)
+    if model_data is None:
         raise FileNotFoundError(f"Model not found: {path}")
 
-    model_data = joblib.load(path)
     model = model_data["model"]
     scaler = model_data["scaler"]
     feature_cols = model_data["feature_cols"]
@@ -273,16 +273,21 @@ def predict(df: pd.DataFrame) -> list[dict]:
         distances = model.transform(X_scaled).min(axis=1)
         probabilities = 1.0 / (1.0 + distances)
 
+    animal_ids = features_df["animal_id"].values
+    animal_names = features_df["animal_name"].values if "animal_name" in features_df.columns else [""] * len(features_df)
+    avg_milk = features_df["avg_milk"].values
+    avg_rumination = features_df["avg_rumination"].values
+
     results = []
-    for i, row in features_df.iterrows():
+    for i in range(len(features_df)):
         cid = int(cluster_ids[i])
         results.append({
-            "animal_id": int(row["animal_id"]),
-            "animal_name": row["animal_name"],
+            "animal_id": int(animal_ids[i]),
+            "animal_name": animal_names[i],
             "cluster_id": cid,
             "cluster_name": labels.get(cid, f"Кластер {cid}"),
-            "avg_milk": round(float(row["avg_milk"]), 2),
-            "avg_rumination": round(float(row["avg_rumination"]), 1),
+            "avg_milk": round(float(avg_milk[i]), 2),
+            "avg_rumination": round(float(avg_rumination[i]), 1),
             "distance_to_center": round(float(distances[i]), 4),
             "model_version": version,
         })

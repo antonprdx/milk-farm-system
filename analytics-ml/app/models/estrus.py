@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import time
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import cross_val_score
@@ -24,6 +23,10 @@ FEATURE_COLUMNS = [
     "days_since_last_heat",
     "avg_activity_14d",
     "avg_rumination_14d",
+    "weather_temp",
+    "weather_humidity",
+    "thi",
+    "holstein_percentage",
 ]
 
 
@@ -108,25 +111,28 @@ def train(df: pd.DataFrame) -> dict:
     }
 
 
-def predict(df: pd.DataFrame) -> list[dict]:
+def predict(df: pd.DataFrame, include_shap: bool = False) -> list[dict]:
     onnx_path = os.path.join(settings.model_dir, ONNX_FILENAME)
-    if os.path.exists(onnx_path):
-        try:
-            from app.services.onnx_utils import load_model_onnx, predict_onnx
-            session, features, task = load_model_onnx(onnx_path)
+    try:
+        from app.services.model_cache import get_onnx_session
+        result = get_onnx_session(onnx_path)
+        if result is not None:
+            session, features, task = result
+            from app.services.onnx_utils import predict_onnx
             df_filled, _ = fillna_with_medians(df, features)
             X = df_filled[features].values
             probs = predict_onnx(session, X)[:, 1]
-            shap_explanations = _compute_shap(None, X, features)
+            shap_explanations = _compute_shap(None, X, features) if include_shap else []
             return _build_results(df, probs, "xgboost-v2", shap_explanations)
-        except Exception:
-            pass
+    except Exception:
+        pass
 
     path = os.path.join(settings.model_dir, MODEL_FILENAME)
-    if not os.path.exists(path):
+    from app.services.model_cache import get_model
+    model_data = get_model("estrus", path)
+    if model_data is None:
         raise FileNotFoundError(f"Model not found: {path}")
 
-    model_data = joblib.load(path)
     model = model_data["model"]
     features = model_data["features"]
     medians = model_data.get("medians", {})
@@ -136,7 +142,7 @@ def predict(df: pd.DataFrame) -> list[dict]:
     X = df_filled[features].values
     probs = model.predict_proba(X)[:, 1]
 
-    shap_explanations = _compute_shap(model, X, features)
+    shap_explanations = _compute_shap(model, X, features) if include_shap else []
     return _build_results(df, probs, version, shap_explanations)
 
 
@@ -151,17 +157,24 @@ def _compute_shap(model, X, features):
 
 
 def _build_results(df, probs, version, shap_explanations=None):
+    animal_ids = df["animal_id"].values
+    names = df["animal_name"].values if "animal_name" in df.columns else [""] * len(df)
+    activity_ratio = df["activity_ratio_7d"].values if "activity_ratio_7d" in df.columns else np.full(len(df), 1.0)
+    rumination_ratio = df["rumination_ratio_7d"].values if "rumination_ratio_7d" in df.columns else np.full(len(df), 1.0)
+    milk_ratio = df["milk_ratio_7d"].values if "milk_ratio_7d" in df.columns else np.full(len(df), 1.0)
+    dim_values = df["dim_days"].values if "dim_days" in df.columns else np.full(len(df), 0)
+
     results = []
-    for i, row in df.iterrows():
+    for i in range(len(df)):
         prob = float(probs[i])
         contributing = []
-        if row.get("activity_ratio_7d", 1) > 1.3:
+        if activity_ratio[i] > 1.3:
             contributing.append("активность↑")
-        if row.get("rumination_ratio_7d", 1) < 0.85:
+        if rumination_ratio[i] < 0.85:
             contributing.append("жвачка↓")
-        if row.get("milk_ratio_7d", 1) < 0.9:
+        if milk_ratio[i] < 0.9:
             contributing.append("надой↓")
-        dim = row.get("dim_days", 0)
+        dim = dim_values[i]
         if 40 <= dim <= 120:
             contributing.append("DIM в окне")
 
@@ -173,8 +186,8 @@ def _build_results(df, probs, version, shap_explanations=None):
             status = "not_in_heat"
 
         result = {
-            "animal_id": int(row["animal_id"]),
-            "animal_name": row.get("animal_name"),
+            "animal_id": int(animal_ids[i]),
+            "animal_name": names[i],
             "estrus_probability": round(prob, 4),
             "status": status,
             "contributing_signals": contributing,

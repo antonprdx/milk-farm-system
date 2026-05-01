@@ -1471,3 +1471,277 @@ pub async fn seed_robot_milk_data(
     }
     println!("  robot_milk_data: {} rows", count);
 }
+
+fn seasonal_temp(day_of_year: i32) -> f64 {
+    let base = 10.0;
+    let amplitude = 15.0;
+    base + amplitude * ((2.0 * std::f64::consts::PI * (day_of_year as f64 - 200.0)) / 365.0).cos()
+}
+
+fn seasonal_humidity(day_of_year: i32) -> f64 {
+    let base = 65.0;
+    let amplitude = 15.0;
+    base + amplitude * ((2.0 * std::f64::consts::PI * (day_of_year as f64 - 80.0)) / 365.0).sin()
+}
+
+fn calc_thi(temp_c: f64, humidity: f64) -> f64 {
+    let rh = humidity.clamp(0.0, 100.0);
+    (1.8 * temp_c + 32.0) - (0.55 - 0.0055 * rh) * (1.8 * temp_c + 26.0)
+}
+
+#[allow(clippy::await_holding_lock)]
+pub async fn seed_weather(pool: &PgPool, config: &SeedConfig) {
+    let mut rng = GLOBAL_RNG.lock().unwrap();
+    let today = chrono::Utc::now().date_naive();
+    let start_date = today - Duration::days(config.num_years * 365);
+
+    let mut batch = Vec::new();
+    let mut count = 0u64;
+
+    let mut date = start_date;
+    while date <= today {
+        let doy = date.ordinal();
+        let temp = seasonal_temp(doy as i32) + normal_range(&mut rng, 0.0, 3.0, -10.0, 40.0);
+        let hum = (seasonal_humidity(doy as i32) + normal_range(&mut rng, 0.0, 5.0, 20.0, 100.0))
+            .clamp(20.0, 100.0);
+        let precip = normal_range(&mut rng, 2.0, 4.0, 0.0, 30.0);
+        let wind = normal_range(&mut rng, 4.0, 2.0, 0.0, 15.0);
+        let main = if precip < 1.0 {
+            "Clear"
+        } else if precip < 5.0 {
+            "Rain"
+        } else {
+            "Storm"
+        };
+        let thi = calc_thi(temp, hum);
+
+        batch.push(format!(
+            "('{}', {}, {}, {}, {}, '{}', {})",
+            date,
+            (temp * 10.0).round() / 10.0,
+            (hum * 10.0).round() / 10.0,
+            (precip * 10.0).round() / 10.0,
+            (wind * 10.0).round() / 10.0,
+            main,
+            (thi * 10.0).round() / 10.0,
+        ));
+        count += 1;
+        date += Duration::days(1);
+
+        if batch.len() >= 5000 {
+            let sql = format!(
+                "INSERT INTO weather_cache (date, temp_c, humidity, precipitation_mm, wind_speed, weather_main, thi) VALUES {} ON CONFLICT (date) DO UPDATE SET temp_c = EXCLUDED.temp_c, humidity = EXCLUDED.humidity, precipitation_mm = EXCLUDED.precipitation_mm, wind_speed = EXCLUDED.wind_speed, weather_main = EXCLUDED.weather_main, thi = EXCLUDED.thi",
+                batch.join(", ")
+            );
+            sqlx::query(&sql).execute(pool).await.unwrap();
+            batch.clear();
+        }
+    }
+
+    if !batch.is_empty() {
+        let sql = format!(
+            "INSERT INTO weather_cache (date, temp_c, humidity, precipitation_mm, wind_speed, weather_main, thi) VALUES {} ON CONFLICT (date) DO UPDATE SET temp_c = EXCLUDED.temp_c, humidity = EXCLUDED.humidity, precipitation_mm = EXCLUDED.precipitation_mm, wind_speed = EXCLUDED.wind_speed, weather_main = EXCLUDED.weather_main, thi = EXCLUDED.thi",
+            batch.join(", ")
+        );
+        sqlx::query(&sql).execute(pool).await.unwrap();
+    }
+    println!("  weather_cache: {} rows", count);
+}
+
+#[allow(clippy::await_holding_lock)]
+pub async fn seed_health_events(
+    pool: &PgPool,
+    lactations: &[LactationInfo],
+    config: &SeedConfig,
+) {
+    let mut rng = GLOBAL_RNG.lock().unwrap();
+    let today = chrono::Utc::now().date_naive();
+    let start_date = today - Duration::days(config.num_years * 365);
+
+    let mut vet_batch = Vec::new();
+    let mut heat_batch = Vec::new();
+    let mut culling_batch = Vec::new();
+    let mut total_vet = 0u64;
+    let mut total_heats = 0u64;
+    let mut total_cullings = 0u64;
+
+    for lact in lactations {
+        let lac_start = lact.calving_date;
+        let lac_end = match (lact.dry_off_date, lact.next_calving_date) {
+            (Some(dry), _) => dry,
+            (None, Some(next)) => next - Duration::days(60),
+            _ => today.min(lac_start + Duration::days(350)),
+        };
+        let effective_start = lac_start.max(start_date);
+        let effective_end = lac_end.min(today);
+        if effective_start >= effective_end {
+            continue;
+        }
+
+        let lac_days = (effective_end - effective_start).num_days();
+
+        // Mastitis episodes: ~30% of cows per lactation
+        if rng.random_bool(0.30) {
+            let num_episodes = rng.random_range(1..=3);
+            for _ in 0..num_episodes {
+                let offset = rng.random_range(30..lac_days.max(31));
+                let ep_start = effective_start + Duration::days(offset);
+                if ep_start > effective_end {
+                    continue;
+                }
+                let duration = rng.random_range(5..14);
+                let severity = pick(&mut rng, &["лёгкая", "средняя", "тяжёлая"]);
+                let treatment = pick(&mut rng, &["антибиотики", "противовоспалительные", "комплексная терапия"]);
+                let medication = pick(&mut rng, &["Цефаприм", "Маммифорт", "Кобактан", "Тетра-Дельта"]);
+
+                for d in 0..duration {
+                    let ep_date = ep_start + Duration::days(d);
+                    if ep_date > effective_end {
+                        break;
+                    }
+                    vet_batch.push(format!(
+                        "({}, 'disease', 'mastitis', '{}', '{}', '{}', '{}', true)",
+                        lact.animal_id,
+                        ep_date,
+                        format!("Клинический мастит ({})", severity),
+                        treatment,
+                        medication,
+                    ));
+                    total_vet += 1;
+                }
+            }
+        }
+
+        // Ketosis episodes: ~15% in first 60 DIM
+        if rng.random_bool(0.15) {
+            let ket_offset = rng.random_range(5..60.min(lac_days as i32 + 1));
+            let ket_start = effective_start + Duration::days(ket_offset as i64);
+            if ket_start <= effective_end {
+                let duration = rng.random_range(7..21);
+                for d in 0..duration {
+                    let ep_date = ket_start + Duration::days(d);
+                    if ep_date > effective_end {
+                        break;
+                    }
+                    vet_batch.push(format!(
+                        "({}, 'disease', 'ketosis', '{}', 'Субклинический кетоз', 'пропиленгликоль', 'КетоМикс', true)",
+                        lact.animal_id,
+                        ep_date,
+                    ));
+                    total_vet += 1;
+                }
+            }
+        }
+
+        // Lameness episodes: ~20% on parity 2+
+        if lact.lac_number >= 2 && rng.random_bool(0.20) {
+            let lam_offset = rng.random_range(30..lac_days.max(31));
+            let lam_start = effective_start + Duration::days(lam_offset);
+            if lam_start <= effective_end {
+                vet_batch.push(format!(
+                    "({}, 'disease', 'lameness', '{}', 'Хромота (степень {})', 'противовоспалительные', 'Мелоксикам', true)",
+                    lact.animal_id,
+                    lam_start,
+                    rng.random_range(1..=3),
+                ));
+                total_vet += 1;
+            }
+        }
+
+        // Estrus heats: every 21±3 days starting from DIM 35
+        let mut heat_day = 35i64;
+        while heat_day < lac_days {
+            let cycle_len = rng.random_range(18..25);
+            let heat_date = effective_start + Duration::days(heat_day);
+            if heat_date > effective_end {
+                break;
+            }
+            let confirmed = rng.random_bool(0.7);
+            let method = if rng.random_bool(0.5) {
+                "visual"
+            } else {
+                "activity_monitor"
+            };
+            heat_batch.push(format!(
+                "({}, '{}', {}, {})",
+                lact.animal_id,
+                heat_date,
+                confirmed,
+                if confirmed { format!("'{}'", method) } else { "NULL".to_string() },
+            ));
+            total_heats += 1;
+            heat_day += cycle_len as i64;
+        }
+
+        // Culling events for old / low-producing cows
+        if lact.lac_number >= 5 && rng.random_bool(0.35) {
+            let cull_offset = rng.random_range(60..lac_days.max(61));
+            let cull_date = effective_start + Duration::days(cull_offset);
+            if cull_date <= today {
+                let reason = pick(
+                    &mut rng,
+                    &[
+                        "низкая продуктивность",
+                        "хронический мастит",
+                        "репродуктивные проблемы",
+                        "возраст",
+                        "травма",
+                    ],
+                );
+                culling_batch.push(format!(
+                    "({}, '{}', '{}', '{{\"details\": \"Выбытие после {} лактаций\"}}'::jsonb)",
+                    lact.animal_id,
+                    cull_date,
+                    reason,
+                    lact.lac_number,
+                ));
+                total_cullings += 1;
+            }
+        }
+
+        if vet_batch.len() >= 5000 {
+            let sql = format!(
+                "INSERT INTO vet_records (animal_id, record_type, diagnosis_code, event_date, diagnosis, treatment, medication, confirmed) VALUES {}",
+                vet_batch.join(", ")
+            );
+            sqlx::query(&sql).execute(pool).await.unwrap();
+            vet_batch.clear();
+        }
+        if heat_batch.len() >= 5000 {
+            let sql = format!(
+                "INSERT INTO heats (animal_id, heat_date, confirmed, confirmation_method) VALUES {}",
+                heat_batch.join(", ")
+            );
+            sqlx::query(&sql).execute(pool).await.unwrap();
+            heat_batch.clear();
+        }
+    }
+
+    if !vet_batch.is_empty() {
+        let sql = format!(
+            "INSERT INTO vet_records (animal_id, record_type, diagnosis_code, event_date, diagnosis, treatment, medication, confirmed) VALUES {}",
+            vet_batch.join(", ")
+        );
+        sqlx::query(&sql).execute(pool).await.unwrap();
+    }
+    if !heat_batch.is_empty() {
+        let sql = format!(
+            "INSERT INTO heats (animal_id, heat_date, confirmed, confirmation_method) VALUES {}",
+            heat_batch.join(", ")
+        );
+        sqlx::query(&sql).execute(pool).await.unwrap();
+    }
+    if !culling_batch.is_empty() {
+        for chunk in culling_batch.chunks(1000) {
+            let sql = format!(
+                "INSERT INTO culling_events (animal_id, culling_date, reason, details) VALUES {}",
+                chunk.join(", ")
+            );
+            sqlx::query(&sql).execute(pool).await.unwrap();
+        }
+    }
+
+    println!("  vet_records: {} rows", total_vet);
+    println!("  heats: {} rows", total_heats);
+    println!("  culling_events: {} rows", total_cullings);
+}

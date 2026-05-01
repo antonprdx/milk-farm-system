@@ -588,8 +588,8 @@ pub async fn current_status(pool: &PgPool) -> Result<Vec<serde_json::Value>, App
             'last_heat_date', ht.max_heat
         )
         FROM animals a
-        LEFT JOIN LATERAL (SELECT animal_id FROM dry_offs WHERE animal_id = a.id AND dry_off_date <= CURRENT_DATE LIMIT 1) d ON true
-        LEFT JOIN LATERAL (SELECT animal_id FROM calvings WHERE animal_id = a.id AND calving_date <= CURRENT_DATE LIMIT 1) c ON true
+        LEFT JOIN LATERAL (SELECT animal_id FROM dry_offs WHERE animal_id = a.id AND dry_off_date <= get_ref_date() LIMIT 1) d ON true
+        LEFT JOIN LATERAL (SELECT animal_id FROM calvings WHERE animal_id = a.id AND calving_date <= get_ref_date() LIMIT 1) c ON true
         LEFT JOIN LATERAL (SELECT MAX(calving_date) as max_calving FROM calvings WHERE animal_id = a.id) cal ON true
         LEFT JOIN LATERAL (SELECT MAX(insemination_date) as max_insem FROM inseminations WHERE animal_id = a.id) ins ON true
         LEFT JOIN LATERAL (SELECT MAX(heat_date) as max_heat FROM heats WHERE animal_id = a.id) ht ON true

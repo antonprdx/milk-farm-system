@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import VirtualList from 'svelte-tiny-virtual-list';
 	import ErrorAlert from '$lib/components/ui/ErrorAlert.svelte';
 	import Pagination from '$lib/components/ui/Pagination.svelte';
 	import Tooltip from '$lib/components/ui/Tooltip.svelte';
@@ -141,6 +142,14 @@
 	let feedPrice = $state(12);
 
 	let lactationDetailAnimal = $state<number | null>(null);
+
+	let sortedClusters = $derived.by(() => clusterData?.clusters?.toSorted((a, b) => a.cluster_id - b.cluster_id) ?? []);
+	let sortedEstrus = $derived.by(() => estrusData?.predictions?.toSorted((a, b) => b.estrus_probability - a.estrus_probability) ?? []);
+	let equipmentAnomalies = $derived.by(() => equipmentData?.entries?.filter(e => e.is_anomaly).toSorted((a, b) => a.anomaly_score - b.anomaly_score) ?? []);
+	let sortedFeedRecs = $derived.by(() => feedRecData?.recommendations?.toSorted((a, b) => Math.abs(b.difference_kg) - Math.abs(a.difference_kg)) ?? []);
+	let sortedKetosis = $derived.by(() => ketosisData?.predictions?.toSorted((a, b) => b.risk_probability - a.risk_probability) ?? []);
+	let sortedDryOff = $derived.by(() => dryOffData?.cows?.toSorted((a, b) => (a.days_until_dry_off ?? 999) - (b.days_until_dry_off ?? 999)) ?? []);
+	let sortedLifetime = $derived.by(() => lifetimeData?.cows?.toSorted((a, b) => (b.projected_net_value ?? 0) - (a.projected_net_value ?? 0)) ?? []);
 
 	async function load(force = false) {
 		if (!force && loadedTabs.has(activeTab) && activeTab !== 'lactation' && activeTab !== 'profit' && activeTab !== 'forecast') {
@@ -864,7 +873,7 @@
 						</tr>
 					</thead>
 					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-						{#each paginate(clusterData.clusters.toSorted((a, b) => a.cluster_id - b.cluster_id)) as c (c.animal_id)}
+						{#each paginate(sortedClusters) as c (c.animal_id)}
 							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 								<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 								<td class={tdCls}>
@@ -878,7 +887,7 @@
 					</tbody>
 				</table>
 			</div>
-			<Pagination bind:page total={clusterData.clusters.length} perPage={PAGE_SIZE} />
+			<Pagination bind:page total={sortedClusters.length} perPage={PAGE_SIZE} />
 		{:else if clusterData}
 			<div class="text-sm text-slate-500 dark:text-slate-400 py-8 text-center">Нет данных для кластеризации</div>
 		{:else}
@@ -899,7 +908,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each paginate(estrusData.predictions.toSorted((a, b) => b.estrus_probability - a.estrus_probability)) as p (p.animal_id)}
+					{#each paginate(sortedEstrus) as p (p.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}><a href="/animals/{p.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{p.animal_name ?? `#${p.animal_id}`}</a></td>
 							<td class={`${tdCls} font-semibold ${p.estrus_probability >= 0.7 ? 'text-red-600 dark:text-red-400' : p.estrus_probability >= 0.4 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{(p.estrus_probability * 100).toFixed(0)}%</td>
@@ -918,13 +927,13 @@
 				</tbody>
 			</table>
 		</div>
-		<Pagination bind:page total={estrusData.predictions.length} perPage={PAGE_SIZE} />
+		<Pagination bind:page total={sortedEstrus.length} perPage={PAGE_SIZE} />
 
 	<!-- EQUIPMENT ANOMALY -->
 	{:else if activeTab === 'equipment' && equipmentData}
-		{#if equipmentData.entries.filter(e => e.is_anomaly).length > 0}
+		{#if equipmentAnomalies.length > 0}
 			<div class="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-				<div class="text-sm font-semibold text-red-700 dark:text-red-400">Обнаружено аномалий: {equipmentData.entries.filter(e => e.is_anomaly).length}</div>
+				<div class="text-sm font-semibold text-red-700 dark:text-red-400">Обнаружено аномалий: {equipmentAnomalies.length}</div>
 			</div>
 		{/if}
 		<div class="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
@@ -940,7 +949,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each paginate(equipmentData.entries.filter(e => e.is_anomaly).toSorted((a, b) => a.anomaly_score - b.anomaly_score)) as e (e.animal_id)}
+					{#each paginate(equipmentAnomalies) as e (e.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 bg-red-50/50 dark:bg-red-900/10">
 								<td class={tdCls}><a href="/animals/{e.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{e.animal_name ?? `#${e.animal_id}`}</a></td>
 								<td class={tdCls}>#{e.device_address ?? '—'}</td>
@@ -960,7 +969,7 @@
 				</tbody>
 			</table>
 		</div>
-		<Pagination bind:page total={equipmentData.entries.filter(e => e.is_anomaly).length} perPage={PAGE_SIZE} />
+		<Pagination bind:page total={equipmentAnomalies.length} perPage={PAGE_SIZE} />
 
 	<!-- FEED RECOMMENDATION -->
 	{:else if activeTab === 'feedRec' && feedRecData}
@@ -978,7 +987,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each paginate(feedRecData.recommendations.toSorted((a, b) => Math.abs(b.difference_kg) - Math.abs(a.difference_kg))) as r (r.animal_id)}
+					{#each paginate(sortedFeedRecs) as r (r.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}><a href="/animals/{r.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{r.animal_name ?? `#${r.animal_id}`}</a></td>
 							<td class={tdCls}>{r.dim_days}</td>
@@ -994,7 +1003,7 @@
 				</tbody>
 			</table>
 		</div>
-		<Pagination bind:page total={feedRecData.recommendations.length} perPage={PAGE_SIZE} />
+		<Pagination bind:page total={sortedFeedRecs.length} perPage={PAGE_SIZE} />
 
 	<!-- KETOSIS WARNING -->
 	{:else if activeTab === 'ketosis' && ketosisData}
@@ -1012,7 +1021,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each paginate(ketosisData.predictions.toSorted((a, b) => b.risk_probability - a.risk_probability)) as k (k.animal_id)}
+					{#each paginate(sortedKetosis) as k (k.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}><a href="/animals/{k.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{k.animal_name ?? `#${k.animal_id}`}</a></td>
 							<td class={`${tdCls} font-semibold ${k.risk_probability >= 0.7 ? 'text-red-600 dark:text-red-400' : k.risk_probability >= 0.4 ? 'text-orange-600 dark:text-orange-400' : ''}`}>{(k.risk_probability * 100).toFixed(0)}%</td>
@@ -1035,7 +1044,7 @@
 				</tbody>
 			</table>
 		</div>
-		<Pagination bind:page total={ketosisData.predictions.length} perPage={PAGE_SIZE} />
+		<Pagination bind:page total={sortedKetosis.length} perPage={PAGE_SIZE} />
 
 	<!-- FEED EFFICIENCY -->
 	{:else if activeTab === 'feedEff' && feedEffData}
@@ -1092,7 +1101,7 @@
 						</tr>
 					</thead>
 					<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-						{#each paginate(dryOffData.cows.toSorted((a, b) => (a.days_until_dry_off ?? 999) - (b.days_until_dry_off ?? 999))) as c (c.animal_id)}
+						{#each paginate(sortedDryOff) as c (c.animal_id)}
 							<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 								<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 								<td class={tdCls}>{c.expected_calving_date ?? '—'}</td>
@@ -1110,7 +1119,7 @@
 					</tbody>
 				</table>
 			</div>
-			<Pagination bind:page total={dryOffData.cows.length} perPage={PAGE_SIZE} />
+			<Pagination bind:page total={sortedDryOff.length} perPage={PAGE_SIZE} />
 		{/if}
 
 	<!-- LIFETIME VALUE -->
@@ -1131,7 +1140,7 @@
 					</tr>
 				</thead>
 				<tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
-					{#each paginate(lifetimeData.cows.toSorted((a, b) => (b.projected_net_value ?? 0) - (a.projected_net_value ?? 0))) as c (c.animal_id)}
+					{#each paginate(sortedLifetime) as c (c.animal_id)}
 						<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50">
 							<td class={tdCls}><a href="/animals/{c.animal_id}" class="text-blue-600 dark:text-blue-400 hover:underline">{c.animal_name ?? `#${c.animal_id}`}</a></td>
 							<td class={tdCls}>{c.age_years?.toFixed(1) ?? '—'}</td>
@@ -1149,6 +1158,6 @@
 				</tbody>
 			</table>
 		</div>
-		<Pagination bind:page total={lifetimeData.cows.length} perPage={PAGE_SIZE} />
+		<Pagination bind:page total={sortedLifetime.length} perPage={PAGE_SIZE} />
 	{/if}
 {/if}

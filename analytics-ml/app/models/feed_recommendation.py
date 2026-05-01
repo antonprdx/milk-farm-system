@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import time
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import cross_val_score
@@ -57,7 +56,9 @@ def _compute_nrc_target(row) -> float:
     elif rumination > 550:
         feed_dm *= 1.02
 
-    return round(max(feed_dm, 0), 2)
+    feed_as_fed = feed_dm * 0.55
+
+    return round(max(feed_as_fed, 0), 2)
 
 
 def train(df: pd.DataFrame) -> dict:
@@ -127,11 +128,13 @@ def train(df: pd.DataFrame) -> dict:
     }
 
 
-def predict(df: pd.DataFrame) -> list[dict]:
+def predict(df: pd.DataFrame, include_shap: bool = False) -> list[dict]:
     path = os.path.join(settings.model_dir, MODEL_FILENAME)
 
-    if os.path.exists(path):
-        model_data = joblib.load(path)
+    from app.services.model_cache import get_model
+    model_data = get_model("feed_recommendation", path)
+
+    if model_data is not None:
         model = model_data["model"]
         features = model_data["features"]
         medians = model_data.get("medians", {})
@@ -145,21 +148,27 @@ def predict(df: pd.DataFrame) -> list[dict]:
         version = "formula-v1"
         preds = df.apply(_compute_nrc_target, axis=1).values
 
+    animal_ids = df["animal_id"].values
+    names = df["animal_name"].values if "animal_name" in df.columns else [""] * len(df)
+    avg_feed_7d = df["avg_feed_7d"].values if "avg_feed_7d" in df.columns else np.full(len(df), 0.0)
+    dim_values = df["dim_days"].values if "dim_days" in df.columns else np.full(len(df), 0)
+    lac_values = df["lactation_number"].values if "lactation_number" in df.columns else np.full(len(df), 0)
+
     results = []
-    for i, (_, row) in enumerate(df.iterrows()):
+    for i in range(len(df)):
         recommended = round(max(float(preds[i]), 0), 2)
-        current = float(row.get("avg_feed_7d", 0) or 0)
+        current = float(avg_feed_7d[i]) if avg_feed_7d[i] == avg_feed_7d[i] else 0.0
         diff = round(recommended - current, 2)
 
         results.append({
-            "animal_id": int(row["animal_id"]),
-            "animal_name": row.get("animal_name"),
+            "animal_id": int(animal_ids[i]),
+            "animal_name": names[i],
             "current_feed_avg": round(current, 2),
             "recommended_feed": recommended,
             "difference_kg": diff,
             "suggestion": "increase" if diff > 1.0 else "decrease" if diff < -1.0 else "maintain",
-            "dim_days": int(row.get("dim_days", 0) or 0),
-            "lactation_number": int(row.get("lactation_number", 0) or 0),
+            "dim_days": int(dim_values[i]),
+            "lactation_number": int(lac_values[i]),
             "model_version": version,
         })
 

@@ -148,8 +148,8 @@ async fn check_milk_drop(
     let rows: Vec<(i32, Option<String>, f64, f64)> = sqlx::query_as(
         "SELECT a.id, a.name, short_avg.milk, long_avg.milk
          FROM animals a
-         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '2 days') short_avg ON true
-         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '14 days' AND m.date < CURRENT_DATE - INTERVAL '2 days') long_avg ON true
+         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '2 days') short_avg ON true
+         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '14 days' AND m.date < get_ref_date() - INTERVAL '2 days') long_avg ON true
          WHERE a.active = true AND short_avg.milk IS NOT NULL AND long_avg.milk IS NOT NULL AND short_avg.milk < long_avg.milk * $1",
     )
     .bind(factor)
@@ -229,11 +229,11 @@ async fn check_activity_drop(
          FROM animals a
          JOIN LATERAL (
              SELECT AVG(activity_counter)::float8 as act FROM activities
-             WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '1 day'
+             WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '1 day'
          ) recent ON true
          JOIN LATERAL (
              SELECT AVG(activity_counter)::float8 as avg_act FROM activities
-             WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '14 days'
+             WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '14 days'
          ) baseline ON true
          WHERE a.active = true AND recent.act IS NOT NULL AND baseline.avg_act IS NOT NULL AND recent.act < baseline.avg_act * $1",
     )
@@ -267,13 +267,13 @@ async fn check_no_milking(pool: &PgPool, event_bus: &EventBus) -> Result<usize, 
         "SELECT a.id, a.name FROM animals a
          WHERE a.active = true AND a.gender = 'female'
          AND NOT EXISTS (
-             SELECT 1 FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '1 day'
+             SELECT 1 FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '1 day'
          )
          AND EXISTS (
-             SELECT 1 FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days'
+             SELECT 1 FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '7 days'
          )
          AND NOT EXISTS (
-             SELECT 1 FROM dry_offs d WHERE d.animal_id = a.id AND d.date <= CURRENT_DATE
+             SELECT 1 FROM dry_offs d WHERE d.animal_id = a.id AND d.date <= get_ref_date()
          )",
     )
     .fetch_all(pool)
@@ -315,7 +315,7 @@ async fn check_expected_calving(
          WHERE a.active = true
            AND p.id IS NOT NULL
            AND c2.id IS NULL
-           AND (i.date + INTERVAL '283 days') BETWEEN CURRENT_DATE AND CURRENT_DATE + $1::int * INTERVAL '1 day'",
+           AND (i.date + INTERVAL '283 days') BETWEEN get_ref_date() AND get_ref_date() + $1::int * INTERVAL '1 day'",
     )
     .bind(days)
     .fetch_all(pool)
@@ -347,11 +347,11 @@ async fn check_low_feed(pool: &PgPool, event_bus: &EventBus) -> Result<usize, Ap
          FROM animals a
          JOIN LATERAL (
              SELECT AVG(total)::float8 as avg_feed FROM feed_day_amounts
-             WHERE animal_id = a.id AND feed_date >= CURRENT_DATE - INTERVAL '2 days'
+             WHERE animal_id = a.id AND feed_date >= get_ref_date() - INTERVAL '2 days'
          ) recent ON true
          JOIN LATERAL (
              SELECT AVG(total)::float8 as avg_feed FROM feed_day_amounts
-             WHERE animal_id = a.id AND feed_date >= CURRENT_DATE - INTERVAL '14 days'
+             WHERE animal_id = a.id AND feed_date >= get_ref_date() - INTERVAL '14 days'
          ) baseline ON true
          WHERE a.active = true AND recent.avg_feed IS NOT NULL AND baseline.avg_feed IS NOT NULL
            AND recent.avg_feed < baseline.avg_feed * 0.8",
@@ -388,12 +388,12 @@ async fn resolve_stale_alerts(pool: &PgPool) -> Result<(), AppError> {
            AND NOT EXISTS (
                SELECT 1 FROM milk_day_productions m
                WHERE m.animal_id = alerts.animal_id
-               AND m.date >= CURRENT_DATE - INTERVAL '2 days'
+               AND m.date >= get_ref_date() - INTERVAL '2 days'
                AND m.milk_amount < (
                    SELECT AVG(m2.milk_amount) FROM milk_day_productions m2
                    WHERE m2.animal_id = alerts.animal_id
-                   AND m2.date >= CURRENT_DATE - INTERVAL '14 days'
-                   AND m2.date < CURRENT_DATE - INTERVAL '2 days'
+                   AND m2.date >= get_ref_date() - INTERVAL '14 days'
+                   AND m2.date < get_ref_date() - INTERVAL '2 days'
                ) * (1.0 - (SELECT value::float8 FROM system_settings WHERE key = 'alert_min_milk') / 100.0)
            )",
     )
@@ -407,7 +407,7 @@ async fn resolve_stale_alerts(pool: &PgPool) -> Result<(), AppError> {
            AND animal_id IS NOT NULL
            AND EXISTS (
                SELECT 1 FROM milk_day_productions m
-               WHERE m.animal_id = alerts.animal_id AND m.date >= CURRENT_DATE - INTERVAL '1 day'
+               WHERE m.animal_id = alerts.animal_id AND m.date >= get_ref_date() - INTERVAL '1 day'
            )",
     )
     .execute(pool)
@@ -419,7 +419,7 @@ async fn resolve_stale_alerts(pool: &PgPool) -> Result<(), AppError> {
          WHERE status = 'active' AND category = 'expected_calving'
            AND animal_id IS NOT NULL
            AND EXISTS (
-               SELECT 1 FROM calvings c WHERE c.animal_id = alerts.animal_id AND c.date >= CURRENT_DATE - INTERVAL '3 days'
+               SELECT 1 FROM calvings c WHERE c.animal_id = alerts.animal_id AND c.date >= get_ref_date() - INTERVAL '3 days'
            )",
     )
     .execute(pool)

@@ -1,0 +1,44 @@
+\subsection{Мониторинг}
+
+Помимо бизнес-логики и аналитики, система включает инфраструктурные компоненты, обеспечивающие её наблюдаемость и надёжную доставку обновлений. Стек мониторинга реализован на базе Grafana LGTM (Loki, Grafana, Tempo, Mimir/Prometheus). На рисунке~\ref{monitoring-arch} представлена архитектура стека мониторинга.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{monitoring.png}
+  \caption{Архитектура стека мониторинга}
+  \label{monitoring-arch}
+\end{figure}
+
+Prometheus~\cite{Prometheus} обеспечивает сбор и хранение метрик с 30-дневным хранением. Grafana~\cite{Grafana} визуализирует дашборды: преднастроенный дашборд backend отображает частоту запросов, время ответа, процент ошибок и использование памяти. Loki~\cite{Loki} агрегирует логи: Promtail собирает логи из Docker-контейнеров, парсит JSON-формат и отправляет в Loki. Tempo~\cite{Tempo} обеспечивает распределённую трассировку через OpenTelemetry OTLP/gRPC, позволяя отследить путь запроса от Nginx через Backend до PostgreSQL.
+
+\subsection{Непрерывная интеграция и доставка (CI/CD)}
+
+Конвейер CI/CD реализован на GitHub Actions~\cite{GHActions}. На рисунке~\ref{cicd} представлена схема конвейера.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{ci-cd.png}
+  \caption{Конвейер непрерывной интеграции и доставки}
+  \label{cicd}
+\end{figure}
+
+\textbf{Непрерывная интеграция} запускается при каждом push и pull request. Три параллельные задачи: для backend на Rust выполняются проверка форматирования, статический анализ и запуск тестов с PostgreSQL в качестве сервисного контейнера; для frontend на Node.js~20 --- аудит уязвимостей, линтинг, проверка типов и запуск тестов Vitest; для analytics-ml на Python~3.12 --- установка зависимостей и запуск тестов pytest.
+
+\textbf{Непрерывная доставка} запускается при push в main/master или при создании тега \texttt{v*}. Три параллельные задачи сборки Docker-образов публикуются в GHCR~\cite{GHCR}. При создании тега версии дополнительно запускается задача деплоя: SSH на сервер, pull образов, \texttt{docker compose up -d} и проверка работоспособности.
+
+\subsection{Развёртывание}
+
+Для развёртывания используется Docker Compose с двумя конфигурациями. На рисунке~\ref{deploy} представлена схема развёртывания системы.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{deployment.png}
+  \caption{Схема развёртывания системы}
+  \label{deploy}
+\end{figure}
+
+\textbf{Разработческая} (\texttt{docker-compose.yml}): 7 сервисов --- PostgreSQL (TimescaleDB), Redis, backend, frontend, Nginx, analytics-ml, MLflow. Nginx на порту 8080.
+
+\textbf{Продуктовая} (\texttt{docker-compose.prod.yml}): те же 7 сервисов с усилением безопасности: переменные окружения через env-файлы, обязательная валидация секретов, \texttt{restart: unless-stopped}, ротация логов, ограничения памяти, SSL-терминация через Nginx с монтированием сертификатов.
+
+Nginx в продуктовой конфигурации обеспечивает: редирект HTTP $\to$ HTTPS, SSL (TLS 1.2/1.3), gzip-сжатие, заголовки безопасности (X-Frame-Options: DENY, HSTS, X-XSS-Protection), rate limiting (30 запросов/сек для API, 5 запросов/сек для auth), кэширование статических ресурсов (30 дней).

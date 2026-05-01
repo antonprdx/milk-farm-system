@@ -4,7 +4,6 @@ import logging
 import os
 import time
 
-import joblib
 import numpy as np
 import pandas as pd
 
@@ -84,15 +83,12 @@ def train(df: pd.DataFrame) -> dict:
         }
 
 
-def predict(df: pd.DataFrame, periods: int = 30) -> dict:
+def predict(df: pd.DataFrame, periods: int = 30, include_shap: bool = False) -> dict:
     path = os.path.join(settings.model_dir, MODEL_FILENAME)
     model_data = None
 
-    if os.path.exists(path):
-        try:
-            model_data = joblib.load(path)
-        except Exception:
-            model_data = None
+    from app.services.model_cache import get_model
+    model_data = get_model("herd_milk_prophet", path)
 
     if model_data is not None:
         model = model_data["model"]
@@ -148,13 +144,18 @@ def predict(df: pd.DataFrame, periods: int = 30) -> dict:
         else "stable"
     )
 
+    forecast_dates = result["ds"].values
+    yhat = result["yhat"].values
+    yhat_lower = result["yhat_lower"].values
+    yhat_upper = result["yhat_upper"].values
+
     forecast_days = []
-    for _, row in result.iterrows():
+    for i in range(len(result)):
         forecast_days.append({
-            "date": row["ds"],
-            "predicted": round(max(float(row["yhat"]), 0), 2),
-            "lower": round(max(float(row["yhat_lower"]), 0), 2),
-            "upper": round(max(float(row["yhat_upper"]), 0), 2),
+            "date": forecast_dates[i],
+            "predicted": round(max(float(yhat[i]), 0), 2),
+            "lower": round(max(float(yhat_lower[i]), 0), 2),
+            "upper": round(max(float(yhat_upper[i]), 0), 2),
         })
 
     return {

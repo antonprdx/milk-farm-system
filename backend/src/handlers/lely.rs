@@ -244,6 +244,7 @@ async fn trigger_sync(
         config: state.config.clone(),
         lely: state.lely.clone(),
         ml: state.ml.clone(),
+        ml_cache: state.ml_cache.clone(),
         redis: state.redis.clone(),
         event_bus: state.event_bus.clone(),
     });

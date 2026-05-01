@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import time
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import cross_val_score
@@ -26,6 +25,13 @@ FEATURE_COLUMNS = [
     "milk_trend",
     "dim_days",
     "lactation_number",
+    "weather_temp",
+    "weather_humidity",
+    "thi",
+    "vet_tx_count_180d",
+    "days_since_any_tx",
+    "avg_lactose_7d",
+    "lactose_trend",
 ]
 
 
@@ -123,25 +129,28 @@ def train(df: pd.DataFrame) -> dict:
     }
 
 
-def predict(df: pd.DataFrame) -> list[dict]:
+def predict(df: pd.DataFrame, include_shap: bool = False) -> list[dict]:
     onnx_path = os.path.join(settings.model_dir, ONNX_FILENAME)
-    if os.path.exists(onnx_path):
-        try:
-            from app.services.onnx_utils import load_model_onnx, predict_onnx
-            session, features, task = load_model_onnx(onnx_path)
+    try:
+        from app.services.model_cache import get_onnx_session
+        result = get_onnx_session(onnx_path)
+        if result is not None:
+            session, features, task = result
+            from app.services.onnx_utils import predict_onnx
             df_filled, _ = fillna_with_medians(df, features)
             X = df_filled[features].values
             probs = predict_onnx(session, X)[:, 1]
-            shap_explanations = _compute_shap(None, X, features)
+            shap_explanations = _compute_shap(None, X, features) if include_shap else []
             return _build_results(df, probs, "xgboost-v2", shap_explanations)
-        except Exception:
-            pass
+    except Exception:
+        pass
 
     path = os.path.join(settings.model_dir, MODEL_FILENAME)
-    if not os.path.exists(path):
+    from app.services.model_cache import get_model
+    model_data = get_model("ketosis_warning", path)
+    if model_data is None:
         raise FileNotFoundError(f"Model not found: {path}")
 
-    model_data = joblib.load(path)
     model = model_data["model"]
     features = model_data["features"]
     medians = model_data.get("medians", {})
@@ -151,7 +160,7 @@ def predict(df: pd.DataFrame) -> list[dict]:
     X = df_filled[features].values
     probs = model.predict_proba(X)[:, 1]
 
-    shap_explanations = _compute_shap(model, X, features)
+    shap_explanations = _compute_shap(model, X, features) if include_shap else []
     return _build_results(df, probs, version, shap_explanations)
 
 
@@ -166,10 +175,18 @@ def _compute_shap(model, X, features):
 
 
 def _build_results(df, probs, version, shap_explanations=None):
+    animal_ids = df["animal_id"].values
+    names = df["animal_name"].values if "animal_name" in df.columns else [""] * len(df)
+    fpr_7d = df["fpr_7d"].values if "fpr_7d" in df.columns else np.full(len(df), 1.3)
+    rumination_trend = df["rumination_trend"].values if "rumination_trend" in df.columns else np.full(len(df), 0.0)
+    milk_trend = df["milk_trend"].values if "milk_trend" in df.columns else np.full(len(df), 0.0)
+    dim_values = df["dim_days"].values if "dim_days" in df.columns else np.full(len(df), 0)
+    fpr_trend = df["fpr_trend"].values if "fpr_trend" in df.columns else np.full(len(df), 0.0)
+
     results = []
-    for i, row in df.iterrows():
+    for i in range(len(df)):
         prob = float(probs[i])
-        fpr = float(row.get("fpr_7d", 1.3) or 1.3)
+        fpr = float(fpr_7d[i]) if fpr_7d[i] == fpr_7d[i] else 1.3
         rtype = _risk_type(fpr)
 
         contributing = []
@@ -177,24 +194,24 @@ def _build_results(df, probs, version, shap_explanations=None):
             contributing.append("FPR↑")
         if fpr < 1.1:
             contributing.append("FPR↓")
-        if row.get("rumination_trend", 0) < -0.1:
+        if rumination_trend[i] < -0.1:
             contributing.append("жвачка↓")
-        if row.get("milk_trend", 0) < -0.1:
+        if milk_trend[i] < -0.1:
             contributing.append("надой↓")
-        dim = row.get("dim_days", 0)
+        dim = dim_values[i]
         if dim and dim < 60:
             contributing.append("ранняя лактация")
 
         severity = "high" if prob >= 0.7 else "medium" if prob >= 0.4 else "low"
 
         result = {
-            "animal_id": int(row["animal_id"]),
-            "animal_name": row.get("animal_name"),
+            "animal_id": int(animal_ids[i]),
+            "animal_name": names[i],
             "risk_probability": round(prob, 4),
             "risk_type": rtype,
             "severity": severity,
             "fpr_current": round(fpr, 3),
-            "fpr_trend": round(float(row.get("fpr_trend", 0) or 0), 4),
+            "fpr_trend": round(float(fpr_trend[i]) if fpr_trend[i] == fpr_trend[i] else 0.0, 4),
             "contributing_factors": contributing,
             "model_version": version,
         }

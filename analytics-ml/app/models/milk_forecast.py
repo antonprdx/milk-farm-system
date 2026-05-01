@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import time
 
-import joblib
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import cross_val_score
@@ -18,7 +17,8 @@ ONNX_FILENAME = "milk_forecast_xgb.onnx"
 FORECAST_FEATURES = [
     "milk_lag1", "milk_lag7", "milk_roll7", "milk_roll30",
     "milk_diff1", "milk_diff7", "feed_amount", "rumination", "activity",
-    "month", "day_of_week",
+    "month", "day_of_week", "temp_c", "humidity", "thi",
+    "ts_cv", "ts_acf1", "ts_trend_slope", "ts_entropy", "ts_season_strength",
 ]
 
 DIRECT_HORIZONS = [1, 7, 14, 30]
@@ -44,6 +44,19 @@ def _build_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     else:
         features["month"] = 1
         features["day_of_week"] = 0
+
+    features["temp_c"] = df["temp_c"].fillna(0) if "temp_c" in df.columns else 0
+    features["humidity"] = df["humidity"].fillna(0) if "humidity" in df.columns else 0
+    features["thi"] = df["thi"].fillna(0) if "thi" in df.columns else 0
+
+    from app.models.advanced_timeseries import compute_tsfresh_features
+    window = min(30, len(df))
+    tsf = compute_tsfresh_features(df["milk_amount"].iloc[-window:].values)
+    features["ts_cv"] = tsf.get("cv", 0.0)
+    features["ts_acf1"] = tsf.get("acf_lag1", 0.0)
+    features["ts_trend_slope"] = tsf.get("trend_slope", 0.0)
+    features["ts_entropy"] = tsf.get("entropy", 0.0)
+    features["ts_season_strength"] = tsf.get("stl_season_strength", 0.0)
 
     valid = features.dropna(subset=["milk_lag1"])
     target = df.loc[valid.index, "milk_amount"]
@@ -108,11 +121,11 @@ def train(df: pd.DataFrame) -> dict:
         y_direct = _build_direct_target(df, horizon)
         if y_direct is None:
             continue
-        valid_mask = y_direct.notna()
-        X_h = X_all.loc[valid_mask]
-        y_h = y_direct[valid_mask]
-        if len(X_h) < 10:
+        common_idx = X_all.index.intersection(y_direct.dropna().index)
+        if len(common_idx) < 10:
             continue
+        X_h = X_all.loc[common_idx]
+        y_h = y_direct.loc[common_idx]
         m = _gi(dict(base_params_copy), backend_str, "regressor")
         m.fit(X_h.values, y_h.values)
         direct_models[horizon] = m
@@ -174,12 +187,12 @@ def train(df: pd.DataFrame) -> dict:
     }
 
 
-def predict(df: pd.DataFrame, days: int = 30) -> dict:
+def predict(df: pd.DataFrame, days: int = 30, include_shap: bool = False) -> dict:
     path = os.path.join(settings.model_dir, MODEL_FILENAME)
-    if not os.path.exists(path):
+    from app.services.model_cache import get_model
+    model_data = get_model("milk_forecast", path)
+    if model_data is None:
         raise FileNotFoundError(f"Model not found: {path}")
-
-    model_data = joblib.load(path)
     model = model_data["model"]
     q10 = model_data.get("q10")
     q90 = model_data.get("q90")
@@ -266,7 +279,7 @@ def predict(df: pd.DataFrame, days: int = 30) -> dict:
             "upper_bound": round(max(upper, 0), 2),
         })
 
-    shap_explanation = _compute_shap(model, feature_row, use_time_features)
+    shap_explanation = _compute_shap(model, feature_row, use_time_features) if include_shap else None
 
     return {
         "current_daily_avg": round(current_avg, 2) if current_avg else None,

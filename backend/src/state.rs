@@ -5,6 +5,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::config::{Config, LelyConfig};
 use crate::handlers::events::EventBus;
+use crate::services::ml_cache::MlCache;
 use crate::services::ml_client::MlClient;
 
 pub type AppState = Arc<AppStateInner>;
@@ -48,6 +49,7 @@ pub struct AppStateInner {
     pub config: Config,
     pub lely: Arc<LelyRuntime>,
     pub ml: Option<MlClient>,
+    pub ml_cache: Option<MlCache>,
     pub redis: Option<redis::aio::ConnectionManager>,
     pub event_bus: Arc<EventBus>,
 }

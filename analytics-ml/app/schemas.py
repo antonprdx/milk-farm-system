@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class MastitisRiskRequest(BaseModel):
     animal_id: int | None = None
+    include_explanation: bool = False
 
 
 class ShapFeatureContribution(BaseModel):
@@ -31,6 +32,7 @@ class MastitisRiskResponse(BaseModel):
 
 
 class CullingRiskRequest(BaseModel):
+    include_explanation: bool = False
     animal_id: int | None = None
 
 
@@ -103,11 +105,12 @@ class TrainRequest(BaseModel):
 class TrainResponse(BaseModel):
     model_name: str
     samples: int
-    metrics: dict[str, float | dict[str, int]]
+    metrics: dict[str, float | dict[str, int] | list[str] | str | int]
     duration_seconds: float
 
 
 class EstrusRequest(BaseModel):
+    include_explanation: bool = False
     animal_id: int | None = None
 
 
@@ -127,6 +130,7 @@ class EstrusResponse(BaseModel):
 
 
 class EquipmentAnomalyRequest(BaseModel):
+    include_explanation: bool = False
     pass
 
 
@@ -146,6 +150,7 @@ class EquipmentAnomalyResponse(BaseModel):
 
 
 class FeedRecommendationRequest(BaseModel):
+    include_explanation: bool = False
     animal_id: int | None = None
 
 
@@ -166,6 +171,7 @@ class FeedRecommendationResponse(BaseModel):
 
 
 class KetosisWarningRequest(BaseModel):
+    include_explanation: bool = False
     animal_id: int | None = None
 
 
@@ -220,6 +226,7 @@ class HerdMilkForecastResponse(BaseModel):
 
 
 class BcsEstimateRequest(BaseModel):
+    include_explanation: bool = False
     animal_id: int | None = None
 
 

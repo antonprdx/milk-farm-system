@@ -26,6 +26,16 @@ FEATURE_COLUMNS = [
     "avg_activity_7d",
     "fat_protein_ratio",
     "cond_asymmetry",
+    "avg_lactose_7d",
+    "lactose_trend",
+    "weather_temp",
+    "weather_humidity",
+    "thi",
+    "mastitis_treatments_90d",
+    "days_since_mastitis_tx",
+    "vet_tx_count_180d",
+    "days_since_any_tx",
+    "holstein_percentage",
 ]
 
 
@@ -37,6 +47,12 @@ def _create_labels(df: pd.DataFrame) -> pd.Series:
     labels[(df["milk_deviation"] < -0.15) & (df["recent_scc"] > 100000)] = 1
     labels[(df["cond_asymmetry"] > 5) & (df["recent_scc"] > 100000)] = 1
     labels[(df["fat_protein_ratio"] > 0) & (df["fat_protein_ratio"] < 1.0) & (df["recent_scc"] > 100000)] = 1
+    if "avg_lactose_7d" in df.columns:
+        labels[(df["avg_lactose_7d"] > 0) & (df["avg_lactose_7d"] < 4.2) & (df["recent_scc"] > 100000)] = 1
+    if "lactose_trend" in df.columns:
+        labels[(df["lactose_trend"] < -0.03) & (df["recent_scc"] > 100000)] = 1
+    if "mastitis_treatments_90d" in df.columns:
+        labels[df["mastitis_treatments_90d"] > 0] = 1
     return labels
 
 
@@ -112,7 +128,7 @@ def train(df: pd.DataFrame) -> dict:
     }
 
 
-def predict(df: pd.DataFrame, model_data: dict | None = None) -> list[dict]:
+def predict(df: pd.DataFrame, model_data: dict | None = None, include_shap: bool = False) -> list[dict]:
     features = FEATURE_COLUMNS
     version = "xgboost-v3"
     medians = {}
@@ -120,21 +136,25 @@ def predict(df: pd.DataFrame, model_data: dict | None = None) -> list[dict]:
     onnx_path = os.path.join(settings.model_dir, ONNX_FILENAME)
     if model_data is None and os.path.exists(onnx_path):
         try:
-            from app.services.onnx_utils import load_model_onnx, predict_onnx
-            session, features, task = load_model_onnx(onnx_path)
-            df_filled, _ = fillna_with_medians(df, features)
-            X = df_filled[features].values
-            probs = predict_onnx(session, X)[:, 1]
-            shap_explanations = _compute_shap(None, X, features)
-            return _build_results(df, probs, features, version, shap_explanations)
+            from app.services.model_cache import get_onnx_session
+            result = get_onnx_session(onnx_path)
+            if result is not None:
+                session, features, task = result
+                from app.services.onnx_utils import predict_onnx
+                df_filled, _ = fillna_with_medians(df, features)
+                X = df_filled[features].values
+                probs = predict_onnx(session, X)[:, 1]
+                shap_explanations = _compute_shap(None, X, features) if include_shap else []
+                return _build_results(df, probs, features, version, shap_explanations)
         except Exception:
             pass
 
     if model_data is None:
         path = os.path.join(settings.model_dir, MODEL_FILENAME)
-        if not os.path.exists(path):
+        from app.services.model_cache import get_model
+        model_data = get_model("mastitis", path)
+        if model_data is None:
             raise FileNotFoundError(f"Model not found: {path}")
-        model_data = joblib.load(path)
 
     model = model_data["model"]
     features = model_data["features"]
@@ -145,7 +165,7 @@ def predict(df: pd.DataFrame, model_data: dict | None = None) -> list[dict]:
     X = df_filled[features].values
     probs = model.predict_proba(X)[:, 1]
 
-    shap_explanations = _compute_shap(model, X, features)
+    shap_explanations = _compute_shap(model, X, features) if include_shap else []
     return _build_results(df, probs, features, version, shap_explanations)
 
 
@@ -160,32 +180,42 @@ def _compute_shap(model, X, features):
 
 
 def _build_results(df, probs, features, version, shap_explanations=None):
+    animal_ids = df["animal_id"].values
+    names = df["animal_name"].values if "animal_name" in df.columns else [""] * len(df)
+    recent_scc = df["recent_scc"].values if "recent_scc" in df.columns else np.zeros(len(df))
+    scc_trend = df["scc_trend_ratio"].values if "scc_trend_ratio" in df.columns else np.ones(len(df))
+    conductivity = df["avg_conductivity"].values if "avg_conductivity" in df.columns else np.zeros(len(df))
+    milk_dev = df["milk_deviation"].values if "milk_deviation" in df.columns else np.zeros(len(df))
+    dim_days = df["dim_days"].values if "dim_days" in df.columns else np.zeros(len(df))
+    cond_asym = df["cond_asymmetry"].values if "cond_asymmetry" in df.columns else np.zeros(len(df))
+    fpr = df["fat_protein_ratio"].values if "fat_protein_ratio" in df.columns else np.full(len(df), 1.5)
+
     results = []
-    for i, row in df.iterrows():
+    for i in range(len(df)):
         prob = float(probs[i])
         contributing = []
-        if row.get("recent_scc", 0) > 300000:
+        if recent_scc[i] > 300000:
             contributing.append("SCC>300k")
-        if row.get("scc_trend_ratio", 1) > 2:
+        if scc_trend[i] > 2:
             contributing.append("SCC↑↑")
-        elif row.get("scc_trend_ratio", 1) > 1.5:
+        elif scc_trend[i] > 1.5:
             contributing.append("SCC↑")
-        if row.get("avg_conductivity", 0) > 60:
+        if conductivity[i] > 60:
             contributing.append("conductivity↑")
-        if row.get("milk_deviation", 0) < -0.15:
+        if milk_dev[i] < -0.15:
             contributing.append("milk↓")
-        if row.get("dim_days", 0) < 30:
+        if dim_days[i] < 30:
             contributing.append("early_lactation")
-        if row.get("cond_asymmetry", 0) > 5:
+        if cond_asym[i] > 5:
             contributing.append("quarter_asymmetry↑")
-        if 0 < row.get("fat_protein_ratio", 1.5) < 1.0:
+        if 0 < fpr[i] < 1.0:
             contributing.append("FPR↓(ketosis_risk)")
 
         risk_level = "high" if prob >= 0.6 else "medium" if prob >= 0.3 else "low"
 
         result = {
-            "animal_id": int(row["animal_id"]),
-            "animal_name": row.get("animal_name"),
+            "animal_id": int(animal_ids[i]),
+            "animal_name": str(names[i]) if names[i] else None,
             "risk_probability": round(prob, 4),
             "risk_level": risk_level,
             "contributing_features": contributing,

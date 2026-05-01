@@ -4,6 +4,7 @@ from logging import getLogger
 import os
 import time
 
+from fastapi import BackgroundTasks
 import joblib
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -27,6 +28,7 @@ from app.models import bcs_estimator as bcs_model
 from app.models import ketosis_warning as ketosis_model
 from app.models import mastitis as mastitis_model
 from app.models import milk_forecast as forecast_model
+from app.models import multi_task_health as multi_task_model
 from app.schemas import (
     BcsEstimateEntry,
     BcsEstimateRequest,
@@ -77,6 +79,9 @@ from app.services.data_loader import (
     load_ketosis_features,
     load_mastitis_features,
     load_milk_timeseries,
+    load_culling_events,
+    load_confirmed_vet_labels,
+    load_confirmed_heats,
 )
 from app.services.drift_monitor import check_drift, record_predictions, record_features
 
@@ -92,7 +97,8 @@ MODEL_FILES = {
     "cow_clusters": "cow_clusters.pkl",
     "estrus": "estrus_xgb.pkl",
     "equipment_anomaly": "equipment_anomaly.pkl",
-    "ketosis_warning": "ketosis_warning.pkl",
+    "ketosis_warning": "ketosis_warning_xgb.pkl",
+    "multi_task_health": "multi_task_health.pkl",
 }
 
 _start_time = time.time()
@@ -114,7 +120,19 @@ async def _scheduled_retrain():
     logger.info("Scheduled retraining started")
     try:
         async with async_session() as session:
-            for name in ("mastitis", "culling", "cow_clusters", "milk_forecast", "estrus", "ketosis_warning", "equipment_anomaly"):
+            drift_models = []
+            for name in ("mastitis", "culling", "cow_clusters", "milk_forecast", "estrus", "ketosis_warning", "equipment_anomaly", "multi_task_health"):
+                drift_info = check_drift(name)
+                if drift_info.get("drift_detected"):
+                    drift_models.append(name)
+                    logger.info("Drift detected for %s, scheduling retrain", name)
+
+            models_to_retrain = list(set(
+                ["mastitis", "culling", "cow_clusters", "milk_forecast", "estrus", "ketosis_warning", "equipment_anomaly", "multi_task_health"]
+                + drift_models
+            ))
+
+            for name in models_to_retrain:
                 try:
                     result = await _train_model(name, session)
                     _model_timestamps[name] = _check_model(name)
@@ -239,29 +257,38 @@ async def metrics():
 async def predict_mastitis(
     req: MastitisRiskRequest,
     session: AsyncSession = Depends(get_session),
+    bg: BackgroundTasks = BackgroundTasks(),
 ):
-    try:
-        df = await load_mastitis_features(session)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    from app.services.model_cache import get_features, set_features
+
+    if req.animal_id is not None:
+        try:
+            df = await load_mastitis_features(session, animal_id=req.animal_id)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    else:
+        cached = get_features("mastitis")
+        if cached is not None:
+            df, _ = cached
+        else:
+            try:
+                df = await load_mastitis_features(session)
+            except Exception as e:
+                raise HTTPException(status_code=503, detail=f"Database error: {e}")
+            if not df.empty:
+                set_features("mastitis", df)
 
     if df.empty:
         return MastitisRiskResponse(predictions=[])
 
-    record_features("mastitis", df)
-
-    if req.animal_id is not None:
-        df = df[df["animal_id"] == req.animal_id]
-        if df.empty:
-            return MastitisRiskResponse(predictions=[])
-
     try:
-        results = mastitis_model.predict(df)
+        results = mastitis_model.predict(df, include_shap=getattr(req, 'include_explanation', False))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
     predictions = [MastitisRiskPrediction(**r) for r in results]
-    record_predictions("mastitis", results)
+    bg.add_task(record_features, "mastitis", df)
+    bg.add_task(record_predictions, "mastitis", results)
     return MastitisRiskResponse(predictions=predictions)
 
 
@@ -269,29 +296,38 @@ async def predict_mastitis(
 async def predict_culling(
     req: CullingRiskRequest,
     session: AsyncSession = Depends(get_session),
+    bg: BackgroundTasks = BackgroundTasks(),
 ):
-    try:
-        df = await load_culling_features(session)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    from app.services.model_cache import get_features, set_features
+
+    if req.animal_id is not None:
+        try:
+            df = await load_culling_features(session, animal_id=req.animal_id)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    else:
+        cached = get_features("culling")
+        if cached is not None:
+            df, _ = cached
+        else:
+            try:
+                df = await load_culling_features(session)
+            except Exception as e:
+                raise HTTPException(status_code=503, detail=f"Database error: {e}")
+            if not df.empty:
+                set_features("culling", df)
 
     if df.empty:
         return CullingRiskResponse(predictions=[])
 
-    record_features("culling", df)
-
-    if req.animal_id is not None:
-        df = df[df["animal_id"] == req.animal_id]
-        if df.empty:
-            return CullingRiskResponse(predictions=[])
-
     try:
-        results = culling_model.predict(df)
+        results = culling_model.predict(df, include_shap=getattr(req, 'include_explanation', False))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
     predictions = [CullingRiskPrediction(**r) for r in results]
-    record_predictions("culling", results)
+    bg.add_task(record_features, "culling", df)
+    bg.add_task(record_predictions, "culling", results)
     return CullingRiskResponse(predictions=predictions)
 
 
@@ -335,17 +371,25 @@ async def predict_milk_forecast(
 async def predict_clusters(
     req: ClusterRequest,
     session: AsyncSession = Depends(get_session),
+    bg: BackgroundTasks = BackgroundTasks(),
 ):
-    try:
-        df = await load_clustering_features(session, days=req.days)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    from app.services.model_cache import get_features, set_features
+    cached = get_features("clusters")
+    if cached is not None:
+        df, _ = cached
+    else:
+        try:
+            df = await load_clustering_features(session, days=req.days)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Database error: {e}")
+        if not df.empty:
+            set_features("clusters", df)
 
     if df.empty:
         return ClusterResponse(clusters=[], cluster_names={})
 
     try:
-        results = clustering_model.predict(df)
+        results = clustering_model.predict(df, include_shap=getattr(req, 'include_explanation', False))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -360,29 +404,38 @@ async def predict_clusters(
 async def predict_estrus(
     req: EstrusRequest,
     session: AsyncSession = Depends(get_session),
+    bg: BackgroundTasks = BackgroundTasks(),
 ):
-    try:
-        df = await load_estrus_features(session)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    from app.services.model_cache import get_features, set_features
+
+    if req.animal_id is not None:
+        try:
+            df = await load_estrus_features(session, animal_id=req.animal_id)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    else:
+        cached = get_features("estrus")
+        if cached is not None:
+            df, _ = cached
+        else:
+            try:
+                df = await load_estrus_features(session)
+            except Exception as e:
+                raise HTTPException(status_code=503, detail=f"Database error: {e}")
+            if not df.empty:
+                set_features("estrus", df)
 
     if df.empty:
         return EstrusResponse(predictions=[])
 
-    record_features("estrus", df)
-
-    if req.animal_id is not None:
-        df = df[df["animal_id"] == req.animal_id]
-        if df.empty:
-            return EstrusResponse(predictions=[])
-
     try:
-        results = estrus_model.predict(df)
+        results = estrus_model.predict(df, include_shap=getattr(req, 'include_explanation', False))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
     estrus_results = [EstrusPrediction(**r) for r in results]
-    record_predictions("estrus", results)
+    bg.add_task(record_features, "estrus", df)
+    bg.add_task(record_predictions, "estrus", results)
     return EstrusResponse(predictions=estrus_results)
 
 
@@ -390,22 +443,31 @@ async def predict_estrus(
 async def predict_equipment(
     req: EquipmentAnomalyRequest,
     session: AsyncSession = Depends(get_session),
+    bg: BackgroundTasks = BackgroundTasks(),
 ):
-    try:
-        df = await load_equipment_anomaly_features(session)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    from app.services.model_cache import get_features, set_features
+    cached = get_features("equipment_anomaly")
+    if cached is not None:
+        df, _ = cached
+    else:
+        try:
+            df = await load_equipment_anomaly_features(session)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Database error: {e}")
+        if not df.empty:
+            set_features("equipment_anomaly", df)
 
     if df.empty:
         return EquipmentAnomalyResponse(entries=[])
 
     try:
-        results = equipment_model.predict(df)
+        results = equipment_model.predict(df, include_shap=getattr(req, 'include_explanation', False))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
     equip_results = [EquipmentAnomalyEntry(**r) for r in results]
-    record_predictions("equipment_anomaly", results)
+    bg.add_task(record_features, "equipment_anomaly", df)
+    bg.add_task(record_predictions, "equipment_anomaly", results)
     return EquipmentAnomalyResponse(entries=equip_results)
 
 
@@ -413,27 +475,38 @@ async def predict_equipment(
 async def predict_feed(
     req: FeedRecommendationRequest,
     session: AsyncSession = Depends(get_session),
+    bg: BackgroundTasks = BackgroundTasks(),
 ):
-    try:
-        df = await load_feed_recommendation_features(session)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    from app.services.model_cache import get_features, set_features
+
+    if req.animal_id is not None:
+        try:
+            df = await load_feed_recommendation_features(session, animal_id=req.animal_id)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    else:
+        cached = get_features("feed_recommendation")
+        if cached is not None:
+            df, _ = cached
+        else:
+            try:
+                df = await load_feed_recommendation_features(session)
+            except Exception as e:
+                raise HTTPException(status_code=503, detail=f"Database error: {e}")
+            if not df.empty:
+                set_features("feed_recommendation", df)
 
     if df.empty:
         return FeedRecommendationResponse(recommendations=[])
 
-    if req.animal_id is not None:
-        df = df[df["animal_id"] == req.animal_id]
-        if df.empty:
-            return FeedRecommendationResponse(recommendations=[])
-
     try:
-        results = feed_rec_model.predict(df)
+        results = feed_rec_model.predict(df, include_shap=getattr(req, 'include_explanation', False))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
     feed_results = [FeedRecommendationEntry(**r) for r in results]
-    record_predictions("feed_recommendation", results)
+    bg.add_task(record_features, "feed_recommendation", df)
+    bg.add_task(record_predictions, "feed_recommendation", results)
     return FeedRecommendationResponse(recommendations=feed_results)
 
 
@@ -481,29 +554,38 @@ async def predict_herd_milk(
 async def predict_ketosis(
     req: KetosisWarningRequest,
     session: AsyncSession = Depends(get_session),
+    bg: BackgroundTasks = BackgroundTasks(),
 ):
-    try:
-        df = await load_ketosis_features(session)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    from app.services.model_cache import get_features, set_features
+
+    if req.animal_id is not None:
+        try:
+            df = await load_ketosis_features(session, animal_id=req.animal_id)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    else:
+        cached = get_features("ketosis_warning")
+        if cached is not None:
+            df, _ = cached
+        else:
+            try:
+                df = await load_ketosis_features(session)
+            except Exception as e:
+                raise HTTPException(status_code=503, detail=f"Database error: {e}")
+            if not df.empty:
+                set_features("ketosis_warning", df)
 
     if df.empty:
         return KetosisWarningResponse(predictions=[])
 
-    record_features("ketosis_warning", df)
-
-    if req.animal_id is not None:
-        df = df[df["animal_id"] == req.animal_id]
-        if df.empty:
-            return KetosisWarningResponse(predictions=[])
-
     try:
-        results = ketosis_model.predict(df)
+        results = ketosis_model.predict(df, include_shap=getattr(req, 'include_explanation', False))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
     ketosis_results = [KetosisWarningEntry(**r) for r in results]
-    record_predictions("ketosis_warning", results)
+    bg.add_task(record_features, "ketosis_warning", df)
+    bg.add_task(record_predictions, "ketosis_warning", results)
     return KetosisWarningResponse(predictions=ketosis_results)
 
 
@@ -511,25 +593,37 @@ async def predict_ketosis(
 async def predict_bcs(
     req: BcsEstimateRequest,
     session: AsyncSession = Depends(get_session),
+    bg: BackgroundTasks = BackgroundTasks(),
 ):
-    try:
-        df = await load_bcs_features(session)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    from app.services.model_cache import get_features, set_features
+
+    if req.animal_id is not None:
+        try:
+            df = await load_bcs_features(session, animal_id=req.animal_id)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Database error: {e}")
+    else:
+        cached = get_features("bcs")
+        if cached is not None:
+            df, _ = cached
+        else:
+            try:
+                df = await load_bcs_features(session)
+            except Exception as e:
+                raise HTTPException(status_code=503, detail=f"Database error: {e}")
+            if not df.empty:
+                set_features("bcs", df)
 
     if df.empty:
         return BcsEstimateResponse(estimates=[])
 
-    if req.animal_id is not None:
-        df = df[df["animal_id"] == req.animal_id]
-        if df.empty:
-            return BcsEstimateResponse(estimates=[])
-
     try:
-        results = bcs_model.predict(df)
+        results = bcs_model.predict(df, include_shap=getattr(req, 'include_explanation', False))
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
+    bg.add_task(record_features, "bcs", df)
+    bg.add_task(record_predictions, "bcs", results)
     return BcsEstimateResponse(estimates=[BcsEstimateEntry(**r) for r in results])
 
 
@@ -559,6 +653,144 @@ async def feature_drift_status():
     return {"models": results}
 
 
+@app.post("/predict/advanced-forecast")
+async def predict_advanced_forecast(
+    req: MilkForecastRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    from app.models.advanced_timeseries import (
+        auto_arima_select,
+        fit_arima,
+        forecast_arima,
+        nbets_forecast,
+        lstm_global_forecast,
+        compute_tsfresh_features,
+    )
+
+    try:
+        df = await load_milk_timeseries(session, req.animal_id, days=365)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Database error: {e}")
+
+    if df.empty or len(df) < 14:
+        return {"animal_id": req.animal_id, "models": {}, "tsfresh_features": {}}
+
+    series = df["milk_amount"].values
+    tsfresh = compute_tsfresh_features(series)
+
+    arima_order = auto_arima_select(series)
+    arima_model = fit_arima(series, arima_order["order"])
+    arima_fc = forecast_arima(arima_model, req.days, series)
+
+    nbets_result = nbets_forecast(series, req.days)
+
+    lstm_result = lstm_global_forecast(series, req.days)
+
+    dates = pd.to_datetime(df["date"])
+    last_date = dates.iloc[-1]
+    fc_dates = [(last_date + pd.Timedelta(days=i + 1)).strftime("%Y-%m-%d") for i in range(req.days)]
+
+    return {
+        "animal_id": req.animal_id,
+        "animal_name": str(df.iloc[0].get("animal_name", "")),
+        "arima": {
+            "order": list(arima_order["order"]),
+            "aic": round(arima_order["aic"], 2),
+            "forecast": [{"date": d, "value": round(float(v), 2)} for d, v in zip(fc_dates, arima_fc)],
+        },
+        "nbeats": {
+            "model_type": nbets_result["model_type"],
+            "forecast": [{"date": d, "value": round(float(v), 2)} for d, v in zip(fc_dates, nbets_result["forecast"][:req.days])],
+        },
+        "lstm": {
+            "model_type": lstm_result["model_type"],
+            "forecast": [{"date": d, "value": round(float(v), 2)} for d, v in zip(fc_dates, lstm_result["forecast"][:req.days])],
+        },
+        "tsfresh_features": tsfresh,
+    }
+
+
+@app.post("/predict/multi-task-health")
+async def predict_multi_task_health(
+    session: AsyncSession = Depends(get_session),
+    bg: BackgroundTasks = BackgroundTasks(),
+):
+    from app.services.model_cache import get_features, set_features
+    cached = get_features("mastitis")
+    if cached is not None:
+        df, _ = cached
+    else:
+        try:
+            df = await load_mastitis_features(session)
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Database error: {e}")
+        if not df.empty:
+            set_features("mastitis", df)
+
+    if df.empty:
+        return {"predictions": []}
+
+    try:
+        results = multi_task_model.predict(df)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return {"predictions": results}
+
+
+@app.post("/feedback")
+async def submit_feedback(
+    payload: dict,
+    session: AsyncSession = Depends(get_session),
+):
+    model_name = payload.get("model_name")
+    animal_id = payload.get("animal_id")
+    confirmed = payload.get("confirmed")
+    diagnosis = payload.get("diagnosis")
+
+    if not model_name or not animal_id or confirmed is None:
+        raise HTTPException(status_code=400, detail="model_name, animal_id, confirmed required")
+
+    if model_name == "mastitis":
+        await session.execute(
+            text("INSERT INTO vet_records (animal_id, record_type, confirmed, diagnosis, event_date) "
+                 "VALUES (:aid, 'disease', :conf, :diag, CURRENT_DATE)"),
+            {"aid": animal_id, "conf": confirmed, "diag": diagnosis or "mastitis"},
+        )
+    elif model_name == "estrus":
+        await session.execute(
+            text("UPDATE heats SET confirmed = :conf, confirmation_method = 'manual' "
+                 "WHERE animal_id = :aid AND heat_date = CURRENT_DATE"),
+            {"aid": animal_id, "conf": confirmed},
+        )
+    elif model_name == "ketosis":
+        await session.execute(
+            text("INSERT INTO vet_records (animal_id, record_type, confirmed, diagnosis, event_date) "
+                 "VALUES (:aid, 'disease', :conf, :diag, CURRENT_DATE)"),
+            {"aid": animal_id, "conf": confirmed, "diag": diagnosis or "ketosis"},
+        )
+
+    await session.commit()
+    return {"status": "ok", "message": "Feedback recorded"}
+
+
+@app.get("/confirmed-labels")
+async def get_confirmed_labels(
+    session: AsyncSession = Depends(get_session),
+):
+    mastitis_labels = await load_confirmed_vet_labels(session, "disease")
+    heat_labels = await load_confirmed_heats(session)
+    culling_labels = await load_culling_events(session)
+    return {
+        "mastitis_confirmed": len(mastitis_labels),
+        "heats_confirmed": len(heat_labels),
+        "culling_events": len(culling_labels),
+        "mastitis_labels": mastitis_labels.to_dict(orient="records") if not mastitis_labels.empty else [],
+        "heat_labels": heat_labels.to_dict(orient="records") if not heat_labels.empty else [],
+        "culling_labels": culling_labels.to_dict(orient="records") if not culling_labels.empty else [],
+    }
+
+
 async def _train_model(name: str, session: AsyncSession) -> dict:
     if name == "mastitis":
         df = await load_mastitis_features(session)
@@ -577,7 +809,7 @@ async def _train_model(name: str, session: AsyncSession) -> dict:
         return clustering_model.train(df)
     elif name == "milk_forecast":
         animals = await session.execute(
-            text("SELECT DISTINCT animal_id FROM milk_day_productions WHERE date >= CURRENT_DATE - INTERVAL '365 days' LIMIT 50")
+            text("SELECT DISTINCT animal_id FROM milk_day_productions WHERE date >= get_ref_date() - INTERVAL '365 days' LIMIT 50")
         )
         animal_ids = [r[0] for r in animals.fetchall()]
         if not animal_ids:
@@ -606,6 +838,11 @@ async def _train_model(name: str, session: AsyncSession) -> dict:
         if df.empty:
             raise ValueError("No data for feed recommendation training")
         return feed_rec_model.train(df)
+    elif name == "multi_task_health":
+        df = await load_mastitis_features(session)
+        if df.empty:
+            raise ValueError("No data for multi-task training")
+        return multi_task_model.train(df)
     elif name == "equipment_anomaly":
         df = await load_equipment_anomaly_features(session)
         if df.empty:

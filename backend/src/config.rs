@@ -27,6 +27,7 @@ pub struct Config {
     pub shutdown_timeout_secs: u64,
     pub swagger_enabled: bool,
     pub redis_url: String,
+    pub clickhouse_url: String,
     pub lely_env: LelyConfig,
 }
 
@@ -100,6 +101,8 @@ impl Config {
                 .parse()
                 .unwrap_or(true),
             redis_url: std::env::var("REDIS_URL").unwrap_or_else(|_| String::new()),
+            clickhouse_url: std::env::var("CLICKHOUSE_URL")
+                .unwrap_or_else(|_| "http://localhost:8123".into()),
             lely_env: LelyConfig {
                 enabled: std::env::var("LELY_ENABLED")
                     .unwrap_or_else(|_| "false".into())

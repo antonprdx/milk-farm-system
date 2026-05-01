@@ -284,29 +284,29 @@ pub async fn health_index(pool: &PgPool) -> Result<HealthIndexResponse, AppError
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT AVG(m.milk_amount)::float8 as milk
-             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '3 days'
+             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '3 days'
          ) short_m ON true
          LEFT JOIN LATERAL (
              SELECT AVG(m.milk_amount)::float8 as milk, STDDEV(m.milk_amount)::float8 as std
-             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days'
          ) long_m ON true
          LEFT JOIN LATERAL (
              SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std
-             FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '30 days'
-             AND r.date < CURRENT_DATE - INTERVAL '3 days'
+             FROM ruminations r WHERE r.animal_id = a.id AND r.date >= get_ref_date() - INTERVAL '30 days'
+             AND r.date < get_ref_date() - INTERVAL '3 days'
          ) short_r ON true
          LEFT JOIN LATERAL (
              SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std
-             FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '30 days'
+             FROM ruminations r WHERE r.animal_id = a.id AND r.date >= get_ref_date() - INTERVAL '30 days'
          ) long_r ON true
          LEFT JOIN LATERAL (
              SELECT AVG(act.activity_counter)::float8 as act
-             FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - INTERVAL '3 days'
+             FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= get_ref_date() - INTERVAL '3 days'
          ) short_a ON true
          LEFT JOIN LATERAL (
              SELECT AVG(act.activity_counter)::float8 as act, STDDEV(act.activity_counter)::float8 as std
-             FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - INTERVAL '30 days'
-             AND act.activity_datetime < CURRENT_DATE - INTERVAL '3 days'
+             FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= get_ref_date() - INTERVAL '30 days'
+             AND act.activity_datetime < get_ref_date() - INTERVAL '3 days'
          ) long_a ON true
          WHERE a.active = true AND a.gender = 'female'"
     )
@@ -319,12 +319,12 @@ pub async fn health_index(pool: &PgPool) -> Result<HealthIndexResponse, AppError
          FROM animals a
          JOIN LATERAL (
              SELECT COALESCE(AVG(q.scc),0)::float8 as scc FROM milk_quality q
-             WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '3 days'
+             WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '3 days'
          ) recent ON true
          JOIN LATERAL (
              SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q
-             WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days'
-             AND q.date < CURRENT_DATE - INTERVAL '3 days'
+             WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '90 days'
+             AND q.date < get_ref_date() - INTERVAL '3 days'
          ) baseline ON true
          WHERE a.active = true AND a.gender = 'female'"
     )
@@ -440,7 +440,7 @@ pub async fn fertility_window(pool: &PgPool) -> Result<FertilityWindowResponse, 
     #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<i64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
-                (CURRENT_DATE - latest_c.calving_date)::int8 as days_since_calving,
+                (get_ref_date() - latest_c.calving_date)::int8 as days_since_calving,
                 act_ratio.ratio as activity_signal,
                 rum_ratio.ratio as rumination_signal,
                 milk_ratio.ratio as milk_signal
@@ -451,37 +451,37 @@ pub async fn fertility_window(pool: &PgPool) -> Result<FertilityWindowResponse, 
          LEFT JOIN LATERAL (
              SELECT (recent.act / NULLIF(baseline.act, 0))::float8 as ratio FROM (
                  SELECT AVG(activity_counter)::float8 as act FROM activities
-                 WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '2 days'
              ) recent, (
                  SELECT AVG(activity_counter)::float8 as act FROM activities
-                 WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '14 days'
-                 AND activity_datetime < CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '14 days'
+                 AND activity_datetime < get_ref_date() - INTERVAL '2 days'
              ) baseline
          ) act_ratio ON true
          LEFT JOIN LATERAL (
              SELECT (recent.rum / NULLIF(baseline.rum, 0))::float8 as ratio FROM (
                  SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations
-                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '2 days'
              ) recent, (
                  SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations
-                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days'
-                 AND date < CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '14 days'
+                 AND date < get_ref_date() - INTERVAL '2 days'
              ) baseline
          ) rum_ratio ON true
          LEFT JOIN LATERAL (
              SELECT (recent.milk / NULLIF(baseline.milk, 0))::float8 as ratio FROM (
                  SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions
-                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '2 days'
              ) recent, (
                  SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions
-                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days'
-                 AND date < CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '14 days'
+                 AND date < get_ref_date() - INTERVAL '2 days'
              ) baseline
          ) milk_ratio ON true
          WHERE a.active = true AND a.gender = 'female'
          AND NOT EXISTS (
              SELECT 1 FROM pregnancies p WHERE p.animal_id = a.id
-             AND p.pregnancy_date >= CURRENT_DATE - INTERVAL '300 days'
+             AND p.pregnancy_date >= get_ref_date() - INTERVAL '300 days'
              AND NOT EXISTS (SELECT 1 FROM calvings c WHERE c.animal_id = a.id AND c.calving_date > p.pregnancy_date)
          )"
     )
@@ -551,11 +551,11 @@ pub async fn profitability(
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT AVG(m.milk_amount)::float8 as avg_milk
-             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days'
          ) milk_30d ON true
          LEFT JOIN LATERAL (
              SELECT SUM(f.total)::float8 / NULLIF(COUNT(DISTINCT f.feed_date)::float8, 0) as avg_feed
-             FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - INTERVAL '30 days'
+             FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= get_ref_date() - INTERVAL '30 days'
          ) feed_30d ON true
          WHERE a.active = true AND a.gender = 'female'
          ORDER BY a.name"
@@ -628,7 +628,7 @@ pub async fn seasonal_decomposition(pool: &PgPool) -> Result<SeasonalResponse, A
          FROM (
              SELECT date, SUM(milk_amount)::float8 as daily_total
              FROM milk_day_productions
-             WHERE date >= CURRENT_DATE - INTERVAL '365 days'
+             WHERE date >= get_ref_date() - INTERVAL '365 days'
              GROUP BY date
          ) sub
          GROUP BY EXTRACT(MONTH FROM date)
@@ -641,7 +641,7 @@ pub async fn seasonal_decomposition(pool: &PgPool) -> Result<SeasonalResponse, A
     let overall_avg: Option<f64> = sqlx::query_scalar(
         "SELECT AVG(daily_total)::float8 FROM (
              SELECT date, SUM(milk_amount)::float8 as daily_total
-             FROM milk_day_productions WHERE date >= CURRENT_DATE - INTERVAL '365 days' GROUP BY date
+             FROM milk_day_productions WHERE date >= get_ref_date() - INTERVAL '365 days' GROUP BY date
          ) sub"
     )
     .fetch_optional(pool)
@@ -677,7 +677,7 @@ pub async fn seasonal_decomposition(pool: &PgPool) -> Result<SeasonalResponse, A
     let trend_7d: Option<f64> = sqlx::query_scalar(
         "SELECT AVG(daily_total)::float8 FROM (
              SELECT date, SUM(milk_amount)::float8 as daily_total
-             FROM milk_day_productions WHERE date >= CURRENT_DATE - INTERVAL '7 days' GROUP BY date
+             FROM milk_day_productions WHERE date >= get_ref_date() - INTERVAL '7 days' GROUP BY date
          ) sub"
     )
     .fetch_optional(pool)
@@ -687,7 +687,7 @@ pub async fn seasonal_decomposition(pool: &PgPool) -> Result<SeasonalResponse, A
     let trend_30d: Option<f64> = sqlx::query_scalar(
         "SELECT AVG(daily_total)::float8 FROM (
              SELECT date, SUM(milk_amount)::float8 as daily_total
-             FROM milk_day_productions WHERE date >= CURRENT_DATE - INTERVAL '30 days' GROUP BY date
+             FROM milk_day_productions WHERE date >= get_ref_date() - INTERVAL '30 days' GROUP BY date
          ) sub"
     )
     .fetch_optional(pool)
@@ -714,35 +714,35 @@ pub async fn mastitis_risk(pool: &PgPool) -> Result<MastitisRiskResponse, AppErr
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT AVG(q.scc)::float8 as scc FROM milk_quality q
-             WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+             WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days'
          ) scc_latest ON true
          LEFT JOIN LATERAL (
              SELECT (recent.scc / NULLIF(baseline.scc, 0))::float8 as ratio FROM (
                  SELECT AVG(q.scc)::float8 as scc FROM milk_quality q
-                 WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+                 WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days'
              ) recent, (
                  SELECT AVG(q.scc)::float8 as scc FROM milk_quality q
-                 WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days'
-                 AND q.date < CURRENT_DATE - INTERVAL '7 days'
+                 WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '90 days'
+                 AND q.date < get_ref_date() - INTERVAL '7 days'
              ) baseline
          ) scc_trend ON true
          LEFT JOIN LATERAL (
              SELECT AVG(v.lf_conductivity + v.lr_conductivity + v.rf_conductivity + v.rr_conductivity)::float8 / 4.0 as avg_cond
              FROM milk_visit_quality v WHERE v.animal_id = a.id
-             AND v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+             AND v.visit_datetime >= get_ref_date() - INTERVAL '7 days'
          ) cond ON true
          LEFT JOIN LATERAL (
              SELECT (recent.milk / NULLIF(baseline.milk, 0) - 1)::float8 as dev FROM (
                  SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m
-                 WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days'
+                 WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '7 days'
              ) recent, (
                  SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m
-                 WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
-                 AND m.date < CURRENT_DATE - INTERVAL '7 days'
+                 WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days'
+                 AND m.date < get_ref_date() - INTERVAL '7 days'
              ) baseline
          ) milk_dev ON true
          LEFT JOIN LATERAL (
-             SELECT (CURRENT_DATE - c.calving_date)::int8 as days
+             SELECT (get_ref_date() - c.calving_date)::int8 as days
              FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1
          ) dim ON true
          WHERE a.active = true AND a.gender = 'female'"
@@ -826,7 +826,7 @@ pub async fn culling_survival(pool: &PgPool) -> Result<CullingSurvivalResponse, 
     #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<i64>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
-                EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::int8 as age_years,
+                EXTRACT(YEAR FROM AGE(get_ref_date(), a.birth_date))::int8 as age_years,
                 latest_milk.milk as recent_milk,
                 avg_scc.scc as avg_scc,
                 ci.interval as calving_interval,
@@ -834,11 +834,11 @@ pub async fn culling_survival(pool: &PgPool) -> Result<CullingSurvivalResponse, 
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m
-             WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+             WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days'
          ) latest_milk ON true
          LEFT JOIN LATERAL (
              SELECT AVG(q.scc)::float8 as scc FROM milk_quality q
-             WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days'
+             WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '90 days'
          ) avg_scc ON true
          LEFT JOIN LATERAL (
              SELECT AVG(c2.calving_date - c1.calving_date)::float8 as interval
@@ -954,18 +954,18 @@ pub async fn energy_balance(pool: &PgPool) -> Result<EnergyBalanceResponse, AppE
              SELECT AVG(q.fat_percentage)::float8 as fat,
                     AVG(q.protein_percentage)::float8 as protein
              FROM milk_quality q
-             WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+             WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days'
          ) recent_7d ON true
          LEFT JOIN LATERAL (
              SELECT (recent.fpr / NULLIF(baseline.fpr, 0) - 1)::float8 as fpr_trend
              FROM (
                  SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
-                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days'
              ) recent,
              (
                  SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
-                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '30 days'
-                 AND q.date < CURRENT_DATE - INTERVAL '7 days'
+                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '30 days'
+                 AND q.date < get_ref_date() - INTERVAL '7 days'
              ) baseline
          ) recent_30d ON true
          WHERE a.active = true AND a.gender = 'female'
@@ -1028,7 +1028,7 @@ pub async fn quarter_health(pool: &PgPool) -> Result<QuarterHealthResponse, AppE
                     AVG(v.rf_conductivity)::float8 as rf,
                     AVG(v.rr_conductivity)::float8 as rr
              FROM milk_visit_quality v
-             WHERE v.animal_id = a.id AND v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+             WHERE v.animal_id = a.id AND v.visit_datetime >= get_ref_date() - INTERVAL '7 days'
          ) q_avg ON true
          WHERE a.active = true AND a.gender = 'female'
          ORDER BY a.name"
@@ -1091,11 +1091,11 @@ pub async fn feed_efficiency(pool: &PgPool) -> Result<FeedEfficiencyResponse, Ap
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT AVG(m.milk_amount)::float8 as milk
-             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days'
          ) m ON true
          LEFT JOIN LATERAL (
              SELECT AVG(f.total)::float8 as feed
-             FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - INTERVAL '30 days'
+             FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= get_ref_date() - INTERVAL '30 days'
          ) f ON true
          WHERE a.active = true AND a.gender = 'female' AND m.milk IS NOT NULL
          ORDER BY m.milk DESC NULLS LAST"
@@ -1166,14 +1166,14 @@ pub async fn dry_off_optimizer(pool: &PgPool) -> Result<DryOffOptimizerResponse,
          ) p_duedate ON true
          LEFT JOIN LATERAL (
              SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m
-             WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days'
+             WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '7 days'
          ) m7 ON true
          LEFT JOIN LATERAL (
              SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q
-             WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '30 days'
+             WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '30 days'
          ) scc ON true
          WHERE a.active = true AND a.gender = 'female'
-           AND p_duedate.exp_calving > CURRENT_DATE AND p_duedate.exp_calving < CURRENT_DATE + INTERVAL '120 days'
+           AND p_duedate.exp_calving > get_ref_date() AND p_duedate.exp_calving < get_ref_date() + INTERVAL '120 days'
          ORDER BY p_duedate.exp_calving"
     )
     .fetch_all(pool)
@@ -1225,7 +1225,7 @@ pub async fn lifetime_value(pool: &PgPool) -> Result<LifetimeValueResponse, AppE
     #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<String>, Option<f64>, i64, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name, a.life_number,
-                EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::float8 as age_years,
+                EXTRACT(YEAR FROM AGE(get_ref_date(), a.birth_date))::float8 as age_years,
                 COALESCE(lac_cnt.n, 0) as lac_count,
                 total_milk.milk as total_milk,
                 avg_milk.avg_m as avg_milk_per_lac
@@ -1299,7 +1299,7 @@ pub async fn estrus_detection(pool: &PgPool) -> Result<EstrusResponse, AppError>
     #[allow(clippy::type_complexity)]
     let rows: Vec<(i32, Option<String>, Option<i64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT a.id, a.name,
-                (CURRENT_DATE - c.calving_date)::int8 as dim,
+                (get_ref_date() - c.calving_date)::int8 as dim,
                 act_ratio.ratio as activity_signal,
                 rum_ratio.ratio as rumination_signal,
                 milk_ratio.ratio as milk_signal
@@ -1310,37 +1310,37 @@ pub async fn estrus_detection(pool: &PgPool) -> Result<EstrusResponse, AppError>
          LEFT JOIN LATERAL (
              SELECT (recent.act / NULLIF(baseline.act, 0))::float8 as ratio FROM (
                  SELECT AVG(activity_counter)::float8 as act FROM activities
-                 WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '2 days'
              ) recent, (
                  SELECT AVG(activity_counter)::float8 as act FROM activities
-                 WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '14 days'
-                 AND activity_datetime < CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '14 days'
+                 AND activity_datetime < get_ref_date() - INTERVAL '2 days'
              ) baseline
          ) act_ratio ON true
          LEFT JOIN LATERAL (
              SELECT (recent.rum / NULLIF(baseline.rum, 0))::float8 as ratio FROM (
                  SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations
-                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '2 days'
              ) recent, (
                  SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations
-                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days'
-                 AND date < CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '14 days'
+                 AND date < get_ref_date() - INTERVAL '2 days'
              ) baseline
          ) rum_ratio ON true
          LEFT JOIN LATERAL (
              SELECT (recent.milk / NULLIF(baseline.milk, 0))::float8 as ratio FROM (
                  SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions
-                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '2 days'
              ) recent, (
                  SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions
-                 WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days'
-                 AND date < CURRENT_DATE - INTERVAL '2 days'
+                 WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '14 days'
+                 AND date < get_ref_date() - INTERVAL '2 days'
              ) baseline
          ) milk_ratio ON true
          WHERE a.active = true AND a.gender = 'female'
          AND NOT EXISTS (
              SELECT 1 FROM pregnancies p WHERE p.animal_id = a.id
-             AND p.pregnancy_date >= CURRENT_DATE - INTERVAL '300 days'
+             AND p.pregnancy_date >= get_ref_date() - INTERVAL '300 days'
              AND NOT EXISTS (SELECT 1 FROM calvings cc WHERE cc.animal_id = a.id AND cc.calving_date > p.pregnancy_date)
          )"
     )
@@ -1437,26 +1437,26 @@ pub async fn equipment_anomaly(pool: &PgPool) -> Result<EquipmentAnomalyResponse
                     AVG(v.milk_temperature)::float8 as temp,
                     AVG(v.milk_speed)::float8 as speed
              FROM milk_visit_quality v
-             WHERE v.animal_id = a.id AND v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days'
+             WHERE v.animal_id = a.id AND v.visit_datetime >= get_ref_date() - INTERVAL '7 days'
          ) v_avg ON true
          LEFT JOIN LATERAL (
              SELECT (recent.cond / NULLIF(baseline.cond, 0) - 1)::float8 as dev FROM (
                  SELECT AVG((lf_conductivity + lr_conductivity + rf_conductivity + rr_conductivity) / 4.0)::float8 as cond
-                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= CURRENT_DATE - INTERVAL '3 days'
+                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= get_ref_date() - INTERVAL '3 days'
              ) recent, (
                  SELECT AVG((lf_conductivity + lr_conductivity + rf_conductivity + rr_conductivity) / 4.0)::float8 as cond
-                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= CURRENT_DATE - INTERVAL '30 days'
-                 AND visit_datetime < CURRENT_DATE - INTERVAL '3 days'
+                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= get_ref_date() - INTERVAL '30 days'
+                 AND visit_datetime < get_ref_date() - INTERVAL '3 days'
              ) baseline
          ) cond_dev ON true
          LEFT JOIN LATERAL (
              SELECT (recent.speed / NULLIF(baseline.speed, 0) - 1)::float8 as dev FROM (
                  SELECT AVG(milk_speed)::float8 as speed
-                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= CURRENT_DATE - INTERVAL '3 days'
+                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= get_ref_date() - INTERVAL '3 days'
              ) recent, (
                  SELECT AVG(milk_speed)::float8 as speed
-                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= CURRENT_DATE - INTERVAL '30 days'
-                 AND visit_datetime < CURRENT_DATE - INTERVAL '3 days'
+                 FROM milk_visit_quality WHERE animal_id = a.id AND visit_datetime >= get_ref_date() - INTERVAL '30 days'
+                 AND visit_datetime < get_ref_date() - INTERVAL '3 days'
              ) baseline
          ) speed_dev ON true
          LEFT JOIN LATERAL (
@@ -1540,14 +1540,14 @@ pub async fn feed_recommendation(pool: &PgPool) -> Result<FeedRecommendationResp
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT AVG(f.total)::float8 as feed FROM feed_day_amounts f
-             WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - INTERVAL '7 days'
+             WHERE f.animal_id = a.id AND f.feed_date >= get_ref_date() - INTERVAL '7 days'
          ) f ON true
          LEFT JOIN LATERAL (
              SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m
-             WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+             WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days'
          ) m ON true
          LEFT JOIN LATERAL (
-             SELECT (CURRENT_DATE - c.calving_date)::int8 as days
+             SELECT (get_ref_date() - c.calving_date)::int8 as days
              FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1
          ) dim ON true
          LEFT JOIN LATERAL (
@@ -1567,8 +1567,7 @@ pub async fn feed_recommendation(pool: &PgPool) -> Result<FeedRecommendationResp
         let dim = dim_days.unwrap_or(150);
         let lac_n = lac_count.unwrap_or(1);
 
-        let base_feed = 12.0 + milk * 0.4;
-
+        let base_feed = 6.5 + milk * 0.22;
         let dim_factor = if dim < 60 {
             1.15
         } else if dim < 120 {
@@ -1626,30 +1625,30 @@ pub async fn ketosis_warning(pool: &PgPool) -> Result<KetosisWarningResponse, Ap
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
-             FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+             FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days'
          ) recent ON true
          LEFT JOIN LATERAL (
              SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
-             FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '30 days'
-             AND q.date < CURRENT_DATE - INTERVAL '7 days'
+             FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '30 days'
+             AND q.date < get_ref_date() - INTERVAL '7 days'
          ) baseline ON true
          LEFT JOIN LATERAL (
              SELECT (recent.fpr / NULLIF(baseline.fpr, 0) - 1)::float8 as trend FROM (
                  SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
-                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days'
              ) recent, (
                  SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr
-                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '30 days'
-                 AND q.date < CURRENT_DATE - INTERVAL '7 days'
+                 FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '30 days'
+                 AND q.date < get_ref_date() - INTERVAL '7 days'
              ) baseline
          ) fpr_trend ON true
          LEFT JOIN LATERAL (
-             SELECT (CURRENT_DATE - c.calving_date)::int8 as days
+             SELECT (get_ref_date() - c.calving_date)::int8 as days
              FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1
          ) dim ON true
          LEFT JOIN LATERAL (
              SELECT AVG(r.rumination_minutes)::float8 as rum FROM ruminations r
-             WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '7 days'
+             WHERE r.animal_id = a.id AND r.date >= get_ref_date() - INTERVAL '7 days'
          ) rum ON true
          WHERE a.active = true AND a.gender = 'female'
          AND recent.fpr IS NOT NULL"
@@ -1789,22 +1788,22 @@ async fn summary_health_index(pool: &PgPool, id: i32) -> Result<Option<CowHealth
                 short_a.act, long_a.act, long_a.std as act_std
          FROM animals a
          LEFT JOIN LATERAL (
-             SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '3 days'
+             SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '3 days'
          ) short_m ON true
          LEFT JOIN LATERAL (
-             SELECT AVG(m.milk_amount)::float8 as milk, STDDEV(m.milk_amount)::float8 as std FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+             SELECT AVG(m.milk_amount)::float8 as milk, STDDEV(m.milk_amount)::float8 as std FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days'
          ) long_m ON true
          LEFT JOIN LATERAL (
-             SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '30 days' AND r.date < CURRENT_DATE - INTERVAL '3 days'
+             SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std FROM ruminations r WHERE r.animal_id = a.id AND r.date >= get_ref_date() - INTERVAL '30 days' AND r.date < get_ref_date() - INTERVAL '3 days'
          ) short_r ON true
          LEFT JOIN LATERAL (
-             SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '30 days'
+             SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std FROM ruminations r WHERE r.animal_id = a.id AND r.date >= get_ref_date() - INTERVAL '30 days'
          ) long_r ON true
          LEFT JOIN LATERAL (
-             SELECT AVG(act.activity_counter)::float8 as act FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - INTERVAL '3 days'
+             SELECT AVG(act.activity_counter)::float8 as act FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= get_ref_date() - INTERVAL '3 days'
          ) short_a ON true
          LEFT JOIN LATERAL (
-             SELECT AVG(act.activity_counter)::float8 as act, STDDEV(act.activity_counter)::float8 as std FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= CURRENT_DATE - INTERVAL '30 days' AND act.activity_datetime < CURRENT_DATE - INTERVAL '3 days'
+             SELECT AVG(act.activity_counter)::float8 as act, STDDEV(act.activity_counter)::float8 as std FROM activities act WHERE act.animal_id = a.id AND act.activity_datetime >= get_ref_date() - INTERVAL '30 days' AND act.activity_datetime < get_ref_date() - INTERVAL '3 days'
          ) long_a ON true
          WHERE a.id = $1"
     )
@@ -1819,8 +1818,8 @@ async fn summary_health_index(pool: &PgPool, id: i32) -> Result<Option<CowHealth
 
     let scc_row: Option<(f64, Option<f64>)> = sqlx::query_as(
         "SELECT recent.scc, baseline.avg_scc FROM
-         (SELECT COALESCE(AVG(q.scc),0)::float8 as scc FROM milk_quality q WHERE q.animal_id = $1 AND q.date >= CURRENT_DATE - INTERVAL '3 days') recent,
-         (SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q WHERE q.animal_id = $1 AND q.date >= CURRENT_DATE - INTERVAL '90 days' AND q.date < CURRENT_DATE - INTERVAL '3 days') baseline"
+         (SELECT COALESCE(AVG(q.scc),0)::float8 as scc FROM milk_quality q WHERE q.animal_id = $1 AND q.date >= get_ref_date() - INTERVAL '3 days') recent,
+         (SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q WHERE q.animal_id = $1 AND q.date >= get_ref_date() - INTERVAL '90 days' AND q.date < get_ref_date() - INTERVAL '3 days') baseline"
     )
     .bind(id)
     .fetch_optional(pool)
@@ -1886,19 +1885,19 @@ async fn summary_mastitis_risk(pool: &PgPool, id: i32) -> Result<Option<Mastitis
     let row: Option<(Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
         "SELECT scc_latest.scc, scc_trend.ratio, cond.avg_cond, milk_dev.dev, dim.days
          FROM animals a
-         LEFT JOIN LATERAL (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days') scc_latest ON true
+         LEFT JOIN LATERAL (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days') scc_latest ON true
          LEFT JOIN LATERAL (
              SELECT (recent.scc / NULLIF(baseline.scc, 0))::float8 as ratio FROM
-             (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days') recent,
-             (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days' AND q.date < CURRENT_DATE - INTERVAL '7 days') baseline
+             (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days') recent,
+             (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '90 days' AND q.date < get_ref_date() - INTERVAL '7 days') baseline
          ) scc_trend ON true
-         LEFT JOIN LATERAL (SELECT AVG((v.lf_conductivity + v.lr_conductivity + v.rf_conductivity + v.rr_conductivity)::float8 / 4.0) as avg_cond FROM milk_visit_quality v WHERE v.animal_id = a.id AND v.visit_datetime >= CURRENT_DATE - INTERVAL '7 days') cond ON true
+         LEFT JOIN LATERAL (SELECT AVG((v.lf_conductivity + v.lr_conductivity + v.rf_conductivity + v.rr_conductivity)::float8 / 4.0) as avg_cond FROM milk_visit_quality v WHERE v.animal_id = a.id AND v.visit_datetime >= get_ref_date() - INTERVAL '7 days') cond ON true
          LEFT JOIN LATERAL (
              SELECT (recent.milk / NULLIF(baseline.milk, 0) - 1)::float8 as dev FROM
-             (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days') recent,
-             (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days' AND m.date < CURRENT_DATE - INTERVAL '7 days') baseline
+             (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '7 days') recent,
+             (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days' AND m.date < get_ref_date() - INTERVAL '7 days') baseline
          ) milk_dev ON true
-         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         LEFT JOIN LATERAL (SELECT (get_ref_date() - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
          WHERE a.id = $1"
     )
     .bind(id)
@@ -1945,21 +1944,21 @@ async fn summary_estrus(pool: &PgPool, id: i32) -> Result<Option<EstrusPredictio
     let row: Option<(Option<i64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT dim.days, act_ratio.ratio, rum_ratio.ratio, milk_ratio.ratio
          FROM animals a
-         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         LEFT JOIN LATERAL (SELECT (get_ref_date() - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
          LEFT JOIN LATERAL (
              SELECT (recent.act / NULLIF(baseline.act, 0))::float8 as ratio FROM
-             (SELECT AVG(activity_counter)::float8 as act FROM activities WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '2 days') recent,
-             (SELECT AVG(activity_counter)::float8 as act FROM activities WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '14 days' AND activity_datetime < CURRENT_DATE - INTERVAL '2 days') baseline
+             (SELECT AVG(activity_counter)::float8 as act FROM activities WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '2 days') recent,
+             (SELECT AVG(activity_counter)::float8 as act FROM activities WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '14 days' AND activity_datetime < get_ref_date() - INTERVAL '2 days') baseline
          ) act_ratio ON true
          LEFT JOIN LATERAL (
              SELECT (recent.rum / NULLIF(baseline.rum, 0))::float8 as ratio FROM
-             (SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days') recent,
-             (SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days' AND date < CURRENT_DATE - INTERVAL '2 days') baseline
+             (SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '2 days') recent,
+             (SELECT AVG(rumination_minutes)::float8 as rum FROM ruminations WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '14 days' AND date < get_ref_date() - INTERVAL '2 days') baseline
          ) rum_ratio ON true
          LEFT JOIN LATERAL (
              SELECT (recent.milk / NULLIF(baseline.milk, 0))::float8 as ratio FROM
-             (SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '2 days') recent,
-             (SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '14 days' AND date < CURRENT_DATE - INTERVAL '2 days') baseline
+             (SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '2 days') recent,
+             (SELECT AVG(milk_amount)::float8 as milk FROM milk_day_productions WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '14 days' AND date < get_ref_date() - INTERVAL '2 days') baseline
          ) milk_ratio ON true
          WHERE a.id = $1"
     )
@@ -2001,12 +2000,12 @@ async fn summary_energy_balance(pool: &PgPool, id: i32) -> Result<Option<CowEner
         "SELECT recent_7d.fat, recent_7d.protein, recent_30d.fpr_trend
          FROM animals a
          LEFT JOIN LATERAL (
-             SELECT AVG(q.fat_percentage)::float8 as fat, AVG(q.protein_percentage)::float8 as protein FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+             SELECT AVG(q.fat_percentage)::float8 as fat, AVG(q.protein_percentage)::float8 as protein FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days'
          ) recent_7d ON true
          LEFT JOIN LATERAL (
              SELECT (recent.fpr / NULLIF(baseline.fpr, 0) - 1)::float8 as fpr_trend FROM
-             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '7 days') recent,
-             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '30 days' AND date < CURRENT_DATE - INTERVAL '7 days') baseline
+             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '7 days') recent,
+             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '30 days' AND date < get_ref_date() - INTERVAL '7 days') baseline
          ) recent_30d ON true
          WHERE a.id = $1"
     )
@@ -2046,9 +2045,9 @@ async fn summary_feed_rec(pool: &PgPool, id: i32) -> Result<Option<FeedRecommend
     let row: Option<(Option<f64>, Option<f64>, Option<i64>, Option<i64>)> = sqlx::query_as(
         "SELECT f.feed, m.milk, dim.days, lac.n
          FROM animals a
-         LEFT JOIN LATERAL (SELECT AVG(f.total)::float8 as feed FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= CURRENT_DATE - INTERVAL '7 days') f ON true
-         LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days') m ON true
-         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         LEFT JOIN LATERAL (SELECT AVG(f.total)::float8 as feed FROM feed_day_amounts f WHERE f.animal_id = a.id AND f.feed_date >= get_ref_date() - INTERVAL '7 days') f ON true
+         LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days') m ON true
+         LEFT JOIN LATERAL (SELECT (get_ref_date() - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
          LEFT JOIN LATERAL (SELECT COUNT(*)::int8 as n FROM calvings c WHERE c.animal_id = a.id) lac ON true
          WHERE a.id = $1 AND f.feed IS NOT NULL"
     )
@@ -2063,7 +2062,7 @@ async fn summary_feed_rec(pool: &PgPool, id: i32) -> Result<Option<FeedRecommend
     let dim = dim_days.unwrap_or(150);
     let lac_n = lac_count.unwrap_or(1);
 
-    let base_feed = 12.0 + milk * 0.4;
+    let base_feed = 6.5 + milk * 0.22;
     let dim_factor = if dim < 60 { 1.15 } else if dim < 120 { 1.05 } else if dim > 250 { 0.9 } else { 1.0 };
     let lac_factor = if lac_n <= 1 { 1.0 } else if lac_n <= 3 { 1.05 } else { 1.1 };
     let recommended = base_feed * dim_factor * lac_factor;
@@ -2090,15 +2089,15 @@ async fn summary_ketosis(pool: &PgPool, id: i32) -> Result<Option<KetosisWarning
         "SELECT recent.fpr, fpr_trend.trend, dim.days, rum.rum
          FROM animals a
          LEFT JOIN LATERAL (
-             SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '7 days'
+             SELECT AVG(q.fat_percentage)::float8 / NULLIF(AVG(q.protein_percentage)::float8, 0) as fpr FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '7 days'
          ) recent ON true
          LEFT JOIN LATERAL (
              SELECT (recent.fpr / NULLIF(baseline.fpr, 0) - 1)::float8 as trend FROM
-             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '7 days') recent,
-             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '30 days' AND date < CURRENT_DATE - INTERVAL '7 days') baseline
+             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '7 days') recent,
+             (SELECT AVG(fat_percentage)::float8 / NULLIF(AVG(protein_percentage)::float8, 0) as fpr FROM milk_quality WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '30 days' AND date < get_ref_date() - INTERVAL '7 days') baseline
          ) fpr_trend ON true
-         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
-         LEFT JOIN LATERAL (SELECT AVG(r.rumination_minutes)::float8 as rum FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '7 days') rum ON true
+         LEFT JOIN LATERAL (SELECT (get_ref_date() - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         LEFT JOIN LATERAL (SELECT AVG(r.rumination_minutes)::float8 as rum FROM ruminations r WHERE r.animal_id = a.id AND r.date >= get_ref_date() - INTERVAL '7 days') rum ON true
          WHERE a.id = $1 AND recent.fpr IS NOT NULL"
     )
     .bind(id)
@@ -2138,7 +2137,7 @@ async fn summary_ketosis(pool: &PgPool, id: i32) -> Result<Option<KetosisWarning
 async fn summary_lifetime(pool: &PgPool, id: i32) -> Result<Option<LifetimeValueEntry>, AppError> {
     #[allow(clippy::type_complexity)]
     let row: Option<(Option<f64>, i64, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::float8 as age_years,
+        "SELECT EXTRACT(YEAR FROM AGE(get_ref_date(), a.birth_date))::float8 as age_years,
                 COALESCE(lac_cnt.n, 0) as lac_count,
                 total_milk.milk as total_milk,
                 avg_milk.avg_m as avg_milk_per_lac
@@ -2185,11 +2184,11 @@ async fn summary_lifetime(pool: &PgPool, id: i32) -> Result<Option<LifetimeValue
 async fn summary_culling(pool: &PgPool, id: i32) -> Result<Option<CullingSurvivalEntry>, AppError> {
     #[allow(clippy::type_complexity)]
     let row: Option<(Option<i64>, Option<f64>, Option<f64>, Option<f64>, Option<i64>)> = sqlx::query_as(
-        "SELECT EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::int8 as age_years,
+        "SELECT EXTRACT(YEAR FROM AGE(get_ref_date(), a.birth_date))::int8 as age_years,
                 latest_milk.milk, avg_scc.scc, ci.interval, lac_count.lacs
          FROM animals a
-         LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days') latest_milk ON true
-         LEFT JOIN LATERAL (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days') avg_scc ON true
+         LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days') latest_milk ON true
+         LEFT JOIN LATERAL (SELECT AVG(q.scc)::float8 as scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '90 days') avg_scc ON true
          LEFT JOIN LATERAL (
              SELECT AVG((c2.calving_date - c1.calving_date))::float8 as interval FROM calvings c1 JOIN calvings c2 ON c1.animal_id = c2.animal_id AND c2.calving_date > c1.calving_date
              WHERE c1.animal_id = a.id AND NOT EXISTS (SELECT 1 FROM calvings c3 WHERE c3.animal_id = c1.animal_id AND c3.calving_date > c1.calving_date AND c3.calving_date < c2.calving_date)
@@ -2233,9 +2232,9 @@ async fn summary_cluster(pool: &PgPool, id: i32) -> Result<Option<ClusterCowEntr
     let row: Option<(Option<f64>, Option<f64>, Option<i64>, Option<i64>)> = sqlx::query_as(
         "SELECT m.avg_milk, r.rum, dim.days, lac.n
          FROM animals a
-         LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as avg_milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '90 days') m ON true
-         LEFT JOIN LATERAL (SELECT AVG(r.rumination_minutes)::float8 as rum FROM ruminations r WHERE r.animal_id = a.id AND r.date >= CURRENT_DATE - INTERVAL '90 days') r ON true
-         LEFT JOIN LATERAL (SELECT (CURRENT_DATE - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
+         LEFT JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as avg_milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '90 days') m ON true
+         LEFT JOIN LATERAL (SELECT AVG(r.rumination_minutes)::float8 as rum FROM ruminations r WHERE r.animal_id = a.id AND r.date >= get_ref_date() - INTERVAL '90 days') r ON true
+         LEFT JOIN LATERAL (SELECT (get_ref_date() - c.calving_date)::int8 as days FROM calvings c WHERE c.animal_id = a.id ORDER BY c.calving_date DESC LIMIT 1) dim ON true
          LEFT JOIN LATERAL (SELECT COUNT(*)::int8 as n FROM calvings c WHERE c.animal_id = a.id) lac ON true
          WHERE a.id = $1 AND m.avg_milk IS NOT NULL"
     )
@@ -2279,27 +2278,28 @@ pub async fn health_timeline(
         .flatten();
 
     let rows: Vec<(String, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT d.dt::date::text,
-                short_m.milk, long_m.milk, long_m.std as milk_std,
-                short_r.rum, long_r.rum, long_r.std as rum_std
-         FROM generate_series(CURRENT_DATE - ($2 || ' days')::interval, CURRENT_DATE, '1 day') d(dt)
-         LEFT JOIN LATERAL (
-             SELECT AVG(m.milk_amount)::float8 as milk
-             FROM milk_day_productions m WHERE m.animal_id = $1 AND m.date <= d.dt AND m.date > d.dt - INTERVAL '3 days'
-         ) short_m ON true
-         LEFT JOIN LATERAL (
-             SELECT AVG(m.milk_amount)::float8 as milk, STDDEV(m.milk_amount)::float8 as std
-             FROM milk_day_productions m WHERE m.animal_id = $1 AND m.date <= d.dt AND m.date > d.dt - INTERVAL '30 days'
-         ) long_m ON true
-         LEFT JOIN LATERAL (
-             SELECT AVG(r.rumination_minutes)::float8 as rum
-             FROM ruminations r WHERE r.animal_id = $1 AND r.date <= d.dt AND r.date > d.dt - INTERVAL '3 days'
-         ) short_r ON true
-         LEFT JOIN LATERAL (
-             SELECT AVG(r.rumination_minutes)::float8 as rum, STDDEV(r.rumination_minutes)::float8 as std
-             FROM ruminations r WHERE r.animal_id = $1 AND r.date <= d.dt AND r.date > d.dt - INTERVAL '30 days'
-         ) long_r ON true
-         ORDER BY d.dt"
+        "WITH milk_days AS (
+            SELECT date, milk_amount,
+                   AVG(milk_amount) OVER (ORDER BY date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as short_milk,
+                   AVG(milk_amount) OVER (ORDER BY date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) as long_milk,
+                   STDDEV(milk_amount) OVER (ORDER BY date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) as milk_std
+            FROM milk_day_productions
+            WHERE animal_id = $1 AND date >= get_ref_date() - ($2 || ' days')::interval
+        ),
+        rum_days AS (
+            SELECT date, rumination_minutes,
+                   AVG(rumination_minutes) OVER (ORDER BY date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) as short_rum,
+                   AVG(rumination_minutes) OVER (ORDER BY date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) as long_rum,
+                   STDDEV(rumination_minutes) OVER (ORDER BY date ROWS BETWEEN 29 PRECEDING AND CURRENT ROW) as rum_std
+            FROM ruminations
+            WHERE animal_id = $1 AND date >= get_ref_date() - ($2 || ' days')::interval
+        )
+        SELECT m.date::text,
+               m.short_milk::float8, m.long_milk::float8, m.milk_std::float8,
+               r.short_rum::float8, r.long_rum::float8, r.rum_std::float8
+        FROM milk_days m
+        FULL OUTER JOIN rum_days r ON m.date = r.date
+        ORDER BY COALESCE(m.date, r.date)"
     )
     .bind(animal_id)
     .bind(days)
@@ -2308,18 +2308,16 @@ pub async fn health_timeline(
     .map_err(AppError::Database)?;
 
     let act_rows: Vec<(String, Option<f64>, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT d.dt::date::text, short_a.act, long_a.act, long_a.std
-         FROM generate_series(CURRENT_DATE - ($2 || ' days')::interval, CURRENT_DATE, '1 day') d(dt)
-         LEFT JOIN LATERAL (
-             SELECT AVG(act.activity_counter)::float8 as act
-             FROM activities act WHERE act.animal_id = $1 AND act.activity_datetime <= d.dt + INTERVAL '1 day' AND act.activity_datetime > d.dt - INTERVAL '2 days'
-         ) short_a ON true
-         LEFT JOIN LATERAL (
-             SELECT AVG(act.activity_counter)::float8 as act, STDDEV(act.activity_counter)::float8 as std
-             FROM activities act WHERE act.animal_id = $1 AND act.activity_datetime <= d.dt AND act.activity_datetime > d.dt - INTERVAL '30 days'
-             AND act.activity_datetime <= d.dt - INTERVAL '3 days'
-         ) long_a ON true
-         ORDER BY d.dt"
+        "SELECT date::text,
+                AVG(activity_counter) OVER (ORDER BY date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)::float8 as short_act,
+                AVG(activity_counter) OVER (ORDER BY date ROWS BETWEEN 29 PRECEDING AND 3 PRECEDING)::float8 as long_act,
+                STDDEV(activity_counter) OVER (ORDER BY date ROWS BETWEEN 29 PRECEDING AND 3 PRECEDING)::float8 as act_std
+         FROM (
+             SELECT date(activity_datetime) as date, activity_counter
+             FROM activities
+             WHERE animal_id = $1 AND activity_datetime >= get_ref_date() - ($2 || ' days')::interval
+         ) sub
+         ORDER BY date"
     )
     .bind(animal_id)
     .bind(days)
@@ -2328,17 +2326,12 @@ pub async fn health_timeline(
     .map_err(AppError::Database)?;
 
     let scc_rows: Vec<(String, Option<f64>, Option<f64>)> = sqlx::query_as(
-        "SELECT d.dt::date::text, recent.scc, baseline.avg_scc
-         FROM generate_series(CURRENT_DATE - ($2 || ' days')::interval, CURRENT_DATE, '1 day') d(dt)
-         LEFT JOIN LATERAL (
-             SELECT AVG(q.scc)::float8 as scc FROM milk_quality q
-             WHERE q.animal_id = $1 AND q.date <= d.dt AND q.date > d.dt - INTERVAL '3 days'
-         ) recent ON true
-         LEFT JOIN LATERAL (
-             SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q
-             WHERE q.animal_id = $1 AND q.date <= d.dt - INTERVAL '3 days' AND q.date > d.dt - INTERVAL '90 days'
-         ) baseline ON true
-         ORDER BY d.dt"
+        "SELECT date::text,
+                AVG(scc) OVER (ORDER BY date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)::float8 as recent_scc,
+                AVG(scc) OVER (ORDER BY date ROWS BETWEEN 89 PRECEDING AND 3 PRECEDING)::float8 as baseline_scc
+         FROM milk_quality
+         WHERE animal_id = $1 AND date >= get_ref_date() - ($2 || ' days')::interval
+         ORDER BY date"
     )
     .bind(animal_id)
     .bind(days)

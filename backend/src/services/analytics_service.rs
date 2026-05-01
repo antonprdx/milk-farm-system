@@ -43,7 +43,8 @@ async fn avg_calving_interval(pool: &PgPool) -> Result<Option<f64>, AppError> {
         "SELECT AVG(c2.calving_date - c1.calving_date)::float8
          FROM calvings c1
          JOIN calvings c2 ON c1.animal_id = c2.animal_id AND c2.calving_date > c1.calving_date
-         WHERE NOT EXISTS (
+         WHERE c2.calving_date >= get_ref_date() - INTERVAL '2 years'
+         AND NOT EXISTS (
              SELECT 1 FROM calvings c3
              WHERE c3.animal_id = c1.animal_id
              AND c3.calving_date > c1.calving_date AND c3.calving_date < c2.calving_date
@@ -58,8 +59,8 @@ async fn avg_calving_interval(pool: &PgPool) -> Result<Option<f64>, AppError> {
 async fn conception_rate(pool: &PgPool) -> Result<Option<f64>, AppError> {
     let row: Option<(i64, i64)> = sqlx::query_as(
         "SELECT
-            (SELECT COUNT(*) FROM inseminations WHERE insemination_date >= CURRENT_DATE - INTERVAL '12 months')::int8 as ins,
-            (SELECT COUNT(*) FROM pregnancies WHERE pregnancy_date >= CURRENT_DATE - INTERVAL '12 months')::int8 as preg",
+            (SELECT COUNT(*) FROM inseminations WHERE insemination_date >= get_ref_date() - INTERVAL '12 months')::int8 as ins,
+            (SELECT COUNT(*) FROM pregnancies WHERE pregnancy_date >= get_ref_date() - INTERVAL '12 months')::int8 as preg",
     )
     .fetch_optional(pool)
     .await
@@ -79,6 +80,7 @@ async fn milk_by_lactation(pool: &PgPool) -> Result<Vec<LactationAvg>, AppError>
          WHERE c.lac_number IS NOT NULL
            AND m.date >= c.calving_date
            AND m.date < c.calving_date + INTERVAL '400 days'
+           AND m.date >= get_ref_date() - INTERVAL '1 year'
          GROUP BY c.lac_number
          ORDER BY c.lac_number",
     )
@@ -95,8 +97,8 @@ async fn milk_by_lactation(pool: &PgPool) -> Result<Vec<LactationAvg>, AppError>
 async fn feed_eff(pool: &PgPool) -> Result<Option<f64>, AppError> {
     let row: Option<(Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT
-            (SELECT SUM(milk_amount)::float8 FROM milk_day_productions WHERE date >= CURRENT_DATE - INTERVAL '30 days') as milk,
-            (SELECT SUM(total)::float8 FROM feed_day_amounts WHERE feed_date >= CURRENT_DATE - INTERVAL '30 days') as feed",
+            (SELECT SUM(milk_amount)::float8 FROM milk_day_productions WHERE date >= get_ref_date() - INTERVAL '30 days') as milk,
+            (SELECT SUM(total)::float8 FROM feed_day_amounts WHERE feed_date >= get_ref_date() - INTERVAL '30 days') as feed",
     )
     .fetch_optional(pool)
     .await
@@ -115,7 +117,7 @@ async fn days_to_first_ai(pool: &PgPool) -> Result<Option<f64>, AppError> {
                    (SELECT MIN(i.insemination_date) FROM inseminations i
                     WHERE i.animal_id = c.animal_id AND i.insemination_date > c.calving_date) as first_ai
             FROM calvings c
-            WHERE c.calving_date >= CURRENT_DATE - INTERVAL '24 months'
+            WHERE c.calving_date >= get_ref_date() - INTERVAL '24 months'
         ) sub WHERE first_ai IS NOT NULL",
     )
     .fetch_optional(pool)
@@ -126,7 +128,7 @@ async fn days_to_first_ai(pool: &PgPool) -> Result<Option<f64>, AppError> {
 
 async fn avg_scc_val(pool: &PgPool) -> Result<Option<f64>, AppError> {
     let row: Option<(Option<f64>,)> = sqlx::query_as(
-        "SELECT AVG(scc)::float8 FROM milk_quality WHERE date >= CURRENT_DATE - INTERVAL '90 days'",
+        "SELECT AVG(scc)::float8 FROM milk_quality WHERE date >= get_ref_date() - INTERVAL '90 days'",
     )
     .fetch_optional(pool)
     .await
@@ -139,7 +141,7 @@ async fn refusal_rate(pool: &PgPool) -> Result<Option<f64>, AppError> {
         "SELECT
             SUM(refusals)::float8 as refusals,
             SUM(milkings)::float8 as milkings
-         FROM milk_quality WHERE date >= CURRENT_DATE - INTERVAL '90 days'",
+         FROM milk_quality WHERE date >= get_ref_date() - INTERVAL '90 days'",
     )
     .fetch_optional(pool)
     .await
@@ -160,15 +162,15 @@ async fn culling_risk_calc(pool: &PgPool) -> Result<Vec<CullingRiskEntry>, AppEr
                 latest_milk.milk as recent_milk,
                 latest_scc.scc as recent_scc,
                 ci.avg_interval as avg_interval,
-                EXTRACT(YEAR FROM AGE(CURRENT_DATE, a.birth_date))::int8 as age_years
+                EXTRACT(YEAR FROM AGE(get_ref_date(), a.birth_date))::int8 as age_years
          FROM animals a
          LEFT JOIN LATERAL (
              SELECT AVG(m.milk_amount)::float8 as milk
-             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days'
+             FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days'
          ) latest_milk ON true
          LEFT JOIN LATERAL (
              SELECT AVG(q.scc)::float8 as scc
-             FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days'
+             FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '90 days'
          ) latest_scc ON true
          LEFT JOIN LATERAL (
               SELECT AVG(c2.calving_date - c1.calving_date)::float8 as avg_interval
@@ -178,8 +180,9 @@ async fn culling_risk_calc(pool: &PgPool) -> Result<Vec<CullingRiskEntry>, AppEr
              AND NOT EXISTS (SELECT 1 FROM calvings c3 WHERE c3.animal_id = c1.animal_id AND c3.calving_date > c1.calving_date AND c3.calving_date < c2.calving_date)
          ) ci ON true
          WHERE a.active = true AND a.gender = 'female'
-         ORDER BY a.id",
-    )
+         ORDER BY a.id
+         LIMIT 100",
+     )
     .fetch_all(pool)
     .await
     .map_err(AppError::Database)?;
@@ -273,8 +276,8 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
     let milk_drops: Vec<(i32, Option<String>, f64, f64)> = sqlx::query_as(
         "SELECT a.id, a.name, short_avg.milk, long_avg.milk
          FROM animals a
-         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '7 days') short_avg ON true
-         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= CURRENT_DATE - INTERVAL '30 days' AND m.date < CURRENT_DATE - INTERVAL '7 days') long_avg ON true
+         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '7 days') short_avg ON true
+         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date >= get_ref_date() - INTERVAL '30 days' AND m.date < get_ref_date() - INTERVAL '7 days') long_avg ON true
          WHERE short_avg.milk IS NOT NULL AND long_avg.milk IS NOT NULL AND short_avg.milk < long_avg.milk * $1
          LIMIT 10",
     )
@@ -299,7 +302,7 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
         "SELECT a.id, a.name, recent.scc::float8, baseline.avg_scc
          FROM animals a
          JOIN LATERAL (SELECT q.scc FROM milk_quality q WHERE q.animal_id = a.id ORDER BY q.date DESC LIMIT 1) recent ON true
-         JOIN LATERAL (SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= CURRENT_DATE - INTERVAL '90 days') baseline ON true
+         JOIN LATERAL (SELECT AVG(q.scc)::float8 as avg_scc FROM milk_quality q WHERE q.animal_id = a.id AND q.date >= get_ref_date() - INTERVAL '90 days') baseline ON true
          WHERE recent.scc IS NOT NULL AND baseline.avg_scc IS NOT NULL AND recent.scc > baseline.avg_scc * $1
          LIMIT 10",
     )
@@ -329,11 +332,11 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
          FROM animals a
          JOIN LATERAL (
              SELECT AVG(activity_counter)::float8 as act FROM activities
-             WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '1 day'
+             WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '1 day'
          ) recent ON true
          JOIN LATERAL (
              SELECT AVG(activity_counter)::float8 as avg_act FROM activities
-             WHERE animal_id = a.id AND activity_datetime >= CURRENT_DATE - INTERVAL '7 days' AND activity_datetime < CURRENT_DATE - INTERVAL '1 day'
+             WHERE animal_id = a.id AND activity_datetime >= get_ref_date() - INTERVAL '7 days' AND activity_datetime < get_ref_date() - INTERVAL '1 day'
          ) baseline ON true
          WHERE recent.act IS NOT NULL AND baseline.avg_act IS NOT NULL AND recent.act < baseline.avg_act * $1
          LIMIT 10",
@@ -366,7 +369,7 @@ pub async fn alerts(pool: &PgPool) -> Result<AlertsResponse, AppError> {
          ) recent ON true
          JOIN LATERAL (
              SELECT AVG(rumination_minutes)::float8 as avg_rum FROM ruminations
-             WHERE animal_id = a.id AND date >= CURRENT_DATE - INTERVAL '7 days' AND date < CURRENT_DATE
+             WHERE animal_id = a.id AND date >= get_ref_date() - INTERVAL '7 days' AND date < get_ref_date()
          ) baseline ON true
          WHERE recent.rum IS NOT NULL AND baseline.avg_rum IS NOT NULL AND recent.rum < baseline.avg_rum * 0.75
          LIMIT 10",
@@ -674,7 +677,7 @@ pub async fn milk_trend(
     let daily: Vec<(String, Option<f64>, Option<i64>)> = sqlx::query_as(
         "SELECT date::text, SUM(milk_amount)::float8, COUNT(DISTINCT animal_id)::int8
          FROM milk_day_productions
-         WHERE date >= CURRENT_DATE - ($1 || ' days')::interval
+         WHERE date >= get_ref_date() - ($1 || ' days')::interval
          GROUP BY date ORDER BY date",
     )
     .bind(days)
@@ -809,7 +812,7 @@ pub async fn reproduction_forecast(
          AND NOT EXISTS (
              SELECT 1 FROM dry_offs d WHERE d.animal_id = i.animal_id AND d.dry_off_date > i.insemination_date
          )
-         AND i.insemination_date >= CURRENT_DATE - INTERVAL '300 days'
+         AND i.insemination_date >= get_ref_date() - INTERVAL '300 days'
          ORDER BY i.insemination_date DESC",
     )
     .fetch_all(pool)
@@ -854,13 +857,14 @@ pub async fn reproduction_forecast(
         })
         .collect();
 
-    let last_heats: Vec<(i32, Option<String>, Option<String>, String)> = sqlx::query_as(
-        "SELECT DISTINCT ON (h.animal_id) a.id, a.name, a.life_number, h.heat_date::text
+     let last_heats: Vec<(i32, Option<String>, Option<String>, String)> = sqlx::query_as(
+         "SELECT DISTINCT ON (h.animal_id) a.id, a.name, a.life_number, h.heat_date::text
          FROM heats h JOIN animals a ON a.id = h.animal_id
          WHERE a.active = true AND a.gender = 'female'
-         AND h.heat_date >= CURRENT_DATE - INTERVAL '45 days'
-         ORDER BY h.animal_id, h.heat_date DESC",
-    )
+         AND h.heat_date >= get_ref_date() - INTERVAL '45 days'
+         ORDER BY h.animal_id, h.heat_date DESC
+         LIMIT 50",
+     )
     .fetch_all(pool)
     .await
     .map_err(AppError::Database)?;
@@ -893,8 +897,8 @@ pub async fn reproduction_forecast(
 pub async fn feed_forecast(pool: &PgPool) -> Result<FeedForecastResponse, AppError> {
     let row: Option<(Option<f64>, Option<f64>)> = sqlx::query_as(
         "SELECT
-            (SELECT SUM(total)::float8 FROM feed_day_amounts WHERE feed_date >= CURRENT_DATE - INTERVAL '7 days') as weekly,
-            (SELECT AVG(total)::float8 FROM feed_day_amounts WHERE feed_date >= CURRENT_DATE - INTERVAL '30 days') as avg_daily",
+            (SELECT SUM(total)::float8 FROM feed_day_amounts WHERE feed_date >= get_ref_date() - INTERVAL '7 days') as weekly,
+            (SELECT AVG(total)::float8 FROM feed_day_amounts WHERE feed_date >= get_ref_date() - INTERVAL '30 days') as avg_daily",
     )
     .fetch_optional(pool)
     .await
@@ -935,7 +939,7 @@ pub async fn latest_milk(pool: &PgPool) -> Result<Vec<LatestMilkEntry>, AppError
          m.milk_amount, m.avg_amount, m.isk \
          FROM milk_day_productions m \
          JOIN animals a ON a.id = m.animal_id \
-         WHERE m.date = (SELECT MAX(date) FROM milk_day_productions) \
+         WHERE m.date = get_ref_date() \
          ORDER BY m.milk_amount DESC NULLS LAST \
          LIMIT 20",
     )
@@ -974,7 +978,7 @@ pub async fn time_series_comparison(
     let rows: Vec<(String, Option<f64>)> = sqlx::query_as(
         "SELECT date::text, milk_amount::float8
          FROM milk_day_productions
-         WHERE animal_id = $1 AND date >= CURRENT_DATE - ($2 || ' days')::interval
+         WHERE animal_id = $1 AND date >= get_ref_date() - ($2 || ' days')::interval
          ORDER BY date",
     )
     .bind(animal_id)
@@ -1033,7 +1037,7 @@ pub async fn time_series_comparison(
         models.push(fit_holt_winters_model(train, test, &dates_clean, forecast_days, last_date.ok(), period));
     }
     models.push(fit_fourier(train, test, &dates_clean, forecast_days, last_date.ok(), 3));
-    models.push(add_seasonal(fit_arima_011(train, test, &dates_clean, forecast_days, last_date.ok()), train, period, total_len));
+    models.push(add_seasonal(fit_auto_arima(train, test, &dates_clean, forecast_days, last_date.ok()), train, period, total_len));
 
     let best = models
         .iter()
@@ -1430,47 +1434,153 @@ fn fit_fourier(
     }
 }
 
-fn fit_arima_011(
+fn fit_auto_arima(
     train: &[f64], test: &[f64], dates: &[String], forecast_days: i64, last_date: Option<chrono::NaiveDate>,
 ) -> ModelResult {
-    let mut diffed: Vec<f64> = Vec::with_capacity(train.len() - 1);
-    for i in 1..train.len() {
-        diffed.push(train[i] - train[i - 1]);
+    let max_p = 3_usize;
+    let max_d = 2_usize;
+    let max_q = 3_usize;
+
+    let mut best_order = (0_usize, 1_usize, 1_usize);
+    let mut best_aic = f64::INFINITY;
+    let mut best_ar_params: Vec<f64> = Vec::new();
+    let mut best_drift: f64 = 0.0;
+
+    for d in 0..=max_d {
+        let mut series = train.to_vec();
+        for _ in 0..d {
+            let mut diffed = Vec::with_capacity(series.len().saturating_sub(1));
+            for i in 1..series.len() {
+                diffed.push(series[i] - series[i - 1]);
+            }
+            series = diffed;
+        }
+        if series.len() < 5 {
+            continue;
+        }
+
+        let n = series.len();
+        let mean = series.iter().sum::<f64>() / n as f64;
+        let var = series.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / n as f64;
+        if var < 1e-10 {
+            continue;
+        }
+
+        for p in 0..=max_p {
+            for q in 0..=max_q {
+                let k = p + q + 1;
+                if k >= n / 2 {
+                    continue;
+                }
+
+                let log_lik = -0.5 * n as f64 * (2.0 * std::f64::consts::PI * var).ln()
+                    - 0.5 * series.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / var;
+                let aic = 2.0 * k as f64 - 2.0 * log_lik;
+
+                if aic < best_aic {
+                    best_aic = aic;
+                    best_order = (p, d, q);
+                }
+            }
+        }
     }
 
-    let mut best_theta = 0.5_f64;
-    let mut best_sse = f64::INFINITY;
+    let (p, d, _q) = best_order;
+    let mut diffed_train = train.to_vec();
+    for _ in 0..d {
+        let mut tmp = Vec::with_capacity(diffed_train.len().saturating_sub(1));
+        for i in 1..diffed_train.len() {
+            tmp.push(diffed_train[i] - diffed_train[i - 1]);
+        }
+        diffed_train = tmp;
+    }
+
+    if p > 0 && diffed_train.len() > p + 2 {
+        let n = diffed_train.len();
+        let y: Vec<f64> = diffed_train[p..].to_vec();
+        let mut x_mat: Vec<Vec<f64>> = Vec::new();
+        for i in p..n {
+            let row: Vec<f64> = (1..=p).map(|lag| diffed_train[i - lag]).collect();
+            x_mat.push(row);
+        }
+        if y.len() == x_mat.len() && x_mat[0].len() == p {
+            let xt_x: Vec<Vec<f64>> = (0..p).map(|i| (0..p).map(|j| x_mat.iter().map(|r| r[i] * r[j]).sum()).collect()).collect();
+            let xt_y: Vec<f64> = (0..p).map(|i| x_mat.iter().zip(y.iter()).map(|(r, &v)| r[i] * v).sum()).collect();
+            best_ar_params = solve_normal_eq(&xt_x, &xt_y, p);
+        }
+    }
+
+    let mut best_theta = 0.3_f64;
+    let mut best_ma_sse = f64::INFINITY;
     for ti in 0..20u32 {
         let theta = ti as f64 * 0.05;
-        let mut errors = vec![0.0_f64; diffed.len()];
+        let mut errors = vec![0.0_f64; diffed_train.len()];
         let mut sse = 0.0;
-        for i in 0..diffed.len() {
-            let pred = if i > 0 { theta * errors[i - 1] } else { 0.0 };
-            errors[i] = diffed[i] - pred;
+        for i in 0..diffed_train.len() {
+            let ar_pred: f64 = if p > 0 && i >= p {
+                (1..=p).map(|lag| {
+                    let coeff = if lag - 1 < best_ar_params.len() { best_ar_params[lag - 1] } else { 0.0 };
+                    coeff * diffed_train[i - lag]
+                }).sum()
+            } else { 0.0 };
+            let ma_pred = if i > 0 { theta * errors[i - 1] } else { 0.0 };
+            errors[i] = diffed_train[i] - ar_pred - ma_pred;
             sse += errors[i] * errors[i];
         }
-        if sse < best_sse {
-            best_sse = sse;
+        if sse < best_ma_sse {
+            best_ma_sse = sse;
             best_theta = theta;
         }
     }
 
-    let mut errors = vec![0.0_f64; diffed.len()];
-    let mut fitted_vals = vec![train[0]];
-    for i in 0..diffed.len() {
-        let pred = if i > 0 { best_theta * errors[i - 1] } else { 0.0 };
-        errors[i] = diffed[i] - pred;
-        fitted_vals.push(train[i] + pred);
+    let mut errors = vec![0.0_f64; diffed_train.len()];
+    let mut fitted_vals = Vec::with_capacity(train.len());
+    fitted_vals.push(train[0]);
+
+    for i in 0..diffed_train.len() {
+        let ar_pred: f64 = if p > 0 && i >= p {
+            (1..=p).map(|lag| {
+                let coeff = if lag - 1 < best_ar_params.len() { best_ar_params[lag - 1] } else { 0.0 };
+                coeff * diffed_train[i - lag]
+            }).sum()
+        } else { 0.0 };
+        let ma_pred = if i > 0 { best_theta * errors[i - 1] } else { 0.0 };
+        errors[i] = diffed_train[i] - ar_pred - ma_pred;
+        let base_val = if i + 1 < train.len() { train[i] } else { *train.last().unwrap_or(&0.0) };
+        fitted_vals.push(base_val + ar_pred + ma_pred);
     }
 
-    let mut last_error = *errors.last().unwrap_or(&0.0);
+    best_drift = if d > 0 && !diffed_train.is_empty() {
+        diffed_train.iter().sum::<f64>() / diffed_train.len() as f64
+    } else {
+        0.0
+    };
+
     let mut last_val = *train.last().unwrap_or(&0.0);
+    let mut last_err = *errors.last().unwrap_or(&0.0);
+    let mut last_diffs: Vec<f64> = if p > 0 {
+        diffed_train.iter().rev().take(p).copied().collect()
+    } else {
+        Vec::new()
+    };
+
     let test_fitted: Vec<f64> = test.iter().map(|&v| {
-        let pred_diff = best_theta * last_error;
+        let ar_pred: f64 = if p > 0 {
+            (1..=p).map(|lag| {
+                let coeff = if lag - 1 < best_ar_params.len() { best_ar_params[lag - 1] } else { 0.0 };
+                let idx = lag.min(last_diffs.len());
+                if idx > 0 && idx <= last_diffs.len() { coeff * last_diffs[idx - 1] } else { 0.0 }
+            }).sum()
+        } else { 0.0 };
+        let pred_diff = ar_pred + best_drift + best_theta * last_err;
         let pred = last_val + pred_diff;
         let actual_diff = v - last_val;
-        last_error = actual_diff - pred_diff;
+        last_err = actual_diff - pred_diff;
         last_val = v;
+        if !last_diffs.is_empty() {
+            last_diffs.pop();
+            last_diffs.insert(0, actual_diff);
+        }
         pred
     }).collect();
     let (mape, rmse) = calc_metrics(test, &test_fitted);
@@ -1478,10 +1588,26 @@ fn fit_arima_011(
     let fc_dates = make_forecast_dates(last_date, dates.len(), forecast_days);
     let mut f_val = *train.last().unwrap_or(&0.0);
     let mut f_err = *errors.last().unwrap_or(&0.0);
-    let drift: f64 = diffed.iter().sum::<f64>() / diffed.len().max(1) as f64;
+    let mut f_diffs: Vec<f64> = if p > 0 {
+        diffed_train.iter().rev().take(p).copied().collect()
+    } else {
+        Vec::new()
+    };
+
     let forecast: Vec<ModelForecastPoint> = fc_dates.iter().map(|d| {
-        let pred = f_val + drift + best_theta * f_err;
+        let ar_pred: f64 = if p > 0 {
+            (1..=p).map(|lag| {
+                let coeff = if lag - 1 < best_ar_params.len() { best_ar_params[lag - 1] } else { 0.0 };
+                let idx = lag.min(f_diffs.len());
+                if idx > 0 && idx <= f_diffs.len() { coeff * f_diffs[idx - 1] } else { 0.0 }
+            }).sum()
+        } else { 0.0 };
+        let pred = f_val + ar_pred + best_drift + best_theta * f_err;
         f_err = 0.0;
+        if !f_diffs.is_empty() {
+            f_diffs.pop();
+            f_diffs.insert(0, pred - f_val);
+        }
         f_val = pred;
         ModelForecastPoint { date: d.clone(), value: r2(pred) }
     }).collect();
@@ -1490,11 +1616,40 @@ fn fit_arima_011(
         .map(|(d, v)| ModelForecastPoint { date: d.clone(), value: r2(*v) })
         .collect();
 
+    let (p, d, q) = best_order;
     ModelResult {
-        model_name: "ARIMA(0,1,1)".to_string(),
-        description: format!("ARIMA(0,1,1) (θ={:.2})", best_theta),
+        model_name: "Auto-ARIMA".to_string(),
+        description: format!("ARIMA({},{},{}) drift={:.3} θ={:.2}", p, d, q, best_drift, best_theta),
         mape, rmse, forecast, fitted: fitted_pts,
     }
+}
+
+fn solve_normal_eq(xtx: &[Vec<f64>], xty: &[f64], n: usize) -> Vec<f64> {
+    let mut a: Vec<Vec<f64>> = xtx.to_vec();
+    for i in 0..n {
+        a[i].push(xty[i]);
+    }
+    for col in 0..n {
+        let max_row = (col..n).max_by(|&i, &j| a[i][col].abs().partial_cmp(&a[j][col].abs()).unwrap_or(std::cmp::Ordering::Equal)).unwrap_or(col);
+        a.swap(col, max_row);
+        if a[col][col].abs() < 1e-12 { continue; }
+        for row in (col + 1)..n {
+            let factor = a[row][col] / a[col][col];
+            for j in col..=n {
+                a[row][j] -= factor * a[col][j];
+            }
+        }
+    }
+    let mut x = vec![0.0; n];
+    for i in (0..n).rev() {
+        if a[i][i].abs() < 1e-12 { continue; }
+        x[i] = a[i][n];
+        for j in (i + 1)..n {
+            x[i] -= a[i][j] * x[j];
+        }
+        x[i] /= a[i][i];
+    }
+    x
 }
 
 #[cfg(test)]

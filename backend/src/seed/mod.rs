@@ -26,6 +26,8 @@ pub async fn truncate_all(pool: &PgPool, keep_admin: bool) {
         "calves",
         "calvings",
         "bloodlines",
+        "vet_records",
+        "culling_events",
         "transfers",
         "feed_groups",
         "feed_types",
@@ -82,6 +84,8 @@ pub async fn seed_all(pool: &PgPool, config: &SeedConfig) {
     generators::seed_robot_milk_data(pool, &lactations, config).await;
 
     generators::seed_bulk_tank(pool, config).await;
+    generators::seed_weather(pool, config).await;
+    generators::seed_health_events(pool, &lactations, config).await;
     generators::seed_grazing(pool, config).await;
     generators::seed_transfers(pool, &animals).await;
     generators::seed_sync_log(pool).await;

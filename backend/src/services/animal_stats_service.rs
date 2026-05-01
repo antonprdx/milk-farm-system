@@ -6,40 +6,56 @@ use crate::models::animal_stats::{
 };
 
 pub async fn get_animal_stats(pool: &PgPool, animal_id: i32) -> Result<AnimalStats, AppError> {
-    let milk_30d = sqlx::query_as::<_, MilkDataPoint>(
+    let animal_ref_date: Option<(chrono::NaiveDate,)> = sqlx::query_as(
+        "SELECT MAX(date) FROM milk_day_productions WHERE animal_id = $1",
+    )
+    .bind(animal_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let ref_date_expr = match &animal_ref_date {
+        Some((d,)) => format!("'{}'::date", d),
+        None => "get_ref_date()".to_string(),
+    };
+
+    let milk_sql = format!(
         "SELECT date, COALESCE(milk_amount, 0) AS amount
          FROM milk_day_productions
-         WHERE animal_id = $1 AND date >= CURRENT_DATE - INTERVAL '30 days'
-         ORDER BY date",
-    )
-    .bind(animal_id)
-    .fetch_all(pool)
-    .await
-    .map_err(AppError::Database)?;
+         WHERE animal_id = $1 AND date >= {ref_date_expr} - INTERVAL '30 days'
+         ORDER BY date"
+    );
+    let milk_30d = sqlx::query_as::<_, MilkDataPoint>(&milk_sql)
+        .bind(animal_id)
+        .fetch_all(pool)
+        .await
+        .map_err(AppError::Database)?;
 
-    let scc_90d = sqlx::query_as::<_, SccDataPoint>(
+    let scc_sql = format!(
         "SELECT date, COALESCE(scc, 0) AS scc
          FROM milk_quality
-         WHERE animal_id = $1 AND date >= CURRENT_DATE - INTERVAL '90 days'
-         ORDER BY date",
-    )
-    .bind(animal_id)
-    .fetch_all(pool)
-    .await
-    .map_err(AppError::Database)?;
+         WHERE animal_id = $1 AND date >= {ref_date_expr} - INTERVAL '90 days'
+         ORDER BY date"
+    );
+    let scc_90d = sqlx::query_as::<_, SccDataPoint>(&scc_sql)
+        .bind(animal_id)
+        .fetch_all(pool)
+        .await
+        .map_err(AppError::Database)?;
 
-    let metrics_row: (Option<f64>, Option<i32>, Option<f64>, Option<f64>) = sqlx::query_as(
+    let metrics_sql = format!(
         "SELECT AVG(milk_amount)::double precision,
                 (SELECT scc FROM milk_quality WHERE animal_id = $1 ORDER BY date DESC LIMIT 1),
                 AVG(avg_weight)::double precision,
                 AVG(isk)::double precision
          FROM milk_day_productions
-         WHERE animal_id = $1 AND date >= CURRENT_DATE - INTERVAL '30 days'",
-    )
-    .bind(animal_id)
-    .fetch_one(pool)
-    .await
-    .map_err(AppError::Database)?;
+         WHERE animal_id = $1 AND date >= {ref_date_expr} - INTERVAL '30 days'"
+    );
+    let metrics_row: (Option<f64>, Option<i32>, Option<f64>, Option<f64>) = sqlx::query_as(&metrics_sql)
+        .bind(animal_id)
+        .fetch_one(pool)
+        .await
+        .map_err(AppError::Database)?;
 
     let latest_metrics = LatestMetrics {
         avg_milk_30d: metrics_row.0,
@@ -120,9 +136,13 @@ pub async fn get_animal_stats(pool: &PgPool, animal_id: i32) -> Result<AnimalSta
         false
     };
 
+    let ref_date_for_dim = match &animal_ref_date {
+        Some((d,)) => *d,
+        None => chrono::Local::now().date_naive(),
+    };
+
     let days_in_milk = if let Some((calving_date, _)) = &last_calving {
-        let today = chrono::Local::now().date_naive();
-        Some((today - *calving_date).num_days())
+        Some((ref_date_for_dim - *calving_date).num_days())
     } else {
         None
     };

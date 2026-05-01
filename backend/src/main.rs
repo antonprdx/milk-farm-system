@@ -89,11 +89,16 @@ async fn main() -> anyhow::Result<()> {
             }),
     );
 
+    let ml_cache = redis.as_ref().map(|mgr| {
+        milk_farm_backend::services::ml_cache::MlCache::new(mgr.clone())
+    });
+
     let state = Arc::new(AppStateInner {
         pool,
         config: cfg.clone(),
         lely: Arc::new(lely_runtime),
         ml: MlClient::from_env(),
+        ml_cache,
         redis,
         event_bus: create_event_bus(),
     });
@@ -120,6 +125,29 @@ async fn main() -> anyhow::Result<()> {
                 {
                     tracing::warn!(error = %e, "Token cleanup failed");
                 }
+            }
+        });
+    }
+
+    if !cfg.clickhouse_url.is_empty() {
+        let ch_pool = state.pool.clone();
+        let ch_url = cfg.clickhouse_url.clone();
+        tokio::spawn(async move {
+            use milk_farm_backend::db::clickhouse_sync::ClickhouseSync;
+            let sync = ClickhouseSync::new(&ch_url);
+            if sync.health_check().await {
+                tracing::info!("ClickHouse connected, running initial sync");
+                if let Err(e) = sync.sync_all(&ch_pool).await {
+                    tracing::warn!("ClickHouse initial sync failed: {}", e);
+                }
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(300)).await;
+                    if let Err(e) = sync.sync_all(&ch_pool).await {
+                        tracing::warn!("ClickHouse sync failed: {}", e);
+                    }
+                }
+            } else {
+                tracing::warn!("ClickHouse not available at {}, skipping sync", ch_url);
             }
         });
     }
