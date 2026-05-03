@@ -6,9 +6,10 @@
 
 | Слой | Технологии |
 |------|-----------|
-| Backend | Rust, Axum, SQLx, PostgreSQL, utoipa (OpenAPI) |
+| Backend | Rust, Axum, SQLx, PostgreSQL (TimescaleDB), Redis, ClickHouse, utoipa (OpenAPI) |
 | Frontend | SvelteKit 2, Svelte 5, Tailwind CSS 4, Chart.js |
-| Инфра | Docker, docker-compose, GitHub Actions CI/CD |
+| ML/Аналитика | Python, FastAPI, XGBoost, ARIMA, N-BEATS, MLflow |
+| Инфра | Docker, docker-compose, Nginx |
 
 ## Быстрый старт
 
@@ -24,12 +25,22 @@ chmod +x dev.sh
 После запуска:
 - Frontend: http://localhost:5173
 - Backend: http://localhost:3000
-- Логин: `admin` / `admin` (смена пароля при первом входе)
+- Логин: `admin` / пароль генерируется автоматически (см. вывод в консоли)
 
 ### Docker
 
 ```bash
 docker-compose up -d
+```
+
+Приложение доступно на http://localhost:8080.
+
+### Демо-режим
+
+Запуск без необходимости входа в аккаунт:
+
+```bash
+docker-compose -f docker-compose.demo.yml up --build -d
 ```
 
 ### Ручной запуск
@@ -71,12 +82,17 @@ npm run dev
 | `SECURE_COOKIES` | Использовать secure-куки (true для HTTPS) | `false` |
 | `TRUST_PROXY` | Доверять X-Forwarded-For заголовку | `false` |
 | `RUST_LOG` | Уровень логирования | `milk_farm_backend=debug` |
+| `DEMO_MODE` | Демо-режим (доступ без логина) | `false` |
 | `LELY_ENABLED` | Включить интеграцию с Lely | `false` |
 | `LELY_BASE_URL` | URL API Lely | — |
 | `LELY_USERNAME` | Логин Lely | — |
 | `LELY_PASSWORD` | Пароль Lely | — |
 | `LELY_FARM_KEY` | Ключ фермы Lely | — |
 | `LELY_SYNC_INTERVAL_SECS` | Интервал синхронизации (секунды) | `300` |
+| `REDIS_URL` | URL Redis | — |
+| `CLICKHOUSE_URL` | URL ClickHouse | `http://localhost:8123` |
+| `ML_SERVICE_URL` | URL ML-сервиса | — |
+| `ML_API_KEY` | API ключ ML-сервиса | — |
 
 ## Структура проекта
 
@@ -87,8 +103,9 @@ npm run dev
 │   │   ├── handlers/   # HTTP-обработчики
 │   │   ├── services/   # Бизнес-логика
 │   │   ├── models/     # Модели данных
-│   │   ├── middleware/  # Аутентификация, rate limiting
+│   │   ├── middleware/  # Аутентификация, CSRF, rate limiting, метрики
 │   │   ├── lely/       # Интеграция с Lely (клиент, синк, крипто)
+│   │   ├── db/         # ClickHouse синхронизация
 │   │   ├── seed/       # Генерация тестовых данных
 │   │   └── migrations/ # SQL-миграции
 │   └── tests/          # Интеграционные тесты
@@ -97,10 +114,16 @@ npm run dev
 │   │   ├── routes/     # Страницы
 │   │   ├── lib/api/    # API-клиент
 │   │   ├── lib/components/ # UI-компоненты
+│   │   ├── lib/stores/ # Svelte stores
 │   │   └── lib/utils/  # Утилиты
 │   └── tests/          # Vitest тесты
+├── analytics-ml/       # Python ML-сервис
+├── monitoring/         # Prometheus, Grafana, Loki, Tempo
+├── docs/book/          # Архитектурная документация (mdBook)
+├── report/             # Дипломный отчёт (LaTeX)
+├── slides/             # Презентация (Beamer)
 ├── docker-compose.yml
-├── .github/workflows/  # CI/CD
+├── docker-compose.demo.yml
 └── dev.sh              # Скрипт локальной разработки
 ```
 
@@ -155,6 +178,22 @@ cd backend && cargo test
 
 # Frontend
 cd frontend && npm test
+
+# ML
+cd analytics-ml && python -m pytest tests/ -v
+```
+
+## Документация
+
+```bash
+# Архитектурная (mdBook)
+mdbook serve docs/book --open
+
+# Rust API (cargo doc)
+cd backend && cargo doc --no-deps --open
+
+# Frontend (TypeDoc)
+cd frontend && npx typedoc
 ```
 
 ## Интеграция с Lely
@@ -168,3 +207,11 @@ cd frontend && npm test
 - Активность, жвачка, пастьба
 
 Настройка через переменные `LELY_*` и страницу настроек в UI.
+
+## Мониторинг
+
+Стек Grafana LGTM (Loki, Grafana, Tempo, Prometheus) для метрик, логов и трейсов.
+
+```bash
+docker-compose -f docker-compose.monitoring.dev.yml up -d
+```

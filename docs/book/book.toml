@@ -1,0 +1,16 @@
+[book]
+title = "Milk Farm — Архитектурная документация"
+authors = ["Milk Farm Team"]
+language = "ru"
+src = "src"
+
+[build]
+build-dir = "../book-dist"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://github.com/antonprdx/milk-farm-system"
+additional-js = ["mermaid.min.js", "mermaid-init.js"]

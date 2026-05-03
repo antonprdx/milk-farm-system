@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: milkfarm
+      POSTGRES_PASSWORD: milkfarm_secret
+      POSTGRES_DB: milk_farm
+    volumes:
+      - pgdata_demo:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U milkfarm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata_demo:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://milkfarm:milkfarm_secret@postgres:5432/milk_farm
+      HOST: 0.0.0.0
+      PORT: 3000
+      JWT_SECRET: change-me-in-production-at-least-32-chars
+      SECURE_COOKIES: "false"
+      CORS_ORIGINS: "http://localhost:8080"
+      ML_SERVICE_URL: http://analytics-ml:8001
+      ML_API_KEY: ${ML_API_KEY:-}
+      REDIS_URL: redis://redis:6379
+      LELY_ENCRYPTION_KEY: change-me-in-production-at-least-32-chars
+      SEED_COWS: ${SEED_COWS:-300}
+      SEED_YEARS: ${SEED_YEARS:-3}
+      DEMO_MODE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: milkfarm_analytics
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+    volumes:
+      - clickhouse_data_demo:/var/lib/clickhouse
+      - ./clickhouse/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  analytics-ml:
+    build: ./analytics-ml
+    environment:
+      DATABASE_URL: postgresql+asyncpg://milkfarm:milkfarm_secret@postgres:5432/milk_farm
+      MODEL_DIR: /app/models
+      API_KEY: ${ML_API_KEY:-}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    volumes:
+      - ml_models_demo:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build: ./frontend
+    environment:
+      ORIGIN: http://localhost:8080
+      DEMO_MODE: "true"
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  clickhouse_data_demo:
+  pgdata_demo:
+  ml_models_demo:
+  redisdata_demo:
