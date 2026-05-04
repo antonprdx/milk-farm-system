@@ -1,10 +1,8 @@
 \babel@toc {russian}{}\relax 
 \beamer@sectionintoc {1}{Актуальность и постановка задачи}{3}{0}{1}
-\beamer@sectionintoc {2}{Архитектура и технологии}{5}{0}{2}
-\beamer@sectionintoc {3}{Серверная часть}{8}{0}{3}
-\beamer@sectionintoc {4}{Клиентское приложение}{10}{0}{4}
-\beamer@sectionintoc {5}{Машинное обучение}{11}{0}{5}
-\beamer@sectionintoc {6}{Интеграция с Lely}{13}{0}{6}
-\beamer@sectionintoc {7}{Мониторинг и развёртывание}{14}{0}{7}
-\beamer@sectionintoc {8}{Результаты}{16}{0}{8}
-\beamer@sectionintoc {9}{Заключение}{17}{0}{9}
+\beamer@sectionintoc {2}{Обзор существующих решений}{5}{0}{2}
+\beamer@sectionintoc {3}{Архитектура системы}{7}{0}{3}
+\beamer@sectionintoc {4}{Машинное обучение и аналитика}{9}{0}{4}
+\beamer@sectionintoc {5}{Интеграция с Lely}{11}{0}{5}
+\beamer@sectionintoc {6}{Демонстрация}{13}{0}{6}
+\beamer@sectionintoc {7}{Заключение}{18}{0}{7}

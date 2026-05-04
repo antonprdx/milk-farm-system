@@ -1,15 +1,15 @@
-flowchart TB
+flowchart LR
     Client["HTTP Client"]
 
     subgraph MW["Middleware Stack — 8 слоёв"]
-        direction LR
+        direction TB
         Sec["Аутентификация и защита\nAuth JWT · CSRF · Rate Limit (Redis)"]
         Obs["Наблюдаемость\nTracing · Metrics (Prometheus)\nRequest ID"]
         Tpt["Транспорт\nGzip · CORS · Body Limit 10MB"]
     end
 
     subgraph API["REST API /api/v1 — 21 handler"]
-        direction LR
+        direction TB
         AuthAPI["Auth\nlogin · register\nlogout · refresh"]
         CoreAPI["Core CRUD\nanimals · milk · feed\nrepro · farm"]
         DataAPI["Данные\nlocations · contacts\nbulk_tank · vet\nsires · transfers"]
@@ -18,7 +18,7 @@ flowchart TB
     end
 
     subgraph Svc["Service Layer — 31 service"]
-        direction LR
+        direction TB
         AuthSvc["JWT + bcrypt\nHttpOnly cookies"]
         BizSvc["Business Logic\nanimal · milk · feed\nrepro · vet · sire"]
         AnSvc["Analytics & ML\npredictive · ml_client\nalert_engine · notification"]
@@ -26,7 +26,7 @@ flowchart TB
     end
 
     subgraph Data["Data Layer"]
-        direction LR
+        direction TB
         PgPool["sqlx PgPool"]
         RedisCache["Redis\nrate limit + cache"]
     end

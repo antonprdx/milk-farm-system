@@ -1,13 +1,13 @@
-flowchart TB
+flowchart LR
     subgraph MW["middleware/ — 6 модулей"]
-        direction LR
+        direction TB
         M1["auth · csrf"]
         M2["rate_limit · metrics"]
         M3["request_id"]
     end
 
     subgraph Handlers["handlers/ — 22 модуля"]
-        direction LR
+        direction TB
         H1["auth · animals · farm · milk"]
         H2["repro · feed · fitness · grazing"]
         H3["reports · analytics · settings · events"]
@@ -15,14 +15,14 @@ flowchart TB
     end
 
     subgraph Services["services/ — 31 модуль"]
-        direction LR
+        direction TB
         S1["animal · milk · feed · repro · vet"]
         S2["analytics · reports · predictive · ml_client"]
         S3["auth · alert · notification · lely · pdf"]
     end
 
     subgraph DataLayer["models/ + lely/"]
-        direction LR
+        direction TB
         Models["models/ — 22 модуля\nanimal · milk · feed · repro\nuser · vet · alerts · ..."]
         Lely["lely/ — 7 модулей\nclient · crypto · mapper · sync"]
     end

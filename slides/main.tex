@@ -31,15 +31,18 @@
   \vskip0pt%
 }
 
-\title[Молочная ферма]{Информационная система управления молочной фермой\\с интеграцией роботизированного оборудования\\и предиктивной аналитикой}
-\author[ФИО студента]{ФИО СТУДЕНТА\\[0.5em]{\small Руководитель: ФИО РУКОВОДИТЕЛЯ}}
+\title[Молочная ферма]{Система управления молочным животноводством\\на базе доильных роботов, совместимых с Lely Astronaut}
+\author[Кабанов~А.~А.]{Кабанов Антон Алексеевич\\{\small М8О-401Б-22}\\[0.5em]{\small Руководитель: Ухов~П.~А., к.т.н., доцент}}
 \institute{}
 \date{2026}
 
 \begin{document}
 
 \begin{frame}
-  \titlepage
+  \begin{center}
+    \includegraphics[height=1.5cm]{mai.pdf}\\[0.5em]
+    \titlepage
+  \end{center}
 \end{frame}
 
 \begin{frame}{Содержание}
@@ -67,17 +70,56 @@
   \vspace{0.8em}
   \textbf{Задачи:}
   \begin{enumerate}
-    \item Спроектировать трёхзвенную архитектуру и модель данных (35+ таблиц)
-    \item Реализовать серверный API на Rust/Axum (25+ модулей)
-    \item Разработать веб-приложение на SvelteKit (24+ страницы)
-    \item Реализовать модуль ML с 11 моделями
-    \item Обеспечить интеграцию с Lely Horizon API (23 типа данных)
-    \item Настроить мониторинг и CI/CD
+    \item Спроектировать трёхзвенную архитектуру и модель данных
+    \item Реализовать серверный API на Rust/Axum
+    \item Разработать веб-приложение на SvelteKit
+    \item Реализовать модуль ML
+    \item Обеспечить интеграцию с Lely Business Integration API
+    \item Настроить мониторинг
   \end{enumerate}
 \end{frame}
 
 %% ============================================================
-\section{Архитектура и технологии}
+\section{Обзор существующих решений}
+%% ============================================================
+
+\begin{frame}{Обзор существующих решений}
+  \begin{center}
+    \small
+    \begin{tabular}{|l|c|c|c|c|}
+      \hline
+      \textbf{Критерий} & \textbf{Lely Horizon} & \textbf{DelPro} & \textbf{SCR Heatime} & \textbf{1С} \\
+      \hline
+      Учёт животных & Да & Да & Нет & Да \\
+      \hline
+      Учёт надоев & Да & Да & Нет & Да \\
+      \hline
+      Интеграция с роботами & Lely & DeLaval & Нет & Нет \\
+      \hline
+      Модели ML & Нет & Нет & Да (охота) & Нет \\
+      \hline
+      Открытый API & Ограничен & Нет & Нет & Нет \\
+      \hline
+      Кастомизация & Низкая & Низкая & Низкая & Средняя \\
+      \hline
+    \end{tabular}
+  \end{center}
+  \vspace{0.5em}
+  Ни одно решение не обеспечивает одновременно: полный цикл управления, интеграцию со сторонним оборудованием, встроенные модели ML и открытую архитектуру.
+\end{frame}
+
+\begin{frame}{Отличия разрабатываемой системы}
+  \begin{itemize}
+    \item \textbf{Полный цикл управления} --- учёт, воспроизводство, кормление, здоровье, аналитика
+    \item \textbf{Интеграция с оборудованием} --- Lely Business Integration API, 23 типа данных, шифрование AES-256-GCM
+    \item \textbf{11 моделей ML} --- прогноз надоев, мастит, кетоз, охота, выбраковка, кластеризация, аномалии оборудования
+    \item \textbf{Открытая архитектура} --- микросервисы, REST API, возможность добавления собственных моделей
+    \item \textbf{Дублирование аналитики} --- ML-сервис (Python) + встроенные алгоритмы на Rust (аналитика доступна при недоступности ML)
+  \end{itemize}
+\end{frame}
+
+%% ============================================================
+\section{Архитектура системы}
 %% ============================================================
 
 \begin{frame}{Стек технологий}
@@ -106,7 +148,6 @@
         \item Docker Compose
         \item Nginx + SSL
         \item Prometheus + Grafana
-        \item GitHub Actions CI/CD
       \end{itemize}
     \end{column}
   \end{columns}
@@ -114,95 +155,43 @@
 
 \begin{frame}{Архитектура системы}
   \begin{center}
-    \includegraphics[width=0.85\textwidth,height=0.6\textheight,keepaspectratio]{container.png}
-  \end{center}
-  \begin{itemize}\small
-    \item Nginx --- единая точка входа, терминация SSL, маршрутизация
-    \item Backend --- бизнес-логика, интеграция с Lely, аналитика
-    \item Analytics-ML --- 11 моделей машинного обучения (Python/FastAPI)
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Модель данных}
-  \begin{center}
-    \includegraphics[width=0.9\textwidth,height=0.7\textheight,keepaspectratio]{database-model.png}
-  \end{center}
-  \begin{itemize}\small
-    \item 35+ таблиц PostgreSQL с TimescaleDB гипертаблицами
-    \item 23 миграции, 10 доменных областей
-  \end{itemize}
-\end{frame}
-
-%% ============================================================
-\section{Серверная часть}
-%% ============================================================
-
-\begin{frame}{Backend: архитектура}
-  \begin{center}
-    \includegraphics[width=0.85\textwidth,height=0.65\textheight,keepaspectratio]{backend-components.png}
+    \includegraphics[width=0.85\textwidth,height=0.8\textheight,keepaspectratio]{container.png}
   \end{center}
 \end{frame}
 
-\begin{frame}{Backend: безопасность}
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \textbf{Аутентификация}
-      \begin{itemize}
-        \item JWT (access + refresh), HS256
-        \item HttpOnly, SameSite=Strict cookies
-        \item Token revocation через БД
-        \item Роли: admin / user
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.48\textwidth}
-      \textbf{Защита}
-      \begin{itemize}
-        \item Rate limiting (Redis / in-memory)
-        \item CSRF-защита (Origin header)
-        \item AES-256-GCM (учётные данные Lely)
-        \item Prometheus metrics
-      \end{itemize}
-    \end{column}
-  \end{columns}
-\end{frame}
-
 %% ============================================================
-\section{Клиентское приложение}
-%% ============================================================
-
-\begin{frame}{Frontend: архитектура}
-  \begin{center}
-    \includegraphics[width=0.85\textwidth,height=0.65\textheight,keepaspectratio]{frontend-structure.png}
-  \end{center}
-  \begin{itemize}\small
-    \item 20+ маршрутов, 20 API-модулей, 22 компонента, 19 утилит
-    \item SSR + PWA, Chart.js визуализация, Tailwind CSS 4
-  \end{itemize}
-\end{frame}
-
-%% ============================================================
-\section{Машинное обучение}
+\section{Машинное обучение и аналитика}
 %% ============================================================
 
 \begin{frame}{Модели машинного обучения}
-  \begin{center}
-    \begin{tabular}{lll}
-      \toprule
-      \textbf{Модель} & \textbf{Алгоритм} & \textbf{Назначение} \\
-      \midrule
-      Прогноз надоев (корова) & XGBoost & Дневной надой + q10/q90 \\
-      Прогноз надоев (стадо) & Prophet & Тренд + сезонность \\
-      Риск мастита & XGBoost & Классификация риска \\
-      Предупреждение кетоза & XGBoost & Классификация риска \\
-      Обнаружение охоты & XGBoost & Классификация состояния \\
-      Риск выбраковки & XGBoost & Дни до выбраковки \\
-      Кластеризация стада & KMeans & Сегментация \\
-      Аномалии оборудования & Isolation Forest & Детекция аномалий \\
-      \bottomrule
-    \end{tabular}
-  \end{center}
-  \vspace{0.5em}
-  \textbf{MLOps:} автообучение, Optuna оптимизация, мониторинг дрейфа, SHAP объяснимость, MLflow логирование
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \small
+      \begin{tabular}{ll}
+        \toprule
+        \textbf{Модель} & \textbf{Алгоритм} \\
+        \midrule
+        Прогноз надоев (корова) & XGBoost \\
+        Прогноз надоев (стадо) & Prophet \\
+        Риск мастита & XGBoost \\
+        Предупреждение кетоза & XGBoost \\
+        Обнаружение охоты & XGBoost \\
+        Риск выбраковки & XGBoost \\
+        Кластеризация стада & KMeans \\
+        Аномалии оборудования & Isolation Forest \\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+    \begin{column}{0.43\textwidth}
+      \textbf{MLOps}
+      \begin{itemize}\small
+        \item Optuna оптимизация гиперпараметров
+        \item SHAP объяснимость
+        \item MLflow логирование
+        \item Мониторинг дрейфа данных
+      \end{itemize}
+    \end{column}
+  \end{columns}
 \end{frame}
 
 \begin{frame}{Аналитические алгоритмы (Rust)}
@@ -229,75 +218,69 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}{Интеграция с Lely --- демонстрация}
+  \begin{columns}[c]
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{lely-1.png}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{lely-2.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
 %% ============================================================
-\section{Мониторинг и развёртывание}
+\section{Демонстрация}
 %% ============================================================
 
-\begin{frame}{Мониторинг (Grafana LGTM)}
+\begin{frame}{Дашборд}
+  \begin{columns}[c]
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{dashboard.png}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{dashboard-2.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Карточка животного}
+  \begin{columns}[c]
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{cow-page.png}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{cow-page-2.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Отчёты}
+  \begin{columns}[c]
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{report-1.png}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{report-2.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Предиктивная аналитика}
+  \begin{columns}[c]
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{pred-analytics-1.png}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{pred-analytics-2.png}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{SHAP-объяснимость}
   \begin{center}
-    \includegraphics[width=0.85\textwidth,height=0.6\textheight,keepaspectratio]{monitoring.png}
+    \includegraphics[width=0.95\textwidth,height=0.85\textheight,keepaspectratio]{shap.png}
   \end{center}
-  \begin{itemize}\small
-    \item Prometheus --- метрики backend, ML, Redis (30d retention)
-    \item Grafana --- дашборды с преднастроенными панелями
-    \item Loki + Promtail --- агрегация логов из Docker-контейнеров
-    \item Tempo --- распределённая трассировка через OTLP
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{CI/CD и развёртывание}
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \textbf{CI/CD (GitHub Actions)}
-      \begin{center}
-        \includegraphics[width=\textwidth,height=0.55\textheight,keepaspectratio]{ci-cd.png}
-      \end{center}
-    \end{column}
-    \begin{column}{0.48\textwidth}
-      \textbf{Развёртывание (Docker Compose)}
-      \begin{center}
-        \includegraphics[width=\textwidth,height=0.55\textheight,keepaspectratio]{deployment.png}
-      \end{center}
-    \end{column}
-  \end{columns}
-  \vspace{0.3em}
-  \begin{itemize}\small
-    \item CI: fmt, clippy, audit, test (3 параллельных потока)
-    \item CD: Docker build $\to$ GHCR $\to$ SSH deploy + health check
-    \item Prod: SSL, rate limiting, resource limits, log rotation
-  \end{itemize}
-\end{frame}
-
-%% ============================================================
-\section{Результаты}
-%% ============================================================
-
-\begin{frame}{Результаты}
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \textbf{Количественные показатели}
-      \begin{itemize}
-        \item 25+ модулей обработчиков API
-        \item 33 модуля бизнес-логики
-        \item 35+ таблиц базы данных
-        \item 24+ страниц frontend
-        \item 11 моделей машинного обучения
-        \item 17+ типов отчётов (CSV/PDF)
-        \item 30+ файлов тестов
-      \end{itemize}
-    \end{column}
-    \begin{column}{0.48\textwidth}
-      \textbf{Качественные показатели}
-      \begin{itemize}
-        \item Rust --- безопасность памяти и производительность
-        \item SvelteKit --- быстрый и отзывчивый UI
-        \item XGBoost --- раннее обнаружение заболеваний
-        \item Docker --- готовность к продакшену
-        \item Grafana LGTM --- полное наблюдение
-        \item CI/CD --- автоматический деплой
-      \end{itemize}
-    \end{column}
-  \end{columns}
 \end{frame}
 
 %% ============================================================
@@ -309,9 +292,16 @@
     \item Разработана информационная система управления молочной фермой с полным циклом: от учёта до предиктивной аналитики
     \item Реализована интеграция с роботизированным оборудованием Lely (23 типа данных, шифрование)
     \item Модуль ML из 11 моделей: прогноз надоев, мастит, кетоз, охота, выбраковка, кластеризация, аномалии оборудования
-    \item Система развёрнута в Docker с мониторингом, SSL и CI/CD
+    \item Система развёрнута в Docker с мониторингом и SSL
     \item \textbf{Дальнейшее развитие:} интеграция с другими производителями, мобильное приложение, финансовый анализ
   \end{itemize}
+\end{frame}
+
+\begin{frame}{}
+  \begin{center}
+    \includegraphics[width=0.3\textwidth]{qr-github.png}\\[1em]
+    {\large Исходный код: \texttt{github.com/antonprdx/milk-farm-system}}
+  \end{center}
 \end{frame}
 
 \begin{frame}{}
