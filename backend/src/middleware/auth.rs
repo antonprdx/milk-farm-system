@@ -10,6 +10,19 @@ use crate::state::AppState;
 const ISSUER: &str = "milk-farm";
 const AUDIENCE: &str = "milk-farm-api";
 
+fn demo_claims() -> Claims {
+    Claims {
+        sub: "demo".to_string(),
+        role: "admin".to_string(),
+        must_change_password: false,
+        exp: (chrono::Utc::now().timestamp() as usize) + 86400,
+        jti: uuid::Uuid::new_v4().to_string(),
+        token_type: Some("access".to_string()),
+        iss: ISSUER.to_string(),
+        aud: AUDIENCE.to_string(),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct Claims {
     pub sub: String,
@@ -80,10 +93,18 @@ impl FromRequestParts<AppState> for ClaimsAllowMustChange {
         let token_result = extract_token(parts);
         let secret = state.config.jwt_secret.clone();
         let pool = state.pool.clone();
+        let demo_mode = state.config.demo_mode;
         async move {
-            let token = token_result?;
-            let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
-            Ok(ClaimsAllowMustChange(claims))
+            let result = async {
+                let token = token_result?;
+                verify_and_check_revocation(&token, &secret, &pool).await
+            }
+            .await;
+            match result {
+                Ok(claims) => Ok(ClaimsAllowMustChange(claims)),
+                Err(_) if demo_mode => Ok(ClaimsAllowMustChange(demo_claims())),
+                Err(e) => Err(e),
+            }
         }
     }
 }
@@ -196,18 +217,27 @@ impl FromRequestParts<AppState> for Claims {
         let token_result = extract_token(parts);
         let secret = state.config.jwt_secret.clone();
         let pool = state.pool.clone();
+        let demo_mode = state.config.demo_mode;
         async move {
-            let token = token_result?;
-            let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
-            if claims.token_type.as_deref() != Some("access") {
-                return Err(AppError::Unauthorized("Неверный тип токена".into()));
+            let result = async {
+                let token = token_result?;
+                let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
+                if claims.token_type.as_deref() != Some("access") {
+                    return Err(AppError::Unauthorized("Неверный тип токена".into()));
+                }
+                if claims.must_change_password {
+                    return Err(AppError::BadRequest(
+                        "Необходимо сменить пароль перед использованием системы".into(),
+                    ));
+                }
+                Ok(claims)
             }
-            if claims.must_change_password {
-                return Err(AppError::BadRequest(
-                    "Необходимо сменить пароль перед использованием системы".into(),
-                ));
+            .await;
+            match result {
+                Ok(claims) => Ok(claims),
+                Err(_) if demo_mode => Ok(demo_claims()),
+                Err(e) => Err(e),
             }
-            Ok(claims)
         }
     }
 }
@@ -222,16 +252,25 @@ impl FromRequestParts<AppState> for AdminGuard {
         let token_result = extract_token(parts);
         let secret = state.config.jwt_secret.clone();
         let pool = state.pool.clone();
+        let demo_mode = state.config.demo_mode;
         async move {
-            let token = token_result?;
-            let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
-            if claims.token_type.as_deref() != Some("access") {
-                return Err(AppError::Unauthorized("Неверный тип токена".into()));
+            let result = async {
+                let token = token_result?;
+                let claims = verify_and_check_revocation(&token, &secret, &pool).await?;
+                if claims.token_type.as_deref() != Some("access") {
+                    return Err(AppError::Unauthorized("Неверный тип токена".into()));
+                }
+                if claims.role != "admin" {
+                    return Err(AppError::Forbidden("Требуются права администратора".into()));
+                }
+                Ok(AdminGuard)
             }
-            if claims.role != "admin" {
-                return Err(AppError::Forbidden("Требуются права администратора".into()));
+            .await;
+            match result {
+                Ok(guard) => Ok(guard),
+                Err(_) if demo_mode => Ok(AdminGuard),
+                Err(e) => Err(e),
             }
-            Ok(AdminGuard)
         }
     }
 }

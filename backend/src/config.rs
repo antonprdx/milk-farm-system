@@ -29,6 +29,7 @@ pub struct Config {
     pub redis_url: String,
     pub clickhouse_url: String,
     pub lely_env: LelyConfig,
+    pub demo_mode: bool,
 }
 
 impl Config {
@@ -117,6 +118,10 @@ impl Config {
                     .and_then(|v| v.parse().ok())
                     .unwrap_or(300),
             },
+            demo_mode: std::env::var("DEMO_MODE")
+                .unwrap_or_else(|_| "false".into())
+                .parse()
+                .unwrap_or(false),
         })
     }
 

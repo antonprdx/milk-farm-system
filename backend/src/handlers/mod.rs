@@ -3,6 +3,7 @@ pub(crate) mod animals;
 pub(crate) mod auth;
 pub(crate) mod bulk_tank;
 pub(crate) mod contacts;
+pub mod demo;
 pub mod events;
 pub(crate) mod farm;
 pub(crate) mod feed;
@@ -51,4 +52,5 @@ pub fn routes() -> Router<AppState> {
         .merge(notifications::routes())
         .merge(weather::routes())
         .merge(events::routes())
+        .merge(demo::routes())
 }

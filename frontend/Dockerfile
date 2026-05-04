@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+ARG DEMO_MODE=false
+ENV VITE_DEMO_MODE=$DEMO_MODE
 RUN npm run build
 RUN npm prune --production
 

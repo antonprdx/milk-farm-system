@@ -1,5 +1,7 @@
 import type { Handle } from '@sveltejs/kit';
 
+const DEMO_MODE = (process.env.DEMO_MODE ?? 'false') === 'true';
+
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
 	try {
 		const parts = token.split('.');
@@ -13,6 +15,13 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 }
 
 export const handle: Handle = async ({ event, resolve }) => {
+	if (DEMO_MODE) {
+		event.locals.authenticated = true;
+		event.locals.role = 'admin';
+		event.locals.mustChangePassword = false;
+		return resolve(event);
+	}
+
 	const tokenCookie = event.cookies.get('token');
 
 	if (tokenCookie) {

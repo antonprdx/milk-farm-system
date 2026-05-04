@@ -88,7 +88,10 @@ services:
       start_period: 15s
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        DEMO_MODE: "true"
     environment:
       ORIGIN: http://localhost:8080
       DEMO_MODE: "true"

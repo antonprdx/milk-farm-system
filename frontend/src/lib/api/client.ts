@@ -4,6 +4,7 @@ import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1';
+const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 
 type RequestOptions = {
 	method?: string;
@@ -62,7 +63,7 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 		});
 
 		if (!res.ok) {
-			if (res.status === 401 && browser) {
+			if (res.status === 401 && browser && !DEMO_MODE) {
 				const refreshed = await tryRefresh();
 				if (refreshed) {
 					const retryRes = await fetch(`${API_BASE}${path}`, {

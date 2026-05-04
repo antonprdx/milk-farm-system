@@ -39,51 +39,17 @@
 
 Для ускорения аналитических запросов к TimescaleDB реализован комплекс мер: композитные индексы, автоматическое сжатие исторических данных и материализованные агрегаты.
 
-\textbf{Композитные индексы.} Большинство коррелированных подзапросов используют паттерн \texttt{WHERE animal\_id = \$1 ORDER BY date DESC LIMIT 1}. Для данного паттерна созданы составные индексы, позволяющие выполнить запрос одним сканированием индекса:
-
-\begin{verbatim}
-CREATE INDEX idx_calvings_animal_date_desc
-    ON calvings (animal_id, calving_date DESC);
-CREATE INDEX idx_inseminations_animal_date_desc
-    ON inseminations (animal_id, insemination_date DESC);
-CREATE INDEX idx_vet_records_animal_type_confirmed_date
-    ON vet_records (animal_id, record_type, confirmed, event_date);
-\end{verbatim}
+\textbf{Композитные индексы.} Большинство коррелированных подзапросов используют паттерн \texttt{WHERE animal\_id = \$1 ORDER BY date DESC LIMIT 1}. Для данного паттерна созданы составные индексы, позволяющие выполнить запрос одним сканированием индекса.
 
 \textbf{Сжатие TimescaleDB.} Для таблиц с историческими данными включено автоматическое сжатие chunks старше 6 месяцев с сегментацией по \texttt{animal\_id}. Это обеспечивает до 550-кратного сжатия (например, таблица \texttt{milk\_day\_productions} --- с 1633~МБ до 2{,}96~МБ).
 
-\textbf{Непрерывные агрегаты.} Созданы 5 материализованных представлений, предварительно вычисляющих суточные и недельные агрегаты:
-
-\begin{verbatim}
-CREATE MATERIALIZED VIEW milk_daily_summary
-WITH (timescaledb.continuous) AS
-SELECT time_bucket('1 day', date) AS bucket,
-       animal_id,
-       AVG(milk_amount) AS avg_milk,
-       SUM(milk_amount)  AS total_milk
-FROM milk_day_productions
-GROUP BY bucket, animal_id;
-\end{verbatim}
+\textbf{Непрерывные агрегаты.} Созданы 5 материализованных представлений, предварительно вычисляющих суточные и недельные агрегаты.
 
 Агрегаты обновляются автоматически каждый час. Использование предвычисленных агрегатов вместо сканирования сырых данных сокращает объём обрабатываемых строк в 100--1000 раз.
 
 \subsubsection{Кеширование моделей машинного обучения}
 
 Для устранения повторной загрузки моделей реализован модуль кеширования, загружающий модели в оперативную память при первом обращении и проверяющий время модификации файла (\texttt{mtime}) для автоматической перезагрузки при переобучении.
-
-\begin{verbatim}
-_model_cache: dict[str, tuple[dict, float, str]] = {}
-
-def get_model(name: str, path: str) -> dict | None:
-    mtime = os.path.getmtime(path)
-    if name in _model_cache:
-        cached_data, cached_mtime, _ = _model_cache[name]
-        if cached_mtime == mtime:
-            return cached_data  # cache hit
-    data = joblib.load(path)    # cache miss
-    _model_cache[name] = (data, mtime, path)
-    return data
-\end{verbatim}
 
 Аналогичный подход применён для ONNX Runtime сессий: \texttt{InferenceSession} создаётся один раз и переиспользуется. Это сокращает время инференса с 50--200~мс (загрузка + десериализация) до менее 5~мс.
 
@@ -125,41 +91,13 @@ def get_model(name: str, path: str) -> dict | None:
 \end{tabular}
 \end{table}
 
-Пример запроса к ClickHouse, заменяющего 15 коррелированных подзапросов одним проходом:
-
-\begin{verbatim}
-SELECT animal_id,
-    avgIf(milk_amount, date >= today() - 7) as avg_milk_7d,
-    avgIf(scc, date >= today() - 30)       as avg_scc_30d,
-    avgIf(rumination_minutes,
-          date >= today() - 7)              as avg_rumination_7d
-FROM milk_day_productions m
-LEFT JOIN milk_quality q USING (animal_id, date)
-LEFT JOIN ruminations r  USING (animal_id, date)
-GROUP BY animal_id
-\end{verbatim}
+Пример запроса к ClickHouse, заменяющего 15 коррелированных подзапросов одним проходом.
 
 \subsubsection{Оптимизация серверной части}
 
 \textbf{Кеширование в Redis.} Реализован модуль \texttt{MlCache} на основе Redis с настраиваемым TTL. Результаты дашборда кешируются на 1~час, результаты ML-предиктов --- на 1~час с ключом, включающим модель и текущий час. При промахе кеша запрос выполняется обычным образом, после чего результат записывается в Redis.
 
-\textbf{Оконные функции вместо коррелированных подзапросов.} Эндпоинт \texttt{health\_timeline} ранее выполнял \texttt{generate\_series} с 4 коррелированными подзапросами на каждый из 365 дней ($365 \times 4 = 1460$ подзапросов). Запрос переписан с использованием оконных функций:
-
-\begin{verbatim}
-SELECT date,
-  AVG(milk_amount) OVER (
-    ORDER BY date ROWS BETWEEN 2 PRECEDING
-                        AND CURRENT ROW) as short_milk,
-  AVG(milk_amount) OVER (
-    ORDER BY date ROWS BETWEEN 29 PRECEDING
-                        AND CURRENT ROW) as long_milk,
-  STDDEV(milk_amount) OVER (
-    ORDER BY date ROWS BETWEEN 29 PRECEDING
-                        AND CURRENT ROW) as milk_std
-FROM milk_day_productions
-WHERE animal_id = $1
-ORDER BY date
-\end{verbatim}
+\textbf{Оконные функции вместо коррелированных подзапросов.} Эндпоинт \texttt{health\_timeline} ранее выполнял \texttt{generate\_series} с 4 коррелированными подзапросами на каждый из 365 дней ($365 \times 4 = 1460$ подзапросов). Запрос переписан с использованием оконных функций.
 
 Такой запрос выполняет один проход по данным вместо 1460 коррелированных подзапросов, что сокращает время выполнения в 10--30 раз.
 
@@ -174,43 +112,3 @@ ORDER BY date
     \item \textbf{Виртуальный скроллинг} --- библиотека \texttt{svelte-tiny-virtual-list} обеспечивает рендеринг только видимых строк таблицы, что сокращает количество DOM-узлов с тысяч до 20--30 при любой прокрутке.
 \end{enumerate}
 
-\subsubsection{Результаты оптимизации}
-
-В таблице~\ref{tab:perf-results} приведено сравнение времени ответа ключевых эндпоинтов до и после оптимизации на наборе данных 10\,435 животных (измерено с помощью \texttt{curl -w}).
-
-\begin{table}[htbp]
-\caption{Сравнение времени ответа до и после оптимизации (10\,435 животных)}
-\label{tab:perf-results}
-\centering
-\begin{tabular}{|l|c|c|c|}
-\hline
-\textbf{Эндпоинт} & \textbf{До, с} & \textbf{После, с} & \textbf{Ускорение} \\
-\hline
-Дашборд & 5--10 & 0{,}13 & $38--77\times$ \\
-\hline
-ML-предикт мастита (1 животное) & 5{,}0 & 0{,}04 & $125\times$ \\
-\hline
-ML-предикт мастита (всё стадо) & 5{,}0 & 4{,}6 & $1{,}1\times$ \\
-\hline
-ML-предикт эструса (1 животное) & 5{,}0 & 0{,}03 & $167\times$ \\
-\hline
-ML-предикт кетоза (1 животное) & 1{,}2 & 0{,}02 & $60\times$ \\
-\hline
-ML-предикт кормления (1 животное) & 0{,}34 & 0{,}01 & $34\times$ \\
-\hline
-ML-предикт выбраковки (1 животное) & 2{,}3 & 0{,}02 & $115\times$ \\
-\hline
-Временная шкала здоровья (90 дней) & 10--30 & 0{,}008 & $1250--3750\times$ \\
-\hline
-\end{tabular}
-\end{table}
-
-Основное ускорение при предикте для одного животного достигнуто за счёт фильтрации по \texttt{animal\_id} на уровне SQL-запроса к загрузчику данных (\texttt{WHERE a.id = :aid}), вместо загрузки признаков для всех 10\,435 животных и последующей фильтрации в памяти. Для эндпоинтов, запрашивающих предикт для всего стада, время ответа остаётся значительным (4--5~с), что обусловлено объёмом вычислений для 10\,000+ животных; для таких запросов рекомендуется асинхронный режим с кешированием результата в Redis.
-
-% TODO: uncomment when benchmark data is available
-% \begin{figure}[htbp]
-% \centering
-% \includegraphics[width=0.9\textwidth,height=0.5\textheight,keepaspectratio]{perf-benchmark.png}
-% \caption{Результаты нагрузочного тестирования до и после оптимизации}
-% \label{fig:perf-benchmark}
-% \end{figure}

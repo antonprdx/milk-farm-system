@@ -11,6 +11,7 @@ ENABLE_MONITORING=false
 RUN_BENCH=false
 K6_TEST=""
 SKIP_SEED=false
+DEMO_MODE=false
 
 for arg in "$@"; do
     case $arg in
@@ -24,6 +25,7 @@ for arg in "$@"; do
         --k6-load) K6_TEST="load" ;;
         --k6-stress) K6_TEST="stress" ;;
         --no-seed) SKIP_SEED=true ;;
+        --demo|-d) DEMO_MODE=true ;;
     esac
 done
 
@@ -152,6 +154,10 @@ mkdir -p "$LOG_DIR"
 if [ "$ENABLE_MONITORING" = true ]; then
     OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4317"
 fi
+DEMO_ENV=""
+if [ "$DEMO_MODE" = true ]; then
+    DEMO_ENV="DEMO_MODE=true"
+fi
 LOG_FILE="$LOG_DIR/backend.json"
 env \
     LELY_ENABLED=true \
@@ -164,6 +170,7 @@ env \
     OTEL_EXPORTER_OTLP_ENDPOINT="$OTEL_EXPORTER_OTLP_ENDPOINT" \
     RUST_LOG="info,milk_farm_backend=debug" \
     RUST_LOG_FORMAT="json" \
+    $DEMO_ENV \
     bash -c 'cd backend && cargo run --bin milk-farm-backend 2>&1 | tee "$0"' "$LOG_FILE" &
 BACKEND_PID=$!
 
@@ -187,7 +194,13 @@ if [ -n "$K6_TEST" ]; then
 fi
 
 echo "Starting frontend..."
-(cd frontend && npm run dev) &
+FRONTEND_ENV=""
+FRONTEND_EXTRA_ARGS=""
+if [ "$DEMO_MODE" = true ]; then
+    FRONTEND_ENV="VITE_DEMO_MODE=true DEMO_MODE=true"
+    FRONTEND_EXTRA_ARGS="--host 0.0.0.0 --port 8080"
+fi
+env $FRONTEND_ENV bash -c "cd frontend && npm run dev -- $FRONTEND_EXTRA_ARGS" &
 FRONTEND_PID=$!
 
 OPEN_BROWSER=true
@@ -197,14 +210,23 @@ for arg in "$@"; do
     esac
 done
 
+FRONTEND_PORT=5173
+if [ "$DEMO_MODE" = true ]; then
+    FRONTEND_PORT=8080
+fi
+
 echo ""
 echo "    Running!"
-echo "    Frontend:   http://localhost:5173"
+echo "    Frontend:   http://localhost:$FRONTEND_PORT"
 echo "    Backend:    http://localhost:3000"
 echo "    Swagger:    http://localhost:3000/api/v1/docs"
 echo "    Mock Lely:  http://localhost:$MOCK_LELY_PORT"
 echo "    ML service: http://localhost:$ML_PORT"
+if [ "$DEMO_MODE" = true ]; then
+echo "    Demo mode:  ON (no login required, listening on 0.0.0.0:$FRONTEND_PORT)"
+else
 echo "    Login: admin / admin"
+fi
 if [ "$ENABLE_MONITORING" = true ]; then
 echo "    Grafana:    http://localhost:3001 (admin/admin)"
 echo "    Prometheus: http://localhost:9090"
@@ -213,7 +235,7 @@ echo ""
 
 if [ "$OPEN_BROWSER" = true ]; then
     sleep 3
-    xdg-open "http://localhost:5173" 2>/dev/null &
+    xdg-open "http://localhost:$FRONTEND_PORT" 2>/dev/null &
     xdg-open "http://localhost:3000/api/v1/docs" 2>/dev/null &
     if [ "$ENABLE_MONITORING" = true ]; then
         xdg-open "http://localhost:3001" 2>/dev/null &

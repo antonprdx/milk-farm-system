@@ -1,0 +1,3665 @@
+<!DOCTYPE HTML>
+<html lang="ru" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Milk Farm — Архитектурная документация</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-b1cf54fc.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-ea345432.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Milk Farm — Архитектурная документация</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/antonprdx/milk-farm-system" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="введение"><a class="header" href="#введение">Введение</a></h1>
+<p><strong>Milk Farm</strong> — информационная система для управления молочной фермой, интегрированная с оборудованием Lely (роботизированные доильные установки, кормовые станции, датчики активности).</p>
+<h2 id="назначение"><a class="header" href="#назначение">Назначение</a></h2>
+<p>Система решает следующие задачи:</p>
+<ul>
+<li><strong>Учёт поголовья</strong> — ведение реестра животных с привязкой к данных Lely (生命周期: отёл, осеменение, запуск, выбытие)</li>
+<li><strong>Мониторинг надоев</strong> — автоматический сбор данных о надоях, качестве молока, посещениях доильного робота</li>
+<li><strong>Кормление</strong> — контроль рационов, потребления корма, работы кормовых станций</li>
+<li><strong>Воспроизводство</strong> — отслеживание охоты, осеменений, стельностей, ожидаемых отёлов</li>
+<li><strong>Аналитика и отчёты</strong> — агрегированные отчёты по производству, здоровью, воспроизводству</li>
+<li><strong>Система оповещений</strong> — автоматическое выявление отклонений (падение надоев, высокий SCC, снижение активности) и уведомление персонала</li>
+</ul>
+<h2 id="технологический-стек"><a class="header" href="#технологический-стек">Технологический стек</a></h2>
+<pre class="mermaid">graph LR
+    subgraph Frontend
+        A[SvelteKit + TypeScript]
+    end
+    subgraph Backend
+        B[Rust + Axum]
+    end
+    subgraph Данные
+        C[PostgreSQL]
+        D[ClickHouse]
+        E[Redis]
+    end
+    subgraph Внешние
+        F[Lely API]
+    end
+    A --&gt; B
+    B --&gt; C
+    B --&gt; D
+    B --&gt; E
+    B --&gt; F
+</pre>
+
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Слой</th><th>Технология</th><th>Назначение</th></tr>
+</thead>
+<tbody>
+<tr><td>Frontend</td><td>SvelteKit, TypeScript, Tailwind CSS</td><td>Пользовательский интерфейс</td></tr>
+<tr><td>Backend</td><td>Rust, Axum, SQLx, Tokio</td><td>REST API, бизнес-логика</td></tr>
+<tr><td>БД основная</td><td>PostgreSQL</td><td>Основное хранилище данных</td></tr>
+<tr><td>Аналитика</td><td>ClickHouse</td><td>Аналитические запросы, агрегации</td></tr>
+<tr><td>Кэш</td><td>Redis</td><td>Кэширование, rate limiting, сессии</td></tr>
+<tr><td>ML</td><td>Python (FastAPI)</td><td>ML-модели для прогнозов</td></tr>
+<tr><td>Мониторинг</td><td>Prometheus + Grafana</td><td>Метрики, дашборды</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="структура-проекта"><a class="header" href="#структура-проекта">Структура проекта</a></h2>
+<pre><code>milk-farm/
+├── backend/          # Rust-бэкенд (Axum)
+│   └── src/
+│       ├── handlers/   # HTTP-обработчики
+│       ├── middleware/  # Промежуточное ПО
+│       ├── services/    # Бизнес-логика
+│       ├── models/      # Модели данных
+│       ├── lely/        # Интеграция с Lely
+│       └── db/          # Миграции
+├── frontend/         # SvelteKit-фронтенд
+│   └── src/
+│       ├── routes/      # Страницы
+│       ├── lib/
+│       │   ├── api/       # API-клиент
+│       │   ├── stores/    # Svelte stores
+│       │   └── components/ # Компоненты
+│       └── ...
+├── ml/               # ML-сервис (Python)
+├── docs/
+│   ├── book/           # Документация (mdBook)
+│   └── sql/            # SQL-миграции
+└── docker-compose.yml
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="архитектура-системы"><a class="header" href="#архитектура-системы">Архитектура системы</a></h1>
+<h2 id="контекст-системы-system-context"><a class="header" href="#контекст-системы-system-context">Контекст системы (System Context)</a></h2>
+<pre class="mermaid">graph TB
+    User[Фермер / Зоотехник]
+    Admin[Администратор]
+    System[Milk Farm System]
+    Lely[Lely Horizon API]
+    
+    User --&gt;|Браузер| System
+    Admin --&gt;|Браузер| System
+    System --&gt;|REST/HTTPS| Lely
+    Lely --&gt;|Данные сенсоров| System
+</pre>
+
+<p>Система взаимодействует с двумя типами пользователей (через браузер) и внешней платформой Lely Horizon для получения данных с доильных роботов и датчиков.</p>
+<h2 id="контейнеры-container-diagram"><a class="header" href="#контейнеры-container-diagram">Контейнеры (Container Diagram)</a></h2>
+<pre class="mermaid">graph TB
+    User[Пользователь]
+    
+    subgraph Milk Farm
+        FE[Frontend&lt;br/&gt;SvelteKit SPA]
+        BE[Backend API&lt;br/&gt;Rust / Axum]
+        ML[ML Service&lt;br/&gt;Python / FastAPI]
+        DB[(PostgreSQL&lt;br/&gt;Основная БД)]
+        CH[(ClickHouse&lt;br/&gt;Аналитика)]
+        RD[(Redis&lt;br/&gt;Кэш / Rate Limit)]
+    end
+    
+    Lely[Lely Horizon API]
+    
+    User --&gt;|HTTPS| FE
+    FE --&gt;|REST API| BE
+    BE --&gt;|SQL| DB
+    BE --&gt;|SQL| CH
+    BE --&gt;|Redis Protocol| RD
+    BE --&gt;|HTTPS| Lely
+    BE --&gt;|HTTP| ML
+    ML --&gt;|SQL| DB
+</pre>
+
+<h2 id="компоненты-backend"><a class="header" href="#компоненты-backend">Компоненты Backend</a></h2>
+<pre class="mermaid">graph TB
+    subgraph HTTP Layer
+        REQ[HTTP Request]
+    end
+    
+    subgraph Middleware Stack
+        TRACE[TraceLayer — логирование]
+        COMP[CompressionLayer — сжатие]
+        CORS[CorsLayer — CORS]
+        BODY[BodyLimitLayer — лимит тела]
+        CSRF[CsrfLayer — защита от CSRF]
+        RL[RateLimitLayer — ограничение запросов]
+        RID[RequestIdLayer — идентификатор запроса]
+        MET[MetricsLayer — метрики Prometheus]
+    end
+    
+    subgraph Handlers
+        AUTH_H[auth — аутентификация]
+        ANIMAL_H[animals — животные]
+        MILK_H[milk — надои]
+        REPRO_H[reproduction — воспроизводство]
+        FEED_H[feed — кормление]
+        REPORT_H[reports — отчёты]
+        ALERT_H[alerts — оповещения]
+        SETTINGS_H[settings — настройки]
+        LELY_H[lely — интеграция Lely]
+    end
+    
+    subgraph Services
+        AUTH_S[auth_service]
+        LELY_S[lely::service]
+        ALERT_S[alert_engine]
+        REPORT_S[report_service]
+        SYNC[lely::sync — планировщик]
+    end
+    
+    subgraph Data
+        POOL[SQLx PgPool]
+        REDIS[Redis]
+        LELY_CL[LelyClient]
+    end
+    
+    REQ --&gt; TRACE --&gt; COMP --&gt; CORS --&gt; BODY --&gt; CSRF --&gt; RL --&gt; RID --&gt; MET
+    MET --&gt; AUTH_H &amp; ANIMAL_H &amp; MILK_H &amp; REPRO_H &amp; FEED_H &amp; REPORT_H &amp; ALERT_H &amp; SETTINGS_H &amp; LELY_H
+    AUTH_H --&gt; AUTH_S
+    ANIMAL_H &amp; MILK_H &amp; REPRO_H &amp; FEED_H --&gt; POOL
+    ALERT_H --&gt; ALERT_S
+    REPORT_H --&gt; REPORT_S
+    LELY_H --&gt; LELY_S
+    SYNC --&gt; LELY_CL
+    LELY_S --&gt; POOL
+    AUTH_S --&gt; POOL &amp; REDIS
+    ALERT_S --&gt; POOL
+    REPORT_S --&gt; POOL
+</pre>
+
+<h2 id="компоненты-frontend"><a class="header" href="#компоненты-frontend">Компоненты Frontend</a></h2>
+<pre class="mermaid">graph TB
+    subgraph SvelteKit Application
+        LAYOUT[+layout.svelte&lt;br/&gt;Глобальный макет]
+        
+        subgraph Страницы
+            DASH[Dashboard]
+            ANIMALS[Животные]
+            MILK_P[Надои]
+            REPRO_P[Воспроизводство]
+            FEED_P[Кормление]
+            REPORTS_P[Отчёты]
+            ALERTS_P[Оповещения]
+            SETTINGS_P[Настройки]
+            AUTH_P[Авторизация]
+        end
+        
+        subgraph Stores
+            AUTH_STORE[auth store&lt;br/&gt;JWT, пользователь]
+            THEME[theme store]
+            NOTIFY[notifications store]
+        end
+        
+        subgraph API Layer
+            CLIENT[api/client.ts&lt;br/&gt;Базовый HTTP-клиент]
+            ANIMALS_API[animals.ts]
+            MILK_API[milk.ts]
+            REPRO_API[reproduction.ts]
+            FEED_API[feed.ts]
+        end
+    end
+    
+    LAYOUT --&gt; DASH &amp; ANIMALS &amp; MILK_P &amp; REPRO_P &amp; FEED_P &amp; REPORTS_P &amp; ALERTS_P &amp; SETTINGS_P &amp; AUTH_P
+    DASH --&gt; CLIENT
+    ANIMALS --&gt; ANIMALS_API --&gt; CLIENT
+    MILK_P --&gt; MILK_API --&gt; CLIENT
+    REPRO_P --&gt; REPRO_API --&gt; CLIENT
+    FEED_P --&gt; FEED_API --&gt; CLIENT
+    CLIENT --&gt;|REST API| BACKEND[Backend API]
+    AUTH_P --&gt; AUTH_STORE
+</pre>
+
+<h2 id="диаграмма-развёртывания"><a class="header" href="#диаграмма-развёртывания">Диаграмма развёртывания</a></h2>
+<pre class="mermaid">graph TB
+    subgraph Сервер
+        NGINX[Nginx&lt;br/&gt;Reverse Proxy]
+        BE_PROC[Backend Process&lt;br/&gt;Rust binary]
+        FE_BUILD[Frontend Build&lt;br/&gt;Статические файлы]
+        PG_INST[(PostgreSQL&lt;br/&gt;:5432)]
+        CH_INST[(ClickHouse&lt;br/&gt;:8123)]
+        RD_INST[(Redis&lt;br/&gt;:6379)]
+    end
+    
+    subgraph ML Service
+        ML_PROC[FastAPI&lt;br/&gt;:8000]
+    end
+    
+    subgraph Monitoring
+        PROM[Prometheus]
+        GRAF[Grafana]
+    end
+    
+    subgraph Внешние
+        LELY_EXT[Lely Horizon]
+    end
+    
+    CLIENT[Браузер] --&gt;|HTTPS| NGINX
+    NGINX --&gt;|/| FE_BUILD
+    NGINX --&gt;|/api/v1| BE_PROC
+    NGINX --&gt;|/metrics| PROM
+    BE_PROC --&gt; PG_INST
+    BE_PROC --&gt; CH_INST
+    BE_PROC --&gt; RD_INST
+    BE_PROC --&gt;|HTTPS| LELY_EXT
+    BE_PROC --&gt;|HTTP| ML_PROC
+    ML_PROC --&gt; PG_INST
+    PROM --&gt;|scrape| BE_PROC
+    GRAFANA_USER[Оператор] --&gt; GRAF
+    GRAF --&gt; PROM
+</pre>
+
+<h2 id="потоки-данных"><a class="header" href="#потоки-данных">Потоки данных</a></h2>
+<h3 id="синхронизация-с-lely"><a class="header" href="#синхронизация-с-lely">Синхронизация с Lely</a></h3>
+<pre class="mermaid">sequenceDiagram
+    participant S as Scheduler
+    participant DB as PostgreSQL
+    participant LC as LelyClient
+    participant LA as Lely API
+    participant AE as Alert Engine
+    
+    S-&gt;&gt;DB: Попытка получить блокировку
+    DB--&gt;&gt;S: Lock acquired
+    loop Для каждой сущности
+        S-&gt;&gt;DB: Получить дату последней синхронизации
+        DB--&gt;&gt;S: last_synced_at
+        S-&gt;&gt;LC: Запрос данных (from, till)
+        LC-&gt;&gt;LA: HTTP GET
+        LA--&gt;&gt;LC: JSON records
+        LC--&gt;&gt;S: Vec&lt;Record&gt;
+        S-&gt;&gt;DB: UPSERT записей
+    end
+    S-&gt;&gt;DB: Обновить sync_state
+    S-&gt;&gt;DB: Освободить блокировку
+    AE-&gt;&gt;DB: Проверка правил оповещений
+    AE-&gt;&gt;DB: Создать/обновить alerts
+</pre>
+
+<h3 id="аутентификация"><a class="header" href="#аутентификация">Аутентификация</a></h3>
+<pre class="mermaid">sequenceDiagram
+    participant U as Пользователь
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as PostgreSQL
+    participant R as Redis
+    
+    U-&gt;&gt;FE: Логин + пароль
+    FE-&gt;&gt;BE: POST /api/v1/auth/login
+    BE-&gt;&gt;DB: Проверка пароля (bcrypt)
+    DB--&gt;&gt;BE: OK
+    BE-&gt;&gt;BE: Создать access + refresh JWT
+    BE--&gt;&gt;FE: Set-Cookie: token, refresh_token
+    FE--&gt;&gt;U: Перенаправление на Dashboard
+    
+    Note over FE,BE: Последующие запросы
+    FE-&gt;&gt;BE: GET /api/v1/animals&lt;br/&gt;Cookie: token=...
+    BE-&gt;&gt;BE: Проверить JWT (decode + revocation)
+    BE-&gt;&gt;DB: Проверить, не отозван ли токен
+    DB--&gt;&gt;BE: OK
+    BE--&gt;&gt;FE: 200 OK + данные
+</pre>
+
+<h2 id="принятые-архитектурные-решения"><a class="header" href="#принятые-архитектурные-решения">Принятые архитектурные решения</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Решение</th><th>Обоснование</th></tr>
+</thead>
+<tbody>
+<tr><td>Rust для backend</td><td>Производительность, безопасность типов, минимальное потребление ресурсов</td></tr>
+<tr><td>Axum</td><td>Асинхронный web-фреймворк, хорошо интегрируется с экосистемой Tower</td></tr>
+<tr><td>SvelteKit для frontend</td><td>Компактный рантайм, отличная производительность, SSR из коробки</td></tr>
+<tr><td>PostgreSQL</td><td>Надёжная реляционная СУБД, поддержка JSON, полнотекстовый поиск</td></tr>
+<tr><td>ClickHouse</td><td>Колонковая СУБД для быстрых аналитических запросов по большим объёмам данных</td></tr>
+<tr><td>Redis</td><td>Кэширование сессий, rate limiting, in-memory счётчики</td></tr>
+<tr><td>JWT + HttpOnly cookies</td><td>Безопасная аутентификация без уязвимостей XSS</td></tr>
+</tbody>
+</table>
+</div>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="backend"><a class="header" href="#backend">Backend</a></h1>
+<p>Backend реализован на <strong>Rust</strong> с использованием web-фреймворка <strong>Axum</strong> и runtime <strong>Tokio</strong>.</p>
+<h2 id="структура-модулей"><a class="header" href="#структура-модулей">Структура модулей</a></h2>
+<pre><code>backend/src/
+├── lib.rs           # Создание приложения, middleware-стек
+├── main.rs          # Точка входа, запуск сервера
+├── config.rs        # Конфигурация (env, файлы)
+├── state.rs         # AppState — разделяемое состояние
+├── errors.rs        # Типы ошибок (AppError)
+├── validation.rs    # Валидация входных данных
+├── openapi.rs       # Спецификация OpenAPI
+├── seed.rs          # Начальные данные
+├── db/              # Подключение к БД
+├── handlers/        # HTTP-обработчики (routes)
+├── middleware/      # Промежуточное ПО
+├── models/          # Модели данных
+├── services/        # Бизнес-логика
+├── lely/            # Интеграция с Lely Horizon
+└── handlers/
+    └── events.rs    # EventBus (Server-Sent Events)
+</code></pre>
+<h2 id="основные-зависимости"><a class="header" href="#основные-зависимости">Основные зависимости</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Crate</th><th>Назначение</th></tr>
+</thead>
+<tbody>
+<tr><td><code>axum</code></td><td>HTTP-фреймворк</td></tr>
+<tr><td><code>tokio</code></td><td>Асинхронный runtime</td></tr>
+<tr><td><code>sqlx</code></td><td>Асинхронный PostgreSQL драйвер</td></tr>
+<tr><td><code>serde</code> / <code>serde_json</code></td><td>Сериализация/десериализация</td></tr>
+<tr><td><code>jsonwebtoken</code></td><td>Создание и проверка JWT</td></tr>
+<tr><td><code>bcrypt</code></td><td>Хеширование паролей</td></tr>
+<tr><td><code>utoipa</code></td><td>Генерация OpenAPI-документации</td></tr>
+<tr><td><code>tower</code> / <code>tower-http</code></td><td>Middleware (CORS, compression, tracing)</td></tr>
+<tr><td><code>prometheus</code></td><td>Метрики</td></tr>
+<tr><td><code>redis</code></td><td>Redis-клиент</td></tr>
+<tr><td><code>tracing</code></td><td>Структурированное логирование</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="appstate"><a class="header" href="#appstate">AppState</a></h2>
+<p>Разделяемое состояние приложения (<code>AppState</code>) содержит:</p>
+<ul>
+<li><code>config: Config</code> — конфигурация из переменных окружения</li>
+<li><code>pool: PgPool</code> — пул подключений к PostgreSQL</li>
+<li><code>redis: Option&lt;ConnectionManager&gt;</code> — подключение к Redis (опционально)</li>
+<li><code>lely: LelyState</code> — состояние интеграции с Lely</li>
+</ul>
+<h2 id="обработка-ошибок"><a class="header" href="#обработка-ошибок">Обработка ошибок</a></h2>
+<p>Все ошибки приводятся к типу <code>AppError</code>, который реализует <code>IntoResponse</code>:</p>
+<pre class="mermaid">graph LR
+    E[AppError] --&gt; U[401 Unauthorized]
+    E --&gt; F[403 Forbidden]
+    E --&gt; N[404 Not Found]
+    E --&gt; B[400 BadRequest]
+    E --&gt; R[429 RateLimited]
+    E --&gt; I[500 Internal]
+    E --&gt; D[500 Database]
+</pre>
+
+<h2 id="eventbus"><a class="header" href="#eventbus">EventBus</a></h2>
+<p>Система использует in-process шину событий на основе <strong>tokio::broadcast</strong> для доставки оповещений клиенту через <strong>Server-Sent Events (SSE)</strong>:</p>
+<pre class="mermaid">graph LR
+    H1[Handler 1] --&gt; EB[EventBus&lt;br/&gt;broadcast channel]
+    H2[Handler 2] --&gt; EB
+    H3[Alert Engine] --&gt; EB
+    EB --&gt; SSE[SSE endpoint&lt;br/&gt;/api/v1/events]
+</pre>
+
+<h2 id="маршрутизация"><a class="header" href="#маршрутизация">Маршрутизация</a></h2>
+<p>Все API-эндпоинты расположены под префиксом <code>/api/v1</code>:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Группа</th><th>Префикс</th><th>Назначение</th></tr>
+</thead>
+<tbody>
+<tr><td>Auth</td><td><code>/auth</code></td><td>Логин, регистрация, refresh, logout</td></tr>
+<tr><td>Animals</td><td><code>/animals</code></td><td>CRUD животных</td></tr>
+<tr><td>Milk</td><td><code>/milk</code></td><td>Надои, качество, визиты</td></tr>
+<tr><td>Reproduction</td><td><code>/reproduction</code></td><td>Осеменения, стельности, отёлы</td></tr>
+<tr><td>Feed</td><td><code>/feed</code></td><td>Кормление, рационы</td></tr>
+<tr><td>Reports</td><td><code>/reports</code></td><td>Генерация отчётов</td></tr>
+<tr><td>Alerts</td><td><code>/alerts</code></td><td>Оповещения</td></tr>
+<tr><td>Settings</td><td><code>/settings</code></td><td>Настройки системы</td></tr>
+<tr><td>Analytics</td><td><code>/analytics</code></td><td>Аналитические данные</td></tr>
+<tr><td>Lely</td><td><code>/lely</code></td><td>Управление синхронизацией Lely</td></tr>
+<tr><td>Health</td><td><code>/healthz</code>, <code>/readyz</code></td><td>Проверки работоспособности</td></tr>
+</tbody>
+</table>
+</div>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="frontend"><a class="header" href="#frontend">Frontend</a></h1>
+<p>Frontend реализован на <strong>SvelteKit</strong> с <strong>TypeScript</strong> и <strong>Tailwind CSS</strong>.</p>
+<h2 id="структура"><a class="header" href="#структура">Структура</a></h2>
+<pre><code>frontend/src/
+├── routes/              # Страницы (SvelteKit file-based routing)
+│   ├── +layout.svelte   # Общий макет (sidebar, header)
+│   ├── +page.svelte     # Dashboard
+│   ├── auth/
+│   │   └── login/       # Страница входа
+│   ├── animals/         # Реестр животных
+│   ├── milk/            # Надои
+│   ├── reproduction/    # Воспроизводство
+│   ├── feed/            # Кормление
+│   ├── reports/         # Отчёты
+│   ├── alerts/          # Оповещения
+│   └── settings/        # Настройки
+├── lib/
+│   ├── api/             # API-клиент и типизированные обёртки
+│   │   ├── client.ts    # Базовый HTTP-клиент с retry и refresh
+│   │   ├── animals.ts   # API животных
+│   │   ├── milk.ts      # API надоев
+│   │   └── ...
+│   ├── stores/          # Svelte stores
+│   │   ├── auth.ts      # Состояние аутентификации
+│   │   └── theme.ts     # Тема оформления
+│   ├── components/      # Переиспользуемые компоненты
+│   └── utils/           # Утилиты
+└── app.html             # HTML-шаблон
+</code></pre>
+<h2 id="api-клиент"><a class="header" href="#api-клиент">API-клиент</a></h2>
+<p>Центральный модуль <code>lib/api/client.ts</code> обеспечивает:</p>
+<ul>
+<li><strong>Автоматический retry</strong> с exponential backoff для серверных ошибок (5xx)</li>
+<li><strong>Обновление токена</strong> — при 401 автоматически пытается обновить access token через refresh token</li>
+<li><strong>Типизация</strong> — все ответы типизированы через дженерики</li>
+<li><strong>Унифицированная обработка ошибок</strong></li>
+</ul>
+<pre class="mermaid">flowchart TD
+    A[api&amp;lt;T&amp;gt;] --&gt; B{fetch}
+    B --&gt; C{HTTP status}
+    C --&gt;|200| D[return JSON as T]
+    C --&gt;|401| E{tryRefresh}
+    E --&gt;|success| B
+    E --&gt;|fail| F[logout + redirect]
+    C --&gt;|5xx| G{attempts left?}
+    G --&gt;|yes| H[backoff + retry]
+    G --&gt;|no| I[throw Error]
+    C --&gt;|4xx| J[throw parsed error]
+</pre>
+
+<h2 id="состояние-аутентификации"><a class="header" href="#состояние-аутентификации">Состояние аутентификации</a></h2>
+<p>Store <code>auth</code> управляет состоянием текущего пользователя:</p>
+<ul>
+<li>Хранит JWT-токены в <strong>HttpOnly cookies</strong> (устанавливаются сервером)</li>
+<li>Предоставляет реактивные данные о пользователе (<code>$auth.user</code>, <code>$auth.isAdmin</code>)</li>
+<li>Обрабатывает logout с очисткой состояния</li>
+</ul>
+<h2 id="основные-страницы"><a class="header" href="#основные-страницы">Основные страницы</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Страница</th><th>Маршрут</th><th>Назначение</th></tr>
+</thead>
+<tbody>
+<tr><td>Dashboard</td><td><code>/</code></td><td>Обзор ключевых метрик фермы</td></tr>
+<tr><td>Животные</td><td><code>/animals</code></td><td>Реестр с фильтрацией и пагинацией</td></tr>
+<tr><td>Карточка животного</td><td><code>/animals/[id]</code></td><td>Подробная информация, история</td></tr>
+<tr><td>Надои</td><td><code>/milk</code></td><td>Таблица надоев, графики</td></tr>
+<tr><td>Воспроизводство</td><td><code>/reproduction</code></td><td>Календарь, события</td></tr>
+<tr><td>Кормление</td><td><code>/feed</code></td><td>Рационы, потребление</td></tr>
+<tr><td>Отчёты</td><td><code>/reports</code></td><td>Генерация и просмотр отчётов</td></tr>
+<tr><td>Оповещения</td><td><code>/alerts</code></td><td>Список активных оповещений</td></tr>
+<tr><td>Настройки</td><td><code>/settings</code></td><td>Конфигурация системы</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="ui-компоненты"><a class="header" href="#ui-компоненты">UI-компоненты</a></h2>
+<p>Используются переиспользуемые Svelte-компоненты:</p>
+<ul>
+<li><strong>Таблицы</strong> — с сортировкой, фильтрацией, пагинацией</li>
+<li><strong>Графики</strong> — интеграция с Chart.js для визуализации данных</li>
+<li><strong>Формы</strong> — валидация на стороне клиента</li>
+<li><strong>Модальные окна</strong> — подтверждение действий</li>
+<li><strong>Toast-уведомления</strong> — обратная связь с пользователем</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="база-данных"><a class="header" href="#база-данных">База данных</a></h1>
+<h2 id="обзор"><a class="header" href="#обзор">Обзор</a></h2>
+<p>Система использует три типа хранилищ:</p>
+<pre class="mermaid">graph TB
+    APP[Приложение]
+    PG[(PostgreSQL)]
+    CH[(ClickHouse)]
+    RD[(Redis)]
+    
+    APP --&gt; PG
+    APP --&gt; CH
+    APP --&gt; RD
+    
+    PG --&gt;|OLTP| PG_L[Транзакционные данные]
+    CH --&gt;|OLAP| CH_L[Аналитические агрегации]
+    RD --&gt;|Cache| RD_L[Кэш, rate limit, блокировки]
+</pre>
+
+<h2 id="postgresql"><a class="header" href="#postgresql">PostgreSQL</a></h2>
+<p>Основное хранилище всех данных системы. Используется для OLTP-нагрузки.</p>
+<h3 id="er-диаграмма"><a class="header" href="#er-диаграмма">ER-диаграмма</a></h3>
+<pre class="mermaid">erDiagram
+    users {
+        int id PK
+        varchar username UK
+        varchar password_hash
+        varchar role
+        boolean must_change_password
+        timestamp created_at
+    }
+
+    animals {
+        int id PK
+        varchar life_number UK
+        varchar name
+        varchar gender
+        date birth_date
+        varchar breed
+        boolean active
+        int farm_id FK
+    }
+
+    milk_day_productions {
+        bigint id PK
+        int animal_id FK
+        date date
+        float8 milk_amount
+        varchar source
+    }
+
+    milk_quality {
+        bigint id PK
+        int animal_id FK
+        date date
+        float8 fat
+        float8 protein
+        float8 lactose
+        float8 scc
+    }
+
+    milk_visits {
+        bigint id PK
+        int animal_id FK
+        timestamp visit_datetime
+        float8 milk_amount
+        varchar device_serial
+    }
+
+    inseminations {
+        int id PK
+        int animal_id FK
+        date date
+        int sire_id FK
+        varchar technician
+    }
+
+    pregnancies {
+        int id PK
+        int animal_id FK
+        int insemination_id FK
+        date check_date
+        boolean result
+    }
+
+    calvings {
+        int id PK
+        int animal_id FK
+        date date
+        varchar calf_gender
+        varchar complications
+    }
+
+    heats {
+        int id PK
+        int animal_id FK
+        date date
+        float8 score
+    }
+
+    dry_offs {
+        int id PK
+        int animal_id FK
+        date date
+        varchar reason
+    }
+
+    feed_day_amounts {
+        bigint id PK
+        int animal_id FK
+        date feed_date
+        float8 total
+        varchar source
+    }
+
+    activities {
+        bigint id PK
+        int animal_id FK
+        timestamp activity_datetime
+        int activity_counter
+    }
+
+    alerts {
+        int id PK
+        varchar category
+        varchar severity
+        varchar status
+        int animal_id FK
+        text message
+        jsonb details
+        timestamp detected_at
+        timestamp acknowledged_at
+        timestamp resolved_at
+    }
+
+    system_settings {
+        varchar key PK
+        text value
+    }
+
+    sync_state {
+        varchar entity_name PK
+        varchar status
+        int total_synced
+        timestamp last_synced_at
+        text last_error
+    }
+
+    animals ||--o{ milk_day_productions : "надои"
+    animals ||--o{ milk_quality : "качество"
+    animals ||--o{ milk_visits : "визиты"
+    animals ||--o{ inseminations : "осеменения"
+    animals ||--o{ pregnancies : "стельности"
+    animals ||--o{ calvings : "отёлы"
+    animals ||--o{ heats : "охоты"
+    animals ||--o{ dry_offs : "запуски"
+    animals ||--o{ feed_day_amounts : "кормление"
+    animals ||--o{ activities : "активность"
+    animals ||--o{ alerts : "оповещения"
+</pre>
+
+<h3 id="основные-таблицы"><a class="header" href="#основные-таблицы">Основные таблицы</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Таблица</th><th>Назначение</th></tr>
+</thead>
+<tbody>
+<tr><td><code>users</code></td><td>Пользователи системы (аутентификация)</td></tr>
+<tr><td><code>animals</code></td><td>Реестр животных</td></tr>
+<tr><td><code>milk_day_productions</code></td><td>Дневные надои</td></tr>
+<tr><td><code>milk_quality</code></td><td>Показатели качества молока</td></tr>
+<tr><td><code>milk_visits</code></td><td>Визиты на доильную установку</td></tr>
+<tr><td><code>inseminations</code></td><td>Записи осеменений</td></tr>
+<tr><td><code>pregnancies</code></td><td>Результаты проверок на стельность</td></tr>
+<tr><td><code>calvings</code></td><td>Записи отёлов</td></tr>
+<tr><td><code>heats</code></td><td>События охоты</td></tr>
+<tr><td><code>dry_offs</code></td><td>Записи запуска (прекращение доения)</td></tr>
+<tr><td><code>feed_day_amounts</code></td><td>Дневное потребление корма</td></tr>
+<tr><td><code>activities</code></td><td>Показатели активности (датчики Lely)</td></tr>
+<tr><td><code>alerts</code></td><td>Система оповещений</td></tr>
+<tr><td><code>system_settings</code></td><td>Настройки системы (key-value)</td></tr>
+<tr><td><code>sync_state</code></td><td>Состояние синхронизации с Lely</td></tr>
+<tr><td><code>token_revocations</code></td><td>Отозванные JWT-токены</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="enum-типы"><a class="header" href="#enum-типы">Enum-типы</a></h3>
+<pre><code class="language-sql">-- Категории оповещений
+alert_category := 'milk_drop' | 'high_scc' | 'activity_drop' | 'low_feed' 
+                | 'no_milking' | 'ketosis_risk' | 'mastitis_risk' 
+                | 'expected_calving' | 'equipment_anomaly' | 'other'
+
+-- Важность
+alert_severity := 'critical' | 'warning' | 'info'
+
+-- Статус
+alert_status := 'active' | 'acknowledged' | 'resolved'
+</code></pre>
+<h2 id="clickhouse"><a class="header" href="#clickhouse">ClickHouse</a></h2>
+<p>ClickHouse используется для аналитических запросов по историческим данным. Позволяет выполнять быстрые агрегации по большим объёмам записей надоев, кормления, активности без нагрузки на основную БД.</p>
+<h3 id="применение"><a class="header" href="#применение">Применение</a></h3>
+<ul>
+<li>Агрегированные отчёты за длительные периоды</li>
+<li>Расчёт средних значений по группам животных</li>
+<li>Аналитика трендов надоев, кормления, воспроизводства</li>
+</ul>
+<h2 id="redis"><a class="header" href="#redis">Redis</a></h2>
+<p>Redis выполняет вспомогательные функции:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Функция</th><th>Ключ</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>Rate limiting</td><td><code>rl:{ip}</code></td><td>Счётчик запросов с TTL</td></tr>
+<tr><td>Отзыв токенов</td><td>Кэш проверок</td><td>Ускорение проверки <code>token_revocations</code></td></tr>
+<tr><td>Блокировка синхронизации</td><td><code>lely_sync_lock</code></td><td>Предотвращение параллельных запусков синхронизации</td></tr>
+</tbody>
+</table>
+</div>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="безопасность"><a class="header" href="#безопасность">Безопасность</a></h1>
+<h2 id="обзор-мер-безопасности"><a class="header" href="#обзор-мер-безопасности">Обзор мер безопасности</a></h2>
+<pre class="mermaid">flowchart TD
+    REQ[Входящий запрос] --&gt; CSRF[CSRF Protection]
+    CSRF --&gt; RL[Rate Limiting]
+    RL --&gt; AUTH[JWT Authentication]
+    AUTH --&gt; GUARD[Role Guard]
+    GUARD --&gt; HANDLER[Обработчик]
+    
+    AUTH --&gt;|401| UNAUTH[Unauthorized]
+    GUARD --&gt;|403| FORBIDDEN[Forbidden]
+    RL --&gt;|429| LIMIT[Too Many Requests]
+    CSRF --&gt;|403| CSRF_REJ[CSRF Rejected]
+</pre>
+
+<h2 id="аутентификация-jwt"><a class="header" href="#аутентификация-jwt">Аутентификация (JWT)</a></h2>
+<p>Система использует двухтокенную схему на основе JWT:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Токен</th><th>Хранение</th><th>Срок действия</th><th>Назначение</th></tr>
+</thead>
+<tbody>
+<tr><td>Access token</td><td>HttpOnly cookie <code>token</code></td><td>Короткий (настраивается)</td><td>Авторизация запросов</td></tr>
+<tr><td>Refresh token</td><td>HttpOnly cookie <code>refresh_token</code></td><td>Длинный (настраивается)</td><td>Обновление access token</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="структура-jwt-claims"><a class="header" href="#структура-jwt-claims">Структура JWT Claims</a></h3>
+<pre><code class="language-json">{
+  "sub": "admin",
+  "role": "admin",
+  "must_change_password": false,
+  "exp": 1700000000,
+  "jti": "uuid-v4",
+  "token_type": "access",
+  "iss": "milk-farm",
+  "aud": "milk-farm-api"
+}
+</code></pre>
+<h3 id="жизненный-цикл-токена"><a class="header" href="#жизненный-цикл-токена">Жизненный цикл токена</a></h3>
+<pre class="mermaid">stateDiagram-v2
+    [*] --&gt; Created: Логин
+    Created --&gt; Active: Валиден
+    Active --&gt; Active: Запросы API
+    Active --&gt; Expired: Истёк срок
+    Active --&gt; Revoked: Logout / Смена пароля
+    Expired --&gt; Refreshed: Refresh token
+    Refreshed --&gt; Active: Новый access token
+    Revoked --&gt; [*]
+    Expired --&gt; [*]: Refresh истёк
+</pre>
+
+<h3 id="защитные-механизмы"><a class="header" href="#защитные-механизмы">Защитные механизмы</a></h3>
+<ul>
+<li><strong>Проверка отзыва</strong> — каждый запрос проверяет <code>jti</code> токена в таблице <code>token_revocations</code></li>
+<li><strong>Проверка пользователя</strong> — токен отклоняется, если учётная запись деактивирована</li>
+<li><strong>Тип токена</strong> — access token не может быть использован как refresh и наоборот</li>
+<li><strong>Принудительная смена пароля</strong> — если <code>must_change_password=true</code>, доступ к API заблокирован</li>
+</ul>
+<h2 id="csrf-защита"><a class="header" href="#csrf-защита">CSRF-защита</a></h2>
+<p>Middleware <code>CsrfLayer</code> проверяет заголовок <code>Origin</code> для всех state-changing запросов (POST, PUT, DELETE, PATCH):</p>
+<ul>
+<li>Если <code>Origin</code> отсутствует — запрос пропускается (для API-клиентов)</li>
+<li>Если <code>Origin</code> присутствует — проверяется на соответствие разрешённым (<code>cors_origins</code>)</li>
+<li>Несовпадение → 403 Forbidden</li>
+</ul>
+<h2 id="rate-limiting"><a class="header" href="#rate-limiting">Rate Limiting</a></h2>
+<p>Ограничение частоты запросов по IP-адресу клиента:</p>
+<ul>
+<li><strong>Redis</strong> (основной режим) — атомарный <code>INCR</code> + <code>EXPIRE</code> для точного подсчёта</li>
+<li><strong>In-memory fallback</strong> — используется при недоступности Redis</li>
+<li><strong>Параметры</strong> — настраиваются: максимальное количество запросов и окно времени</li>
+<li><strong>X-Forwarded-For</strong> — поддержка доверенных прокси</li>
+</ul>
+<h2 id="cors"><a class="header" href="#cors">CORS</a></h2>
+<p>Настройки CORS разрешают запросы только из указанных доменов (<code>cors_origins</code>):</p>
+<ul>
+<li>Разрешённые методы: GET, POST, PUT, DELETE</li>
+<li>Разрешённые заголовки: Authorization, Content-Type, Cookie</li>
+<li><code>allow_credentials: true</code> — для передачи cookies</li>
+</ul>
+<h2 id="хеширование-паролей"><a class="header" href="#хеширование-паролей">Хеширование паролей</a></h2>
+<p>Пароли хешируются с помощью <strong>bcrypt</strong> со стандартным cost factor (12 rounds). При проверке используется <code>bcrypt::verify</code>.</p>
+<h2 id="валидация-входных-данных"><a class="header" href="#валидация-входных-данных">Валидация входных данных</a></h2>
+<p>Все входные данные проходят серверную валидацию:</p>
+<ul>
+<li>Обязательные поля проверяются на непустоту</li>
+<li>Имя пользователя — только разрешённые символы, минимальная длина</li>
+<li>Пароль — минимальная длина, сложность</li>
+<li>Числовые параметры — диапазоны значений</li>
+<li>Даты — корректность и логическая согласованность</li>
+</ul>
+<h2 id="ролевая-модель"><a class="header" href="#ролевая-модель">Ролевая модель</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Роль</th><th>Описание</th><th>Доступ</th></tr>
+</thead>
+<tbody>
+<tr><td><code>admin</code></td><td>Администратор</td><td>Полный доступ ко всем функциям</td></tr>
+<tr><td><code>user</code></td><td>Оператор</td><td>Чтение данных, базовые операции</td></tr>
+<tr><td><code>viewer</code></td><td>Наблюдатель</td><td>Только чтение</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="демо-режим"><a class="header" href="#демо-режим">Демо-режим</a></h2>
+<p>При включённом <code>demo_mode</code> система автоматически авторизует все запросы с правами администратора, используя предустановленные claims. Предназначен для демонстрации и тестирования.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="интеграция-с-lely"><a class="header" href="#интеграция-с-lely">Интеграция с Lely</a></h1>
+<h2 id="обзор-1"><a class="header" href="#обзор-1">Обзор</a></h2>
+<p>Интеграция с <strong>Lely Horizon</strong> обеспечивает автоматический импорт данных с роботизированного оборудования фермы:</p>
+<pre class="mermaid">graph LR
+    subgraph Lely Horizon
+        API[REST API]
+        ROBOTS[Доильные роботы]
+        FEEDERS[Кормовые станции]
+        SENSORS[Датчики активности]
+    end
+    
+    subgraph Milk Farm Backend
+        CLIENT[LelyClient]
+        SYNC[Планировщик синхронизации]
+        MAPPER[Маппинг данных]
+    end
+    
+    subgraph PostgreSQL
+        DB[Данные животных]
+    end
+    
+    ROBOTS &amp; FEEDERS &amp; SENSORS --&gt; API
+    API --&gt; CLIENT
+    CLIENT --&gt; MAPPER
+    MAPPER --&gt; DB
+    SYNC --&gt; CLIENT
+</pre>
+
+<h2 id="lelyclient"><a class="header" href="#lelyclient">LelyClient</a></h2>
+<p>HTTP-клиент для взаимодействия с Lely Horizon API:</p>
+<ul>
+<li>Аутентификация по API-ключу (Bearer token)</li>
+<li>Получение данных по временным диапазонам</li>
+<li>Автоматический retry при ошибках</li>
+</ul>
+<h2 id="планировщик-синхронизации"><a class="header" href="#планировщик-синхронизации">Планировщик синхронизации</a></h2>
+<p>Синхронизация запускается автоматически через настраиваемый интервал:</p>
+<pre class="mermaid">flowchart TD
+    START[Запуск планировщика] --&gt; CONFIG[Получить конфигурацию]
+    CONFIG --&gt; INTERVAL[Установить интервал]
+    INTERVAL --&gt; WAIT[Ожидание]
+    WAIT --&gt; LOCK{Блокировка получена?}
+    LOCK --&gt;|Да| SYNC[Выполнить синхронизацию]
+    LOCK --&gt;|Нет| SKIP[Пропуск цикла]
+    SYNC --&gt; ENTITIES[Синхронизация сущностей]
+    ENTITIES --&gt; RELEASE[Освободить блокировку]
+    RELEASE --&gt; WAIT
+    SKIP --&gt; WAIT
+</pre>
+
+<h3 id="блокировка-синхронизации"><a class="header" href="#блокировка-синхронизации">Блокировка синхронизации</a></h3>
+<p>Для предотвращения параллельного запуска используется advisory lock в PostgreSQL (<code>try_acquire_lock</code> / <code>release_lock</code>). Это гарантирует, что только один экземпляр выполняет синхронизацию.</p>
+<h2 id="синхронизируемые-сущности"><a class="header" href="#синхронизируемые-сущности">Синхронизируемые сущности</a></h2>
+<h3 id="простые-сущности-полная-синхронизация"><a class="header" href="#простые-сущности-полная-синхронизация">Простые сущности (полная синхронизация)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Сущность</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>animals</code></td><td>Реестр животных</td></tr>
+<tr><td><code>sires</code></td><td>Производители</td></tr>
+<tr><td><code>feed_types</code></td><td>Типы кормов</td></tr>
+<tr><td><code>feed_groups</code></td><td>Группы кормов</td></tr>
+<tr><td><code>contacts</code></td><td>Контакты</td></tr>
+<tr><td><code>locations</code></td><td>Локации</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="чанковые-сущности-по-временным-диапазонам"><a class="header" href="#чанковые-сущности-по-временным-диапазонам">Чанковые сущности (по временным диапазонам)</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Сущность</th><th>Окно (дней)</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>milk_day_productions</code></td><td>10</td><td>Дневные надои</td></tr>
+<tr><td><code>milk_visits</code></td><td>7</td><td>Визиты на доение</td></tr>
+<tr><td><code>milk_visit_quality</code></td><td>1</td><td>Качество по визитам</td></tr>
+<tr><td><code>milk_day_productions_quality</code></td><td>1</td><td>Качество по дням</td></tr>
+<tr><td><code>robot_milk_data</code></td><td>7</td><td>Данные доильного робота</td></tr>
+<tr><td><code>feed_day_amounts</code></td><td>7</td><td>Потребление корма</td></tr>
+<tr><td><code>feed_visits</code></td><td>3</td><td>Визиты на кормление</td></tr>
+<tr><td><code>activities</code></td><td>1</td><td>Активность</td></tr>
+<tr><td><code>ruminations</code></td><td>2</td><td>Жвачка</td></tr>
+<tr><td><code>grazing_data</code></td><td>90</td><td>Пастбищные данные</td></tr>
+<tr><td><code>calvings</code></td><td>90</td><td>Отёлы</td></tr>
+<tr><td><code>inseminations</code></td><td>90</td><td>Осеменения</td></tr>
+<tr><td><code>pregnancies</code></td><td>90</td><td>Стельности</td></tr>
+<tr><td><code>heats</code></td><td>90</td><td>Охоты</td></tr>
+<tr><td><code>dry_offs</code></td><td>90</td><td>Запуски</td></tr>
+<tr><td><code>transfers</code></td><td>90</td><td>Перемещения</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="специальные-сущности"><a class="header" href="#специальные-сущности">Специальные сущности</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Сущность</th><th>Режим</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>bloodlines</code></td><td>Потоковый (10 параллельных)</td><td>Родословные по каждому животному</td></tr>
+<tr><td><code>grazing_data</code></td><td>Чанковый с начала года</td><td>Данные пастбищ</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="маппинг-данных"><a class="header" href="#маппинг-данных">Маппинг данных</a></h2>
+<p><code>AnimalCache</code> загружается перед синхронизацией и используется для связывания записей Lely (по <code>life_number</code>) с внутренними ID животных:</p>
+<pre class="mermaid">flowchart LR
+    LELY[Lely Record&lt;br/&gt;life_number] --&gt; CACHE[AnimalCache]
+    CACHE --&gt; PG[animal_id&lt;br/&gt;в PostgreSQL]
+</pre>
+
+<h2 id="состояние-синхронизации"><a class="header" href="#состояние-синхронизации">Состояние синхронизации</a></h2>
+<p>Таблица <code>sync_state</code> отслеживает статус каждой сущности:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Поле</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>entity_name</code></td><td>Название сущности</td></tr>
+<tr><td><code>status</code></td><td><code>success</code> или <code>error</code></td></tr>
+<tr><td><code>total_synced</code></td><td>Количество обработанных записей</td></tr>
+<tr><td><code>last_synced_at</code></td><td>Время последней успешной синхронизации</td></tr>
+<tr><td><code>last_error</code></td><td>Текст последней ошибки</td></tr>
+</tbody>
+</table>
+</div>
+<p>На основе <code>last_synced_at</code> определяется начальная дата для следующей инкрементальной синхронизации.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="api"><a class="header" href="#api">API</a></h1>
+<h2 id="обзор-2"><a class="header" href="#обзор-2">Обзор</a></h2>
+<p>Backend предоставляет REST API с префиксом <code>/api/v1</code>. Документация автоматически генерируется с помощью <code>utoipa</code> и доступна через Swagger UI по адресу <code>/api/v1/docs</code>.</p>
+<h2 id="аутентификация-1"><a class="header" href="#аутентификация-1">Аутентификация</a></h2>
+<p>Все запросы (кроме <code>/auth/login</code> и <code>/auth/register</code>) требуют действительного JWT-токена в cookie <code>token</code>.</p>
+<pre class="mermaid">flowchart LR
+    CLIENT[Клиент] --&gt;|POST /auth/login| SERVER[Backend]
+    SERVER --&gt;|Set-Cookie: token, refresh_token| CLIENT
+    CLIENT --&gt;|GET /api/v1/animals&lt;br/&gt;Cookie: token=...| SERVER
+    SERVER --&gt;|200 OK + JSON| CLIENT
+</pre>
+
+<h2 id="формат-ответов"><a class="header" href="#формат-ответов">Формат ответов</a></h2>
+<h3 id="успешный-ответ-список"><a class="header" href="#успешный-ответ-список">Успешный ответ (список)</a></h3>
+<pre><code class="language-json">{
+  "data": [...],
+  "total": 150,
+  "page": 1,
+  "per_page": 20
+}
+</code></pre>
+<h3 id="успешный-ответ-один-объект"><a class="header" href="#успешный-ответ-один-объект">Успешный ответ (один объект)</a></h3>
+<pre><code class="language-json">{
+  "id": 42,
+  "name": "Зорька",
+  "life_number": "NL 123456789"
+}
+</code></pre>
+<h3 id="ошибка"><a class="header" href="#ошибка">Ошибка</a></h3>
+<pre><code class="language-json">{
+  "error": "Описание ошибки"
+}
+</code></pre>
+<h2 id="пагинация"><a class="header" href="#пагинация">Пагинация</a></h2>
+<p>Параметры запроса:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Параметр</th><th>По умолчанию</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>page</code></td><td>1</td><td>Номер страницы</td></tr>
+<tr><td><code>per_page</code></td><td>20</td><td>Записей на странице (макс. 100)</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="эндпоинты"><a class="header" href="#эндпоинты">Эндпоинты</a></h2>
+<h3 id="аутентификация-1-1"><a class="header" href="#аутентификация-1-1">Аутентификация</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>POST</td><td><code>/auth/login</code></td><td>Вход в систему</td></tr>
+<tr><td>POST</td><td><code>/auth/register</code></td><td>Регистрация (admin)</td></tr>
+<tr><td>POST</td><td><code>/auth/refresh</code></td><td>Обновление токена</td></tr>
+<tr><td>POST</td><td><code>/auth/logout</code></td><td>Выход (отзыв токена)</td></tr>
+<tr><td>PUT</td><td><code>/auth/password</code></td><td>Смена пароля</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="животные"><a class="header" href="#животные">Животные</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/animals</code></td><td>Список животных (с фильтрами)</td></tr>
+<tr><td>GET</td><td><code>/animals/:id</code></td><td>Карточка животного</td></tr>
+<tr><td>POST</td><td><code>/animals</code></td><td>Создать животное</td></tr>
+<tr><td>PUT</td><td><code>/animals/:id</code></td><td>Обновить животное</td></tr>
+<tr><td>DELETE</td><td><code>/animals/:id</code></td><td>Деактивировать животное</td></tr>
+<tr><td>GET</td><td><code>/animals/stats</code></td><td>Статистика по стаду</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="надои"><a class="header" href="#надои">Надои</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/milk/day-productions</code></td><td>Дневные надои</td></tr>
+<tr><td>GET</td><td><code>/milk/visits</code></td><td>Визиты на доение</td></tr>
+<tr><td>GET</td><td><code>/milk/quality</code></td><td>Качество молока</td></tr>
+<tr><td>GET</td><td><code>/milk/robot-data</code></td><td>Данные робота</td></tr>
+<tr><td>GET</td><td><code>/milk/bulk-tank</code></td><td>Данные танк-охладителя</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="воспроизводство"><a class="header" href="#воспроизводство">Воспроизводство</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/reproduction/inseminations</code></td><td>Список осеменений</td></tr>
+<tr><td>GET</td><td><code>/reproduction/pregnancies</code></td><td>Список стельностей</td></tr>
+<tr><td>GET</td><td><code>/reproduction/calvings</code></td><td>Список отёлов</td></tr>
+<tr><td>GET</td><td><code>/reproduction/heats</code></td><td>Список охот</td></tr>
+<tr><td>GET</td><td><code>/reproduction/dry-offs</code></td><td>Список запусков</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="кормление"><a class="header" href="#кормление">Кормление</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/feed/day-amounts</code></td><td>Дневное потребление</td></tr>
+<tr><td>GET</td><td><code>/feed/visits</code></td><td>Визиты на кормление</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="оповещения"><a class="header" href="#оповещения">Оповещения</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/alerts</code></td><td>Список оповещений (с фильтрами)</td></tr>
+<tr><td>GET</td><td><code>/alerts/summary</code></td><td>Сводка активных оповещений</td></tr>
+<tr><td>PUT</td><td><code>/alerts/:id/acknowledge</code></td><td>Подтвердить оповещение</td></tr>
+<tr><td>PUT</td><td><code>/alerts/acknowledge-all</code></td><td>Подтвердить все</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="отчёты"><a class="header" href="#отчёты">Отчёты</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/reports/milk-production</code></td><td>Отчёт по надоям</td></tr>
+<tr><td>GET</td><td><code>/reports/reproduction</code></td><td>Отчёт по воспроизводству</td></tr>
+<tr><td>GET</td><td><code>/reports/feed</code></td><td>Отчёт по кормлению</td></tr>
+<tr><td>GET</td><td><code>/reports/fitness</code></td><td>Отчёт по здоровью</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="настройки"><a class="header" href="#настройки">Настройки</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/settings</code></td><td>Все настройки</td></tr>
+<tr><td>PUT</td><td><code>/settings</code></td><td>Обновить настройки</td></tr>
+<tr><td>GET</td><td><code>/settings/alert-thresholds</code></td><td>Пороги оповещений</td></tr>
+<tr><td>PUT</td><td><code>/settings/alert-thresholds</code></td><td>Обновить пороги</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="lely"><a class="header" href="#lely">Lely</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/lely/config</code></td><td>Конфигурация интеграции</td></tr>
+<tr><td>PUT</td><td><code>/lely/config</code></td><td>Обновить конфигурацию</td></tr>
+<tr><td>POST</td><td><code>/lely/sync</code></td><td>Запустить синхронизацию</td></tr>
+<tr><td>GET</td><td><code>/lely/sync-state</code></td><td>Состояние синхронизации</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="health"><a class="header" href="#health">Health</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метод</th><th>Путь</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td>GET</td><td><code>/healthz</code></td><td>Проверка работоспособности</td></tr>
+<tr><td>GET</td><td><code>/readyz</code></td><td>Проверка готовности</td></tr>
+<tr><td>GET</td><td><code>/stats</code></td><td>Базовая статистика</td></tr>
+<tr><td>GET</td><td><code>/metrics</code></td><td>Метрики Prometheus</td></tr>
+<tr><td>GET</td><td><code>/events</code></td><td>Server-Sent Events (оповещения)</td></tr>
+</tbody>
+</table>
+</div>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="отчёты-1"><a class="header" href="#отчёты-1">Отчёты</a></h1>
+<h2 id="обзор-3"><a class="header" href="#обзор-3">Обзор</a></h2>
+<p>Система предоставляет набор отчётов для анализа работы фермы. Отчёты генерируются на основе данных, хранящихся в PostgreSQL и ClickHouse.</p>
+<pre class="mermaid">flowchart LR
+    USER[Пользователь] --&gt;|GET /reports/:type| API[Backend API]
+    API --&gt; SERVICE[Report Service]
+    SERVICE --&gt; PG[(PostgreSQL)]
+    SERVICE --&gt; CH[(ClickHouse)]
+    SERVICE --&gt;|JSON| API
+    API --&gt;|JSON| USER
+</pre>
+
+<h2 id="типы-отчётов"><a class="header" href="#типы-отчётов">Типы отчётов</a></h2>
+<h3 id="отчёт-по-надоям"><a class="header" href="#отчёт-по-надоям">Отчёт по надоям</a></h3>
+<p>Содержит агрегированные данные о производстве молока:</p>
+<ul>
+<li>Дневные/недельные/месячные надои по животным и группам</li>
+<li>Средние показатели по стаду</li>
+<li>Сравнение с предыдущими периодами</li>
+<li>Тренды качества (жир, белок, SCC)</li>
+</ul>
+<h3 id="отчёт-по-воспроизводству"><a class="header" href="#отчёт-по-воспроизводству">Отчёт по воспроизводству</a></h3>
+<p>Показатели воспроизводительной функции стада:</p>
+<ul>
+<li>Процент осеменений, приведших к стельности</li>
+<li>Средний интервал от отёла до первого осеменения</li>
+<li>Количество открытых дней (days open)</li>
+<li>Статус воспроизводства по каждому животному</li>
+</ul>
+<h3 id="отчёт-по-кормлению"><a class="header" href="#отчёт-по-кормлению">Отчёт по кормлению</a></h3>
+<p>Данные о потреблении корма:</p>
+<ul>
+<li>Потребление по животным и группам</li>
+<li>Сравнение с целевыми показателями рациона</li>
+<li>Тренды потребления</li>
+<li>Эффективность конверсии корма</li>
+</ul>
+<h3 id="отчёт-по-здоровью"><a class="header" href="#отчёт-по-здоровью">Отчёт по здоровью</a></h3>
+<p>Комплексная оценка здоровья животных:</p>
+<ul>
+<li>Активность (по данным датчиков)</li>
+<li>Жвачка</li>
+<li>Падение надоев</li>
+<li>Показатели SCC</li>
+<li>Связанные оповещения</li>
+</ul>
+<h2 id="параметры-отчётов"><a class="header" href="#параметры-отчётов">Параметры отчётов</a></h2>
+<p>Все отчёты поддерживают фильтрацию:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Параметр</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>from</code></td><td>Начальная дата</td></tr>
+<tr><td><code>to</code></td><td>Конечная дата</td></tr>
+<tr><td><code>animal_id</code></td><td>Конкретное животное</td></tr>
+<tr><td><code>group</code></td><td>Группа животных</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="формат-данных"><a class="header" href="#формат-данных">Формат данных</a></h2>
+<p>Отчёты возвращаются в формате JSON с готовыми агрегациями для отображения на frontend в виде таблиц и графиков.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="ml-и-аналитика"><a class="header" href="#ml-и-аналитика">ML и аналитика</a></h1>
+<h2 id="обзор-4"><a class="header" href="#обзор-4">Обзор</a></h2>
+<p>ML-сервис реализован на Python (FastAPI) и предоставляет прогностические модели для анализа данных фермы.</p>
+<pre class="mermaid">graph TB
+    BE[Backend API] --&gt;|HTTP| ML[ML Service&lt;br/&gt;FastAPI]
+    ML --&gt; DB[(PostgreSQL)]
+    
+    subgraph ML Service
+        DATA[Подготовка данных]
+        TRAIN[Обучение моделей]
+        PRED[Прогнозирование]
+        API_ML[REST API]
+    end
+    
+    DATA --&gt; TRAIN --&gt; PRED
+    API_ML --&gt; PRED
+</pre>
+
+<h2 id="задачи-ml"><a class="header" href="#задачи-ml">Задачи ML</a></h2>
+<h3 id="прогноз-надоев"><a class="header" href="#прогноз-надоев">Прогноз надоев</a></h3>
+<p>Модель прогнозирует ожидаемый надой для каждого животного на основе:</p>
+<ul>
+<li>Исторических данных о надоях</li>
+<li>Дня лактации</li>
+<li>Возраста животного</li>
+<li>Сезонных факторов</li>
+</ul>
+<h3 id="риск-заболеваний"><a class="header" href="#риск-заболеваний">Риск заболеваний</a></h3>
+<p>Выявление животных с повышенным риском:</p>
+<ul>
+<li><strong>Мастит</strong> — на основе SCC, надоя, температуры</li>
+<li><strong>Кетоз</strong> — на основе надоя, потребления корма, активности</li>
+<li><strong>Хромота</strong> — на основе активности</li>
+</ul>
+<h3 id="оптимальное-время-осеменения"><a class="header" href="#оптимальное-время-осеменения">Оптимальное время осеменения</a></h3>
+<p>Рекомендации по оптимальному времени осеменения на основе:</p>
+<ul>
+<li>Данных об активности (охота)</li>
+<li>Истории воспроизводства</li>
+<li>Дня лактации</li>
+</ul>
+<h2 id="интеграция-с-backend"><a class="header" href="#интеграция-с-backend">Интеграция с Backend</a></h2>
+<p>Backend обращается к ML-сервису через HTTP API:</p>
+<pre class="mermaid">sequenceDiagram
+    participant Client
+    participant Backend
+    participant ML as ML Service
+    
+    Client-&gt;&gt;Backend: GET /api/v1/analytics/predictions
+    Backend-&gt;&gt;ML: GET /predictions
+    ML-&gt;&gt;ML: Загрузка данных из PostgreSQL
+    ML-&gt;&gt;ML: Предсказание модели
+    ML--&gt;&gt;Backend: JSON с прогнозами
+    Backend--&gt;&gt;Client: Результат
+</pre>
+
+<h2 id="хранение-моделей"><a class="header" href="#хранение-моделей">Хранение моделей</a></h2>
+<p>Обученные модели хранятся в файловой системе ML-сервиса и автоматически загружаются при старте. Переобучение выполняется по расписанию с использованием свежих данных из PostgreSQL.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="мониторинг"><a class="header" href="#мониторинг">Мониторинг</a></h1>
+<h2 id="обзор-5"><a class="header" href="#обзор-5">Обзор</a></h2>
+<p>Система мониторинга построена на базе <strong>Prometheus</strong> и <strong>Grafana</strong>.</p>
+<pre class="mermaid">graph TB
+    APP[Backend&lt;br/&gt;:8080] --&gt;|/metrics| PROM[Prometheus]
+    PROM --&gt; GRAF[Grafana&lt;br/&gt;Дашборды]
+    OPS[Оператор] --&gt; GRAF
+</pre>
+
+<h2 id="метрики"><a class="header" href="#метрики">Метрики</a></h2>
+<p>Backend собирает метрики с помощью crate <code>prometheus</code> и отдаёт их на эндпоинте <code>/metrics</code>.</p>
+<h3 id="http-метрики"><a class="header" href="#http-метрики">HTTP-метрики</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метрика</th><th>Тип</th><th>Лейблы</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>http_requests_total</code></td><td>Counter</td><td>method, route, status</td><td>Общее количество HTTP-запросов</td></tr>
+<tr><td><code>http_request_duration_seconds</code></td><td>Histogram</td><td>method, route</td><td>Длительность HTTP-запросов</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="rate-limiting-1"><a class="header" href="#rate-limiting-1">Rate Limiting</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метрика</th><th>Тип</th><th>Лейблы</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>rate_limit_rejections_total</code></td><td>Counter</td><td>ip</td><td>Отклонённые запросы</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="аутентификация-2"><a class="header" href="#аутентификация-2">Аутентификация</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метрика</th><th>Тип</th><th>Лейблы</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>auth_events_total</code></td><td>Counter</td><td>event</td><td>События аутентификации</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="синхронизация-lely"><a class="header" href="#синхронизация-lely">Синхронизация Lely</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метрика</th><th>Тип</th><th>Лейблы</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>lely_sync_total</code></td><td>Counter</td><td>status</td><td>Попытки синхронизации</td></tr>
+</tbody>
+</table>
+</div>
+<h3 id="база-данных-1"><a class="header" href="#база-данных-1">База данных</a></h3>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Метрика</th><th>Тип</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>db_pool_size</code></td><td>Gauge</td><td>Размер пула подключений</td></tr>
+<tr><td><code>db_pool_idle</code></td><td>Gauge</td><td>Свободные подключения</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="логирование"><a class="header" href="#логирование">Логирование</a></h2>
+<p>Backend использует crate <code>tracing</code> для структурированного логирования:</p>
+<ul>
+<li><strong>Уровни</strong>: error, warn, info, debug, trace</li>
+<li><strong>Формат</strong>: структурированный JSON (в production)</li>
+<li><strong>Контекст</strong>: request_id добавляется в каждый лог через middleware</li>
+</ul>
+<h2 id="health-checks"><a class="header" href="#health-checks">Health Checks</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Эндпоинт</th><th>Назначение</th></tr>
+</thead>
+<tbody>
+<tr><td><code>GET /healthz</code></td><td>Проверка, что процесс жив</td></tr>
+<tr><td><code>GET /readyz</code></td><td>Проверка готовности (БД, Redis)</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="alert-engine"><a class="header" href="#alert-engine">Alert Engine</a></h2>
+<p>Автоматическая система оповещений (не связана с Prometheus alerting) работает как фоновая задача в backend:</p>
+<pre class="mermaid">flowchart TD
+    TIMER[Каждые 15 мин] --&gt; CHECKS[Проверка правил]
+    CHECKS --&gt; MD[milk_drop]
+    CHECKS --&gt; SCC[high_scc]
+    CHECKS --&gt; AD[activity_drop]
+    CHECKS --&gt; NM[no_milking]
+    CHECKS --&gt; EC[expected_calving]
+    CHECKS --&gt; LF[low_feed]
+    
+    MD &amp; SCC &amp; AD &amp; NM &amp; EC &amp; LF --&gt; UPSERT[Создать/обновить alert]
+    UPSERT --&gt; EVENT[EventBus → SSE]
+    UPSERT --&gt; NOTIFY[Уведомление]
+</pre>
+
+<p>Подробнее о работе alert engine — в главе <a href="#построчный-разбор-движок-оповещений">Построчный разбор: Alert Engine</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="разработка"><a class="header" href="#разработка">Разработка</a></h1>
+<h2 id="требования-к-окружению"><a class="header" href="#требования-к-окружению">Требования к окружению</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Инструмент</th><th>Версия</th><th>Назначение</th></tr>
+</thead>
+<tbody>
+<tr><td>Rust</td><td>stable</td><td>Компиляция backend</td></tr>
+<tr><td>Node.js</td><td>20+</td><td>Frontend (SvelteKit)</td></tr>
+<tr><td>PostgreSQL</td><td>16+</td><td>Основная БД</td></tr>
+<tr><td>Redis</td><td>7+</td><td>Кэш, rate limiting</td></tr>
+<tr><td>ClickHouse</td><td>24+</td><td>Аналитика</td></tr>
+<tr><td>Python</td><td>3.11+</td><td>ML-сервис</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="запуск-для-разработки"><a class="header" href="#запуск-для-разработки">Запуск для разработки</a></h2>
+<h3 id="backend-1"><a class="header" href="#backend-1">Backend</a></h3>
+<pre><code class="language-bash">cd backend
+cp .env.example .env
+# Настроить переменные окружения в .env
+cargo run
+</code></pre>
+<p>Backend запускается на порту 8080 (настраивается через <code>PORT</code>).</p>
+<h3 id="frontend-1"><a class="header" href="#frontend-1">Frontend</a></h3>
+<pre><code class="language-bash">cd frontend
+npm install
+npm run dev
+</code></pre>
+<p>Frontend запускается на порту 5173 с проксированием API-запросов на backend.</p>
+<h3 id="ml-сервис"><a class="header" href="#ml-сервис">ML-сервис</a></h3>
+<pre><code class="language-bash">cd ml
+pip install -r requirements.txt
+uvicorn app.main:app --port 8000
+</code></pre>
+<h3 id="docker-compose"><a class="header" href="#docker-compose">Docker Compose</a></h3>
+<p>Для запуска всех зависимостей (PostgreSQL, Redis, ClickHouse):</p>
+<pre><code class="language-bash">docker-compose up -d
+</code></pre>
+<h2 id="переменные-окружения-backend"><a class="header" href="#переменные-окружения-backend">Переменные окружения (Backend)</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Переменная</th><th>Описание</th><th>По умолчанию</th></tr>
+</thead>
+<tbody>
+<tr><td><code>DATABASE_URL</code></td><td>Строка подключения PostgreSQL</td><td>—</td></tr>
+<tr><td><code>REDIS_URL</code></td><td>Строка подключения Redis</td><td>—</td></tr>
+<tr><td><code>JWT_SECRET</code></td><td>Секрет для подписи JWT</td><td>—</td></tr>
+<tr><td><code>PORT</code></td><td>Порт HTTP-сервера</td><td><code>8080</code></td></tr>
+<tr><td><code>CORS_ORIGINS</code></td><td>Разрешённые origins (через запятую)</td><td><code>http://localhost:5173</code></td></tr>
+<tr><td><code>LELY_API_KEY</code></td><td>API-ключ Lely Horizon</td><td>—</td></tr>
+<tr><td><code>LELY_BASE_URL</code></td><td>Базовый URL Lely API</td><td>—</td></tr>
+<tr><td><code>DEMO_MODE</code></td><td>Режим демонстрации</td><td><code>false</code></td></tr>
+<tr><td><code>RATE_LIMIT_MAX</code></td><td>Макс. запросов в окне</td><td><code>100</code></td></tr>
+<tr><td><code>RATE_LIMIT_WINDOW_SECS</code></td><td>Окно rate limit (сек)</td><td><code>60</code></td></tr>
+<tr><td><code>TRUST_PROXY</code></td><td>Доверять X-Forwarded-For</td><td><code>false</code></td></tr>
+<tr><td><code>SWAGGER_ENABLED</code></td><td>Включить Swagger UI</td><td><code>true</code></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="миграции-бд"><a class="header" href="#миграции-бд">Миграции БД</a></h2>
+<p>SQL-миграции расположены в <code>docs/sql/</code>. Применяются при запуске backend или вручную через <code>sqlx</code>.</p>
+<h2 id="структура-тестов"><a class="header" href="#структура-тестов">Структура тестов</a></h2>
+<h3 id="backend-1-1"><a class="header" href="#backend-1-1">Backend</a></h3>
+<p>Тесты пишутся с использованием <code>#[cfg(test)]</code> модулей и интеграционных тестов в <code>tests/</code>:</p>
+<pre><code class="language-bash">cargo test
+</code></pre>
+<h3 id="frontend-1-1"><a class="header" href="#frontend-1-1">Frontend</a></h3>
+<pre><code class="language-bash">cd frontend
+npm run test
+</code></pre>
+<h2 id="стиль-кода"><a class="header" href="#стиль-кода">Стиль кода</a></h2>
+<h3 id="rust"><a class="header" href="#rust">Rust</a></h3>
+<ul>
+<li>Форматирование: <code>cargo fmt</code></li>
+<li>Линтер: <code>cargo clippy</code></li>
+<li>Асинхронный код: Tokio runtime</li>
+<li>Обработка ошибок: <code>anyhow</code> для приложения, <code>AppError</code> для HTTP</li>
+</ul>
+<h3 id="typescript"><a class="header" href="#typescript">TypeScript</a></h3>
+<ul>
+<li>Форматирование: Prettier</li>
+<li>Линтер: ESLint</li>
+<li>Строгая типизация: <code>strict: true</code></li>
+</ul>
+<h2 id="рекомендации-по-разработке"><a class="header" href="#рекомендации-по-разработке">Рекомендации по разработке</a></h2>
+<ol>
+<li><strong>Новые API-эндпоинты</strong> — добавить handler в <code>handlers/</code>, модель в <code>models/</code>, сервис в <code>services/</code></li>
+<li><strong>Новые таблицы</strong> — создать SQL-миграцию, добавить модель в <code>models/</code></li>
+<li><strong>Новые страницы</strong> — создать директорию в <code>frontend/src/routes/</code></li>
+<li><strong>Новые компоненты</strong> — разместить в <code>frontend/src/lib/components/</code></li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="построчный-разбор-аутентификация-jwt"><a class="header" href="#построчный-разбор-аутентификация-jwt">Построчный разбор: Аутентификация JWT</a></h1>
+<p>В этой главе разбирается модуль <code>middleware/auth.rs</code>, реализующий аутентификацию на основе JWT-токенов.</p>
+<h2 id="структура-claims"><a class="header" href="#структура-claims">Структура Claims</a></h2>
+<p>JWT-токен содержит набор утверждений (claims), описывающих аутентифицированного пользователя:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct Claims {
+    pub sub: String,
+    pub role: String,
+    pub must_change_password: bool,
+    pub exp: usize,
+    pub jti: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_type: Option&lt;String&gt;,
+    pub iss: String,
+    pub aud: String,
+}
+<span class="boring">}</span></code></pre>
+<ul>
+<li><code>sub</code> — имя пользователя</li>
+<li><code>role</code> — роль (admin, user, viewer)</li>
+<li><code>must_change_password</code> — флаг обязательной смены пароля</li>
+<li><code>exp</code> — время истечения (Unix timestamp)</li>
+<li><code>jti</code> — уникальный идентификатор токена (для отзыва)</li>
+<li><code>token_type</code> — тип токена (<code>access</code> или <code>refresh</code>)</li>
+<li><code>iss</code> / <code>aud</code> — издатель и аудитория токена</li>
+</ul>
+<h2 id="декодирование-и-валидация-токена"><a class="header" href="#декодирование-и-валидация-токена">Декодирование и валидация токена</a></h2>
+<p>Функция <code>decode_token</code> проверяет подпись, срок действия, издателя и аудиторию:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn decode_token(token: &amp;str, secret: &amp;str) -&gt; Result&lt;Claims, AppError&gt; {
+    let mut validation = Validation::default();
+    validation.set_issuer(&amp;[ISSUER]);
+    validation.set_audience(&amp;[AUDIENCE]);
+    decode::&lt;Claims&gt;(
+        token,
+        &amp;DecodingKey::from_secret(secret.as_bytes()),
+        &amp;validation,
+    )
+    .map(|data| data.claims)
+    .map_err(|e| match e.kind() {
+        jsonwebtoken::errors::ErrorKind::ExpiredSignature =&gt; {
+            AppError::Unauthorized("Токен просрочен".into())
+        }
+        _ =&gt; AppError::Unauthorized("Недействительный токен".into()),
+    })
+}
+<span class="boring">}</span></code></pre>
+<h2 id="проверка-отзыва-и-существования-пользователя"><a class="header" href="#проверка-отзыва-и-существования-пользователя">Проверка отзыва и существования пользователя</a></h2>
+<p>После декодирования токен проверяется на отзыв (по <code>jti</code>) и на существование учётной записи:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn verify_and_check_revocation(
+    token: &amp;str,
+    secret: &amp;str,
+    pool: &amp;sqlx::PgPool,
+) -&gt; Result&lt;Claims, AppError&gt; {
+    let claims = decode_token(token, secret)?;
+    if crate::services::token_revocation_service::is_revoked(pool, &amp;claims.jti).await? {
+        return Err(AppError::Unauthorized("Токен отозван".into()));
+    }
+    let user_exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)")
+            .bind(&amp;claims.sub)
+            .fetch_one(pool)
+            .await
+            .map_err(AppError::Database)?;
+    if !user_exists {
+        return Err(AppError::Unauthorized(
+            "Учётная запись деактивирована".into(),
+        ));
+    }
+    Ok(claims)
+}
+<span class="boring">}</span></code></pre>
+<h2 id="извлечение-токена-из-запроса"><a class="header" href="#извлечение-токена-из-запроса">Извлечение токена из запроса</a></h2>
+<p>Токен извлекается из заголовка <code>Authorization: Bearer ...</code> или из cookie <code>token</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn extract_token_from_headers(headers: &amp;HeaderMap) -&gt; Option&lt;String&gt; {
+    headers
+        .get("Authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer ").map(|s| s.to_string()))
+        .or_else(|| extract_token_from_cookies(headers))
+}
+<span class="boring">}</span></code></pre>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn extract_token(parts: &amp;Parts) -&gt; Result&lt;String, AppError&gt; {
+    extract_token_from_headers(&amp;parts.headers)
+        .ok_or_else(|| AppError::Unauthorized("Отсутствует токен".into()))
+}
+<span class="boring">}</span></code></pre>
+<h2 id="извлечение-claims-из-запроса"><a class="header" href="#извлечение-claims-из-запроса">Извлечение Claims из запроса</a></h2>
+<p>Тип <code>Claims</code> реализует <code>FromRequestParts</code> — Axum автоматически извлекает и проверяет токен:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl FromRequestParts&lt;AppState&gt; for Claims {
+    type Rejection = AppError;
+
+    fn from_request_parts(
+        parts: &amp;mut Parts,
+        state: &amp;AppState,
+    ) -&gt; impl std::future::Future&lt;Output = Result&lt;Self, Self::Rejection&gt;&gt; + Send {
+        let token_result = extract_token(parts);
+        let secret = state.config.jwt_secret.clone();
+        let pool = state.pool.clone();
+        let demo_mode = state.config.demo_mode;
+        async move {
+            let result = async {
+                let token = token_result?;
+                let claims = verify_and_check_revocation(&amp;token, &amp;secret, &amp;pool).await?;
+                if claims.token_type.as_deref() != Some("access") {
+                    return Err(AppError::Unauthorized("Неверный тип токена".into()));
+                }
+                if claims.must_change_password {
+                    return Err(AppError::BadRequest(
+                        "Необходимо сменить пароль перед использованием системы".into(),
+                    ));
+                }
+                Ok(claims)
+            }
+            .await;
+            match result {
+                Ok(claims) =&gt; Ok(claims),
+                Err(_) if demo_mode =&gt; Ok(demo_claims()),
+                Err(e) =&gt; Err(e),
+            }
+        }
+    }
+}
+<span class="boring">}</span></code></pre>
+<p>Порядок проверок:</p>
+<ol>
+<li>Извлечение токена из заголовков</li>
+<li>Декодирование и валидация JWT</li>
+<li>Проверка отзыва в БД</li>
+<li>Проверка типа токена (<code>access</code>)</li>
+<li>Проверка <code>must_change_password</code></li>
+<li>В демо-режиме — возврат предустановленных claims</li>
+</ol>
+<h2 id="claimsallowmustchange"><a class="header" href="#claimsallowmustchange">ClaimsAllowMustChange</a></h2>
+<p>Вариант экстрактора, который разрешает доступ даже при <code>must_change_password=true</code> (нужен для эндпоинта смены пароля):</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl FromRequestParts&lt;AppState&gt; for ClaimsAllowMustChange {
+    type Rejection = AppError;
+
+    fn from_request_parts(
+        parts: &amp;mut Parts,
+        state: &amp;AppState,
+    ) -&gt; impl std::future::Future&lt;Output = Result&lt;Self, Self::Rejection&gt;&gt; + Send {
+        let token_result = extract_token(parts);
+        let secret = state.config.jwt_secret.clone();
+        let pool = state.pool.clone();
+        let demo_mode = state.config.demo_mode;
+        async move {
+            let result = async {
+                let token = token_result?;
+                verify_and_check_revocation(&amp;token, &amp;secret, &amp;pool).await
+            }
+            .await;
+            match result {
+                Ok(claims) =&gt; Ok(ClaimsAllowMustChange(claims)),
+                Err(_) if demo_mode =&gt; Ok(ClaimsAllowMustChange(demo_claims())),
+                Err(e) =&gt; Err(e),
+            }
+        }
+    }
+}
+<span class="boring">}</span></code></pre>
+<h2 id="adminguard"><a class="header" href="#adminguard">AdminGuard</a></h2>
+<p>Экстрактор, дополнительно проверяющий роль <code>admin</code>:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl FromRequestParts&lt;AppState&gt; for AdminGuard {
+    type Rejection = AppError;
+
+    fn from_request_parts(
+        parts: &amp;mut Parts,
+        state: &amp;AppState,
+    ) -&gt; impl std::future::Future&lt;Output = Result&lt;Self, Self::Rejection&gt;&gt; + Send {
+        let token_result = extract_token(parts);
+        let secret = state.config.jwt_secret.clone();
+        let pool = state.pool.clone();
+        let demo_mode = state.config.demo_mode;
+        async move {
+            let result = async {
+                let token = token_result?;
+                let claims = verify_and_check_revocation(&amp;token, &amp;secret, &amp;pool).await?;
+                if claims.token_type.as_deref() != Some("access") {
+                    return Err(AppError::Unauthorized("Неверный тип токена".into()));
+                }
+                if claims.role != "admin" {
+                    return Err(AppError::Forbidden("Требуются права администратора".into()));
+                }
+                Ok(())
+            }
+            .await;
+            match result {
+                Ok(()) =&gt; Ok(AdminGuard),
+                Err(_) if demo_mode =&gt; Ok(AdminGuard),
+                Err(e) =&gt; Err(e),
+            }
+        }
+    }
+}
+<span class="boring">}</span></code></pre>
+<h2 id="создание-токенов"><a class="header" href="#создание-токенов">Создание токенов</a></h2>
+<h3 id="access-token"><a class="header" href="#access-token">Access token</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn create_access_token(
+    username: &amp;str,
+    role: &amp;str,
+    must_change_password: bool,
+    secret: &amp;str,
+    ttl_secs: u64,
+) -&gt; Result&lt;String, AppError&gt; {
+    let exp = chrono::Utc::now().timestamp() as usize + ttl_secs as usize;
+    let claims = Claims {
+        sub: username.to_string(),
+        role: role.to_string(),
+        must_change_password,
+        token_type: Some("access".to_string()),
+        exp,
+        jti: uuid::Uuid::new_v4().to_string(),
+        iss: ISSUER.to_string(),
+        aud: AUDIENCE.to_string(),
+    };
+    encode(
+        &amp;Header::default(),
+        &amp;claims,
+        &amp;EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .map_err(|e| AppError::Internal(e.into()))
+}
+<span class="boring">}</span></code></pre>
+<h3 id="refresh-token"><a class="header" href="#refresh-token">Refresh token</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn create_refresh_token(
+    username: &amp;str,
+    role: &amp;str,
+    secret: &amp;str,
+    ttl_secs: u64,
+) -&gt; Result&lt;String, AppError&gt; {
+    let exp = chrono::Utc::now().timestamp() as usize + ttl_secs as usize;
+    let claims = Claims {
+        sub: username.to_string(),
+        role: role.to_string(),
+        must_change_password: false,
+        token_type: Some("refresh".to_string()),
+        exp,
+        jti: uuid::Uuid::new_v4().to_string(),
+        iss: ISSUER.to_string(),
+        aud: AUDIENCE.to_string(),
+    };
+    encode(
+        &amp;Header::default(),
+        &amp;claims,
+        &amp;EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .map_err(|e| AppError::Internal(e.into()))
+}
+<span class="boring">}</span></code></pre>
+<p>Refresh token не содержит <code>must_change_password</code> и всегда имеет тип <code>refresh</code>.</p>
+<h2 id="валидация-запросов"><a class="header" href="#валидация-запросов">Валидация запросов</a></h2>
+<p>Модели <code>LoginRequest</code> и <code>RegisterRequest</code> содержат валидацию входных данных:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct LoginRequest {
+    pub username: String,
+    pub password: String,
+}
+
+impl LoginRequest {
+    pub fn validate(&amp;self) -&gt; Result&lt;(), AppError&gt; {
+        crate::validation::required_non_empty(&amp;self.username, "Имя пользователя")?;
+        crate::validation::required_non_empty(&amp;self.password, "Пароль")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RegisterRequest {
+    pub username: String,
+    pub password: String,
+}
+
+impl RegisterRequest {
+    pub fn validate(&amp;self) -&gt; Result&lt;(), AppError&gt; {
+        crate::validation::username(&amp;self.username)?;
+        crate::validation::password(&amp;self.password)?;
+        Ok(())
+    }
+}
+<span class="boring">}</span></code></pre>
+<h2 id="полный-поток-аутентификации"><a class="header" href="#полный-поток-аутентификации">Полный поток аутентификации</a></h2>
+<pre class="mermaid">sequenceDiagram
+    participant C as Клиент
+    participant H as Handler
+    participant E as Extractor (Claims)
+    participant D as decode_token
+    participant V as verify_and_check_revocation
+    participant DB as PostgreSQL
+    
+    C-&gt;&gt;H: GET /api/v1/animals
+    H-&gt;&gt;E: FromRequestParts
+    E-&gt;&gt;E: extract_token (Authorization / Cookie)
+    E-&gt;&gt;V: verify_and_check_revocation
+    V-&gt;&gt;D: decode_token
+    D-&gt;&gt;D: Проверка подписи, exp, iss, aud
+    D--&gt;&gt;V: Claims
+    V-&gt;&gt;DB: is_revoked(jti)?
+    DB--&gt;&gt;V: false
+    V-&gt;&gt;DB: user exists?
+    DB--&gt;&gt;V: true
+    V-&gt;&gt;V: Проверить token_type = "access"
+    V-&gt;&gt;V: Проверить must_change_password
+    V--&gt;&gt;E: Claims
+    E--&gt;&gt;H: Ok(Claims)
+    H-&gt;&gt;H: Обработка запроса
+    H--&gt;&gt;C: 200 OK
+</pre>
+
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="построчный-разбор-стек-middleware"><a class="header" href="#построчный-разбор-стек-middleware">Построчный разбор: Стек Middleware</a></h1>
+<p>В этой главе разбирается состав и порядок применения middleware в приложении.</p>
+<h2 id="регистрация-модулей"><a class="header" href="#регистрация-модулей">Регистрация модулей</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub mod auth;
+pub mod csrf;
+pub mod metrics;
+pub mod rate_limit;
+pub mod request_id;
+<span class="boring">}</span></code></pre>
+<p>Middleware организованы в отдельные модули: аутентификация, CSRF, метрики, rate limiting, идентификаторы запросов.</p>
+<h2 id="сборка-стека-middleware"><a class="header" href="#сборка-стека-middleware">Сборка стека middleware</a></h2>
+<p>Функция <code>create_app</code> в <code>lib.rs</code> собирает Router и накладывает middleware-стек в определённом порядке:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn create_app(state: std::sync::Arc&lt;AppStateInner&gt;) -&gt; axum::Router {
+    use axum::http::Method;
+    use axum::http::header::{AUTHORIZATION, CONTENT_TYPE, COOKIE};
+    use tower_http::compression::CompressionLayer;
+    use tower_http::cors::{AllowOrigin, CorsLayer};
+    use tower_http::trace::TraceLayer;
+
+    let origins: Vec&lt;_&gt; = state
+        .config
+        .cors_origins
+        .iter()
+        .filter_map(|o| o.parse().ok())
+        .collect();
+
+    let cors = CorsLayer::new()
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE, COOKIE])
+        .allow_credentials(true);
+
+    let api_routes = handlers::routes();
+
+    let api_doc = crate::openapi::ApiDoc::openapi();
+
+    let mut router = axum::Router::new()
+        .nest("/api/v1", api_routes)
+        .route("/metrics", axum::routing::get(metrics_endpoint));
+
+    if state.config.swagger_enabled {
+        let swagger =
+            utoipa_swagger_ui::SwaggerUi::new("/api/v1/docs").url("/api/v1/docs/openapi.json", api_doc);
+        router = router.merge(swagger);
+    }
+
+    let rate_limit =
+        crate::middleware::rate_limit::RateLimitLayer::new(state.config.rate_limit_max, state.config.rate_limit_window_secs, state.config.trust_proxy, state.redis.clone());
+    let request_id = crate::middleware::request_id::RequestIdLayer;
+    let metrics_layer = crate::middleware::metrics::MetricsLayer;
+    let csrf_layer = crate::middleware::csrf::CsrfLayer::new(&amp;state.config);
+    let body_limit = tower_http::limit::RequestBodyLimitLayer::new(10 * 1024 * 1024);
+
+    router
+        .layer(metrics_layer)
+        .layer(request_id)
+        .layer(rate_limit)
+        .layer(csrf_layer)
+        .layer(body_limit)
+        .layer(cors)
+        .layer(CompressionLayer::new())
+        .layer(TraceLayer::new_for_http())
+        .with_state(state)
+}
+<span class="boring">}</span></code></pre>
+<p>Порядок наложения слоёв (снизу вверх — от внешнего к внутреннему):</p>
+<ol>
+<li><strong>TraceLayer</strong> — логирование HTTP-запросов/ответов</li>
+<li><strong>CompressionLayer</strong> — сжатие ответов (gzip/brotli)</li>
+<li><strong>CorsLayer</strong> — обработка CORS</li>
+<li><strong>BodyLimitLayer</strong> — ограничение размера тела запроса (10 MB)</li>
+<li><strong>CsrfLayer</strong> — защита от CSRF для state-changing запросов</li>
+<li><strong>RateLimitLayer</strong> — ограничение частоты запросов</li>
+<li><strong>RequestIdLayer</strong> — присвоение идентификатора запроса</li>
+<li><strong>MetricsLayer</strong> — сбор метрик Prometheus</li>
+</ol>
+<pre class="mermaid">flowchart TD
+    REQ[Входящий запрос] --&gt; TRACE[TraceLayer&lt;br/&gt;Логирование]
+    TRACE --&gt; COMP[CompressionLayer&lt;br/&gt;Сжатие ответов]
+    COMP --&gt; CORS[CorsLayer&lt;br/&gt;CORS]
+    CORS --&gt; BODY[BodyLimitLayer&lt;br/&gt;Лимит 10 MB]
+    BODY --&gt; CSRF[CsrfLayer&lt;br/&gt;CSRF-защита]
+    CSRF --&gt; RL[RateLimitLayer&lt;br/&gt;Rate limiting]
+    RL --&gt; RID[RequestIdLayer&lt;br/&gt;X-Request-ID]
+    RID --&gt; MET[MetricsLayer&lt;br/&gt;Prometheus]
+    MET --&gt; HANDLER[Handler]
+</pre>
+
+<h2 id="requestidlayer"><a class="header" href="#requestidlayer">RequestIdLayer</a></h2>
+<p>Присваивает каждому запросу уникальный идентификатор:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>    fn call(&amp;mut self, mut req: Request&lt;Body&gt;) -&gt; Self::Future {
+        let request_id = req
+            .headers()
+            .get("X-Request-ID")
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+        req.headers_mut().insert(
+            header::HeaderName::from_static("x-request-id"),
+            header::HeaderValue::from_str(&amp;request_id)
+                .unwrap_or_else(|_| header::HeaderValue::from_static("unknown")),
+        );
+
+        let inner = self.inner.clone();
+<span class="boring">}</span></code></pre>
+<ul>
+<li>Проверяет заголовок <code>X-Request-ID</code> от клиента</li>
+<li>Если отсутствует — генерирует UUID</li>
+<li>Добавляет <code>x-request-id</code> в заголовки запроса и ответа</li>
+</ul>
+<h2 id="metricslayer"><a class="header" href="#metricslayer">MetricsLayer</a></h2>
+<p>Собирает метрики Prometheus для каждого HTTP-запроса:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>    fn call(&amp;mut self, req: Request&lt;Body&gt;) -&gt; Self::Future {
+        let path = req.uri().path().to_string();
+        let method = req.method().clone();
+        let route = normalize_route(&amp;path, &amp;self.route_patterns);
+
+        let start = Instant::now();
+        let inner = self.inner.clone();
+        let mut inner = std::mem::replace(&amp;mut self.inner, inner);
+
+        Box::pin(async move {
+            let result = inner.call(req).await;
+            let elapsed = start.elapsed().as_secs_f64();
+
+            let status = match &amp;result {
+                Ok(resp) =&gt; resp.status().as_u16().to_string(),
+                Err(_) =&gt; "500".to_string(),
+            };
+
+            HTTP_REQUESTS_TOTAL
+                .with_label_values(&amp;[method.as_str(), &amp;route, &amp;status])
+                .inc();
+
+            HTTP_REQUEST_DURATION
+                .with_label_values(&amp;[method.as_str(), &amp;route])
+                .observe(elapsed);
+
+            result
+        })
+    }
+<span class="boring">}</span></code></pre>
+<ul>
+<li>Нормализует путь (группирует по шаблонам маршрутов)</li>
+<li>Замеряет длительность обработки</li>
+<li>Увеличивает счётчик по method/route/status</li>
+<li>Записывает гистограмму длительности</li>
+</ul>
+<h3 id="определение-метрик"><a class="header" href="#определение-метрик">Определение метрик</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub static REGISTRY: LazyLock&lt;Registry&gt; = LazyLock::new(Registry::new);
+
+pub static HTTP_REQUESTS_TOTAL: LazyLock&lt;IntCounterVec&gt; = LazyLock::new(|| {
+    IntCounterVec::new(
+        Opts::new("http_requests_total", "Total number of HTTP requests"),
+        &amp;["method", "route", "status"],
+    )
+    .unwrap()
+});
+
+pub static HTTP_REQUEST_DURATION: LazyLock&lt;HistogramVec&gt; = LazyLock::new(|| {
+    HistogramVec::new(
+        prometheus::HistogramOpts::new(
+            "http_request_duration_seconds",
+            "HTTP request duration in seconds",
+        )
+        .buckets(vec![
+            0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+        ]),
+        &amp;["method", "route"],
+    )
+    .unwrap()
+});
+
+pub static RATE_LIMIT_REJECTIONS: LazyLock&lt;IntCounterVec&gt; = LazyLock::new(|| {
+    IntCounterVec::new(
+        Opts::new("rate_limit_rejections_total", "Rate limit rejections"),
+        &amp;["ip"],
+    )
+    .unwrap()
+});
+
+pub static AUTH_EVENTS: LazyLock&lt;IntCounterVec&gt; = LazyLock::new(|| {
+    IntCounterVec::new(
+        Opts::new("auth_events_total", "Authentication events"),
+        &amp;["event"],
+    )
+    .unwrap()
+});
+
+pub static LELY_SYNC_TOTAL: LazyLock&lt;IntCounterVec&gt; = LazyLock::new(|| {
+    IntCounterVec::new(
+        Opts::new("lely_sync_total", "Lely synchronization attempts"),
+        &amp;["status"],
+    )
+    .unwrap()
+});
+
+pub static DB_POOL_SIZE: LazyLock&lt;Gauge&gt; = LazyLock::new(|| {
+    Gauge::new("db_pool_size", "Total DB connections in pool").unwrap()
+});
+
+pub static DB_POOL_IDLE: LazyLock&lt;Gauge&gt; = LazyLock::new(|| {
+    Gauge::new("db_pool_idle", "Idle DB connections").unwrap()
+});
+<span class="boring">}</span></code></pre>
+<p>Доступные метрики: <code>http_requests_total</code>, <code>http_request_duration_seconds</code>, <code>rate_limit_rejections_total</code>, <code>auth_events_total</code>, <code>lely_sync_total</code>, <code>db_pool_size</code>, <code>db_pool_idle</code>.</p>
+<h2 id="ratelimitlayer"><a class="header" href="#ratelimitlayer">RateLimitLayer</a></h2>
+<p>Ограничивает частоту запросов по IP-адресу клиента:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl&lt;S&gt; Service&lt;Request&lt;Body&gt;&gt; for RateLimitService&lt;S&gt;
+where
+    S: Service&lt;Request&lt;Body&gt;, Response = Response&lt;Body&gt;&gt; + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = Response&lt;Body&gt;;
+    type Error = S::Error;
+    type Future = BoxFuture&lt;Self::Response, Self::Error&gt;;
+
+    fn poll_ready(
+        &amp;mut self,
+        cx: &amp;mut std::task::Context&lt;'_&gt;,
+    ) -&gt; std::task::Poll&lt;Result&lt;(), Self::Error&gt;&gt; {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&amp;mut self, req: Request&lt;Body&gt;) -&gt; Self::Future {
+        let key = extract_client_ip(req.headers(), self.trust_proxy);
+        let limiter = self.limiter.clone();
+
+        let inner = self.inner.clone();
+        let mut inner = std::mem::replace(&amp;mut self.inner, inner);
+        Box::pin(async move {
+            if limiter.check(&amp;key).await.is_err() {
+                return Ok(StatusCode::TOO_MANY_REQUESTS.into_response());
+            }
+            inner.call(req).await
+        })
+    }
+}
+<span class="boring">}</span></code></pre>
+<h3 id="ratelimiter--проверка-через-redis"><a class="header" href="#ratelimiter--проверка-через-redis">RateLimiter — проверка через Redis</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>    async fn check_redis(
+        &amp;self,
+        conn: &amp;redis::aio::ConnectionManager,
+        key: &amp;str,
+    ) -&gt; Result&lt;(), AppError&gt; {
+        let redis_key = format!("rl:{key}");
+        let mut conn = conn.clone();
+        let count: i64 = redis::cmd("INCR")
+            .arg(&amp;redis_key)
+            .query_async(&amp;mut conn)
+            .await
+            .map_err(|e| {
+                tracing::warn!("Redis rate limit error: {e}");
+                AppError::Internal(anyhow::anyhow!(e.to_string()))
+            })?;
+
+        if count == 1 {
+            let _: () = redis::cmd("EXPIRE")
+                .arg(&amp;redis_key)
+                .arg(self.window_secs)
+                .query_async(&amp;mut conn)
+                .await
+                .unwrap_or(());
+        }
+
+        if count &gt; self.max as i64 {
+            crate::middleware::metrics::RATE_LIMIT_REJECTIONS.with_label_values(&amp;[key]).inc();
+            return Err(AppError::RateLimited);
+        }
+        Ok(())
+    }
+<span class="boring">}</span></code></pre>
+<p>Атомарный <code>INCR</code> + <code>EXPIRE</code> обеспечивает точный подсчёт в распределённой среде.</p>
+<h3 id="ratelimiter--fallback-в-памяти"><a class="header" href="#ratelimiter--fallback-в-памяти">RateLimiter — fallback в памяти</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>    async fn check_fallback(&amp;self, key: &amp;str) -&gt; Result&lt;(), AppError&gt; {
+        let mut state = self.fallback.lock().await;
+        let now = std::time::Instant::now();
+        if let Some(entry) = state.get_mut(key) {
+            if now.duration_since(entry.window_start).as_secs() &gt; self.window_secs {
+                entry.count = 1;
+                entry.window_start = now;
+            } else if entry.count &gt;= self.max {
+                crate::middleware::metrics::RATE_LIMIT_REJECTIONS.with_label_values(&amp;[key]).inc();
+                return Err(AppError::RateLimited);
+            } else {
+                entry.count += 1;
+            }
+        } else {
+            state.insert(
+                key.to_string(),
+                RateLimitEntry {
+                    count: 1,
+                    window_start: now,
+                },
+            );
+        }
+        state.retain(|_, v| now.duration_since(v.window_start).as_secs() &lt;= self.window_secs * 2);
+        Ok(())
+    }
+<span class="boring">}</span></code></pre>
+<p>При недоступности Redis используется in-memory HashMap с автоматической очисткой устаревших записей.</p>
+<h3 id="извлечение-ip-клиента"><a class="header" href="#извлечение-ip-клиента">Извлечение IP клиента</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn extract_client_ip(headers: &amp;HeaderMap, trust_proxy: bool) -&gt; String {
+    if trust_proxy {
+        if let Some(forwarded) = headers.get("X-Forwarded-For")
+            &amp;&amp; let Ok(val) = forwarded.to_str()
+            &amp;&amp; let Some(ip) = val.split(',').next()
+        {
+            let ip = ip.trim().to_string();
+            if !ip.is_empty() {
+                return ip;
+            }
+        }
+        if let Some(real_ip) = headers.get("X-Real-IP")
+            &amp;&amp; let Ok(val) = real_ip.to_str()
+        {
+            let ip = val.trim().to_string();
+            if !ip.is_empty() {
+                return ip;
+            }
+        }
+    }
+    "unknown".to_string()
+}
+<span class="boring">}</span></code></pre>
+<p>Поддержка <code>X-Forwarded-For</code> и <code>X-Real-IP</code> при включённом <code>trust_proxy</code>.</p>
+<h2 id="csrflayer"><a class="header" href="#csrflayer">CsrfLayer</a></h2>
+<p>Проверяет заголовок <code>Origin</code> для state-changing запросов:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>    fn call(&amp;mut self, req: Request&lt;Body&gt;) -&gt; Self::Future {
+        let method = req.method().clone();
+        let guard = self.guard.clone();
+
+        let is_state_changing = matches!(
+            method,
+            Method::POST | Method::PUT | Method::DELETE | Method::PATCH
+        );
+
+        if is_state_changing &amp;&amp; !guard.validate(req.headers()) {
+            return Box::pin(async { Ok(StatusCode::FORBIDDEN.into_response()) });
+        }
+
+        let inner = self.inner.clone();
+        let mut inner = std::mem::replace(&amp;mut self.inner, inner);
+        Box::pin(async move { inner.call(req).await })
+    }
+}
+<span class="boring">}</span></code></pre>
+<ul>
+<li>Только POST, PUT, DELETE, PATCH проверяются</li>
+<li><code>Origin</code> сопоставляется со списком разрешённых (<code>cors_origins</code>)</li>
+<li>Отсутствие <code>Origin</code> допускается (для API-клиентов)</li>
+</ul>
+<h3 id="валидация-origin"><a class="header" href="#валидация-origin">Валидация Origin</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>    fn validate(&amp;self, headers: &amp;HeaderMap) -&gt; bool {
+        let origin = headers
+            .get("Origin")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+
+        if origin.is_empty() {
+            return true;
+        }
+
+        self.origins
+            .iter()
+            .any(|allowed| origin == allowed || origin.starts_with(&amp;format!("{}/", allowed)))
+    }
+}
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="построчный-разбор-синхронизация-lely"><a class="header" href="#построчный-разбор-синхронизация-lely">Построчный разбор: Синхронизация Lely</a></h1>
+<p>В этой главе разбирается модуль <code>lely/sync.rs</code>, отвечающий за автоматическую синхронизацию данных с Lely Horizon.</p>
+<h2 id="запуск-планировщика"><a class="header" href="#запуск-планировщика">Запуск планировщика</a></h2>
+<p>Функция <code>start_sync_scheduler</code> запускает фоновую задачу, выполняющую синхронизацию через настраиваемый интервал:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn start_sync_scheduler(state: Arc&lt;AppStateInner&gt;) {
+    let state_clone = state.clone();
+    tokio::spawn(async move {
+        let cfg = state_clone.lely.get_config().await;
+        let interval = Duration::from_secs(cfg.sync_interval_secs);
+        let cancel = state_clone.lely.cancel.read().await.clone();
+
+        tracing::info!(
+            interval_secs = interval.as_secs(),
+            "Планировщик синхронизации Lely запущен"
+        );
+
+        loop {
+            tokio::select! {
+                _ = tokio::time::sleep(interval) =&gt; {}
+                _ = cancel.cancelled() =&gt; {
+                    tracing::info!("Планировщик синхронизации Lely остановлен");
+                    return;
+                }
+            }
+
+            match run_sync(&amp;state_clone).await {
+                Ok(()) =&gt; {
+                    crate::middleware::metrics::LELY_SYNC_TOTAL.with_label_values(&amp;["success"]).inc();
+                    tracing::info!("Цикл синхронизации Lely завершён");
+                }
+                Err(e) =&gt; {
+                    crate::middleware::metrics::LELY_SYNC_TOTAL.with_label_values(&amp;["error"]).inc();
+                    tracing::error!(error = %e, "Ошибка цикла синхронизации Lely");
+                }
+            }
+        }
+    });
+}
+<span class="boring">}</span></code></pre>
+<ul>
+<li>Читает конфигурацию для получения <code>sync_interval_secs</code></li>
+<li>Подписывается на cancellation token для корректной остановки</li>
+<li>В каждом цикле вызывает <code>run_sync</code>, обновляя метрики в случае успеха или ошибки</li>
+</ul>
+<h2 id="точка-входа-синхронизации"><a class="header" href="#точка-входа-синхронизации">Точка входа синхронизации</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub async fn run_sync(state: &amp;Arc&lt;AppStateInner&gt;) -&gt; Result&lt;(), anyhow::Error&gt; {
+    if !state.lely.get_config().await.enabled {
+        return Ok(());
+    }
+
+    let locked = service::try_acquire_lock(&amp;state.pool).await?;
+    if !locked {
+        tracing::warn!("Синхронизация Lely уже выполняется, пропуск");
+        return Ok(());
+    }
+
+    let result = run_sync_inner(state).await;
+
+    if let Err(e) = service::release_lock(&amp;state.pool).await {
+        tracing::warn!(error = %e, "Не удалось освободить блокировку Lely");
+    }
+
+    result
+}
+<span class="boring">}</span></code></pre>
+<ol>
+<li>Проверяет, включена ли интеграция в конфигурации</li>
+<li>Пытается получить advisory lock в PostgreSQL (предотвращает параллельный запуск)</li>
+<li>Выполняет основную синхронизацию</li>
+<li>Освобождает блокировку</li>
+</ol>
+<h2 id="макрос-try_sync"><a class="header" href="#макрос-try_sync">Макрос try_sync</a></h2>
+<p>Макрос для продолжения синхронизации при ошибке отдельной сущности:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>macro_rules! try_sync {
+    ($expr:expr) =&gt; {
+        if let Err(e) = $expr.await {
+            tracing::error!(error = %e, "Ошибка синхронизации (продолжаем)");
+        }
+    };
+}
+<span class="boring">}</span></code></pre>
+<h2 id="основной-цикл-синхронизации"><a class="header" href="#основной-цикл-синхронизации">Основной цикл синхронизации</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn run_sync_inner(state: &amp;Arc&lt;AppStateInner&gt;) -&gt; Result&lt;(), anyhow::Error&gt; {
+    let cfg = state.lely.get_config().await;
+    let client = LelyClient::new(&amp;cfg);
+    let pool = &amp;state.pool;
+
+    try_sync!(sync_simple(
+        pool,
+        "animals",
+        Box::pin(async {
+            let records = client.get_animals().await?;
+            service::upsert_animals(pool, &amp;records).await
+        }),
+    ));
+
+    let cache = AnimalCache::load(pool).await?;
+
+    try_sync!(sync_chunked(
+        pool,
+        "milk_day_productions",
+        10,
+        |from, till| {
+            let c = client.clone();
+            let p = pool.clone();
+            let cache = cache.clone();
+            Box::pin(async move {
+                let records = c.get_milk_day_productions(&amp;from, &amp;till).await?;
+                service::upsert_milk_day_productions(&amp;p, &amp;records, &amp;cache).await
+            })
+        }
+    ));
+
+    try_sync!(sync_chunked(pool, "milk_visits", 7, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_milk_visits(&amp;from, &amp;till).await?;
+            service::upsert_milk_visits(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(pool, "milk_visit_quality", 1, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_milk_visit_quality(&amp;from, &amp;till).await?;
+            service::upsert_milk_visit_quality(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(
+        pool,
+        "milk_day_productions_quality",
+        1,
+        |from, till| {
+            let c = client.clone();
+            let p = pool.clone();
+            let cache = cache.clone();
+            Box::pin(async move {
+                let records = c.get_milk_day_quality(&amp;from, &amp;till).await?;
+                service::upsert_milk_day_quality(&amp;p, &amp;records, &amp;cache).await
+            })
+        }
+    ));
+
+    try_sync!(sync_chunked(pool, "robot_milk_data", 7, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_robot_data(&amp;from, &amp;till).await?;
+            service::upsert_robot_data(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(pool, "feed_day_amounts", 7, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_feed_day_amounts(&amp;from, &amp;till).await?;
+            service::upsert_feed_day_amounts(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(pool, "feed_visits", 3, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_feed_visits(&amp;from, &amp;till).await?;
+            service::upsert_feed_visits(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(pool, "activities", 1, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_activities(&amp;from, &amp;till).await?;
+            service::upsert_activities(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(pool, "ruminations", 2, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_ruminations(&amp;from, &amp;till).await?;
+            service::upsert_ruminations(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_grazing(&amp;client, pool));
+
+    try_sync!(sync_chunked(pool, "calvings", 90, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_calvings(&amp;from, &amp;till).await?;
+            service::upsert_calvings(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(pool, "inseminations", 90, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_inseminations(&amp;from, &amp;till).await?;
+            service::upsert_inseminations(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(pool, "pregnancies", 90, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_pregnancies(&amp;from, &amp;till).await?;
+            service::upsert_pregnancies(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(pool, "heats", 90, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_heats(&amp;from, &amp;till).await?;
+            service::upsert_heats(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_chunked(pool, "dry_offs", 90, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_dry_offs(&amp;from, &amp;till).await?;
+            service::upsert_dry_offs(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_simple(
+        pool,
+        "sires",
+        Box::pin(async {
+            let records = client.get_sires().await?;
+            service::upsert_sires(pool, &amp;records).await
+        }),
+    ));
+
+    try_sync!(sync_chunked(pool, "transfers", 90, |from, till| {
+        let c = client.clone();
+        let p = pool.clone();
+        let cache = cache.clone();
+        Box::pin(async move {
+            let records = c.get_transfers(&amp;from, &amp;till).await?;
+            service::upsert_transfers(&amp;p, &amp;records, &amp;cache).await
+        })
+    }));
+
+    try_sync!(sync_bloodlines(&amp;client, pool, &amp;cache));
+
+    try_sync!(async {
+        tracing::info!("Синхронизация: feed_types");
+        let records = client.get_feed_types().await?;
+        let count = records.len() as i64;
+        service::update_sync_state(pool, "feed_types", "success", count, None).await?;
+        tracing::info!(count, "Синхронизация: feed_types завершена");
+        Ok::&lt;(), anyhow::Error&gt;(())
+    });
+
+    try_sync!(async {
+        tracing::info!("Синхронизация: feed_groups");
+        let records = client.get_feed_groups().await?;
+        let count = records.len() as i64;
+        service::update_sync_state(pool, "feed_groups", "success", count, None).await?;
+        tracing::info!(count, "Синхронизация: feed_groups завершена");
+        Ok::&lt;(), anyhow::Error&gt;(())
+    });
+
+    try_sync!(async {
+        tracing::info!("Синхронизация: contacts");
+        let records = client.get_contacts().await?;
+        let count = records.len() as i64;
+        service::update_sync_state(pool, "contacts", "success", count, None).await?;
+        tracing::info!(count, "Синхронизация: contacts завершена");
+        Ok::&lt;(), anyhow::Error&gt;(())
+    });
+
+    try_sync!(async {
+        tracing::info!("Синхронизация: locations");
+        let records = client.get_locations().await?;
+        let count = records.len() as i64;
+        service::update_sync_state(pool, "locations", "success", count, None).await?;
+        tracing::info!(count, "Синхронизация: locations завершена");
+        Ok::&lt;(), anyhow::Error&gt;(())
+    });
+
+    Ok(())
+}
+<span class="boring">}</span></code></pre>
+<p><code>run_sync_inner</code> последовательно синхронизирует все сущности:</p>
+<ol>
+<li><strong>Простые сущности</strong> (animals, sires) — полная загрузка</li>
+<li><strong>Чанковые сущности</strong> (надои, кормление, активность) — по временным окнам</li>
+<li><strong>Специальные сущности</strong> (grazing, bloodlines, feed_types, feed_groups, contacts, locations)</li>
+</ol>
+<h3 id="порядок-синхронизации"><a class="header" href="#порядок-синхронизации">Порядок синхронизации</a></h3>
+<pre class="mermaid">flowchart TD
+    A[animals] --&gt; CACHE[AnimalCache.load]
+    CACHE --&gt; MDP[milk_day_productions&lt;br/&gt;окно: 10 дней]
+    MDP --&gt; MV[milk_visits&lt;br/&gt;окно: 7 дней]
+    MV --&gt; MVQ[milk_visit_quality&lt;br/&gt;окно: 1 день]
+    MVQ --&gt; MDQ[milk_day_quality&lt;br/&gt;окно: 1 день]
+    MDQ --&gt; RMD[robot_milk_data&lt;br/&gt;окно: 7 дней]
+    RMD --&gt; FDA[feed_day_amounts&lt;br/&gt;окно: 7 дней]
+    FDA --&gt; FV[feed_visits&lt;br/&gt;окно: 3 дня]
+    FV --&gt; ACT[activities&lt;br/&gt;окно: 1 день]
+    ACT --&gt; RUM[ruminations&lt;br/&gt;окно: 2 дня]
+    RUM --&gt; GRAZ[grazing_data&lt;br/&gt;специальный алгоритм]
+    GRAZ --&gt; CALV[calvings&lt;br/&gt;окно: 90 дней]
+    CALV --&gt; INS[inseminations&lt;br/&gt;окно: 90 дней]
+    INS --&gt; PREG[pregnancies&lt;br/&gt;окно: 90 дней]
+    PREG --&gt; HEAT[heats&lt;br/&gt;окно: 90 дней]
+    HEAT --&gt; DRY[dry_offs&lt;br/&gt;окно: 90 дней]
+    DRY --&gt; SIRES[sires]
+    SIRES --&gt; TRANS[transfers&lt;br/&gt;окно: 90 дней]
+    TRANS --&gt; BL[bloodlines&lt;br/&gt;потоковый]
+    BL --&gt; FT[feed_types]
+    FT --&gt; FG[feed_groups]
+    FG --&gt; CT[contacts]
+    CT --&gt; LOC[locations]
+</pre>
+
+<h2 id="sync_simple"><a class="header" href="#sync_simple">sync_simple</a></h2>
+<p>Синхронизация без разбиения на временные интервалы:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn sync_simple(
+    pool: &amp;sqlx::PgPool,
+    entity: &amp;str,
+    fut: BoxFuture&lt;'_, Result&lt;u64, anyhow::Error&gt;&gt;,
+) -&gt; Result&lt;(), anyhow::Error&gt; {
+    tracing::info!(entity, "Синхронизация начата");
+    match fut.await {
+        Ok(count) =&gt; {
+            service::update_sync_state(pool, entity, "success", count as i64, None as Option&lt;&amp;str&gt;)
+                .await?;
+            tracing::info!(entity, count, "Синхронизация завершена");
+            Ok(())
+        }
+        Err(e) =&gt; {
+            tracing::error!(entity, error = %e, "Ошибка синхронизации");
+            service::update_sync_state(pool, entity, "error", 0i64, Some(&amp;e.to_string())).await?;
+            Err(e)
+        }
+    }
+}
+<span class="boring">}</span></code></pre>
+<p>Выполняет переданный future, обновляет <code>sync_state</code> с результатом.</p>
+<h2 id="sync_chunked"><a class="header" href="#sync_chunked">sync_chunked</a></h2>
+<p>Инкрементальная синхронизация по временным окнам:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn sync_chunked(
+    pool: &amp;sqlx::PgPool,
+    entity: &amp;str,
+    max_days: i64,
+    sync_fn: impl Fn(String, String) -&gt; BoxFuture&lt;'static, Result&lt;u64, anyhow::Error&gt;&gt;,
+) -&gt; Result&lt;(), anyhow::Error&gt; {
+    tracing::info!(entity, "Синхронизация начата");
+    let state = service::get_sync_state(pool, entity).await?;
+
+    let since = state
+        .and_then(|s| s.last_synced_at)
+        .map(|dt| dt.date_naive() - chrono::Duration::days(1))
+        .unwrap_or_else(|| chrono::Utc::now().date_naive() - chrono::Duration::days(30));
+
+    let now = chrono::Utc::now().date_naive();
+    let mut total: u64 = 0;
+    let mut current = since;
+
+    while current &lt; now {
+        let chunk_end = (current + chrono::Duration::days(max_days)).min(now);
+        let from = current.format("%Y-%m-%dT00:00:00Z").to_string();
+        let till = chunk_end.format("%Y-%m-%dT23:59:59Z").to_string();
+
+        match sync_fn(from, till).await {
+            Ok(count) =&gt; {
+                total += count;
+            }
+            Err(e) =&gt; {
+                tracing::error!(entity, error = %e, "Ошибка чанковой синхронизации");
+                service::update_sync_state(
+                    pool,
+                    entity,
+                    "error",
+                    total as i64,
+                    Some(&amp;e.to_string()),
+                )
+                .await?;
+                return Err(e);
+            }
+        }
+
+        current = chunk_end;
+    }
+
+    service::update_sync_state(pool, entity, "success", total as i64, None).await?;
+    tracing::info!(entity, total, "Синхронизация завершена");
+    Ok(())
+}
+<span class="boring">}</span></code></pre>
+<ol>
+<li>Получает дату последней синхронизации из <code>sync_state</code></li>
+<li>Если нет — начинает с 30 дней назад</li>
+<li>Разбивает период на чанки размером <code>max_days</code></li>
+<li>Для каждого чанка вызывает функцию синхронизации</li>
+<li>При ошибке — записывает её и прерывает</li>
+</ol>
+<h2 id="sync_grazing"><a class="header" href="#sync_grazing">sync_grazing</a></h2>
+<p>Специальная синхронизация пастбищных данных с начала текущего года:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn sync_grazing(client: &amp;LelyClient, pool: &amp;sqlx::PgPool) -&gt; Result&lt;(), anyhow::Error&gt; {
+    tracing::info!("Синхронизация: grazing_data");
+    let state = service::get_sync_state(pool, "grazing_data").await?;
+
+    let since = state
+        .and_then(|s| s.last_synced_at)
+        .map(|dt| dt.date_naive() - chrono::Duration::days(1))
+        .unwrap_or_else(|| {
+            chrono::NaiveDate::from_ymd_opt(chrono::Utc::now().year(), 1, 1)
+                .unwrap_or(chrono::Utc::now().date_naive())
+        });
+
+    let now = chrono::Utc::now().date_naive();
+    let mut total: u64 = 0;
+    let mut current = since;
+
+    while current &lt; now {
+        let chunk_end = (current + chrono::Duration::days(90)).min(now);
+        let from = current.format("%Y-%m-%dT00:00:00Z").to_string();
+        let till = chunk_end.format("%Y-%m-%dT23:59:59Z").to_string();
+
+        match client.get_grazing_data(&amp;from, &amp;till).await {
+            Ok(records) =&gt; {
+                let count = service::upsert_grazing_data(pool, &amp;records).await?;
+                total += count;
+            }
+            Err(e) =&gt; {
+                service::update_sync_state(
+                    pool,
+                    "grazing_data",
+                    "error",
+                    total as i64,
+                    Some(&amp;e.to_string()),
+                )
+                .await?;
+                return Err(e);
+            }
+        }
+
+        current = chunk_end;
+    }
+
+    service::update_sync_state(pool, "grazing_data", "success", total as i64, None).await?;
+    tracing::info!(total, "Синхронизация: grazing_data завершена");
+    Ok(())
+}
+<span class="boring">}</span></code></pre>
+<h2 id="sync_bloodlines"><a class="header" href="#sync_bloodlines">sync_bloodlines</a></h2>
+<p>Потоковая синхронизация родословных (10 параллельных запросов):</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn sync_bloodlines(
+    client: &amp;LelyClient,
+    pool: &amp;sqlx::PgPool,
+    cache: &amp;AnimalCache,
+) -&gt; Result&lt;(), anyhow::Error&gt; {
+    tracing::info!("Синхронизация: bloodlines");
+    let mut total: u64 = 0;
+
+    let life_numbers: Vec&lt;_&gt; = cache.by_life.keys().cloned().collect();
+    let stream = futures::stream::iter(life_numbers).map(|ln| {
+        let client = client.clone();
+        async move {
+            match client.get_bloodlines(&amp;ln).await {
+                Ok(records) =&gt; Ok((ln, records)),
+                Err(e) =&gt; {
+                    tracing::warn!(life_number = %ln, error = %e, "Ошибка синхронизации bloodlines");
+                    Err(())
+                }
+            }
+        }
+    });
+    let mut buffered = stream.buffer_unordered(10);
+
+    while let Some(result) = buffered.next().await {
+        if let Ok((_ln, records)) = result {
+            let count = service::upsert_bloodlines(pool, &amp;records, cache).await?;
+            total += count;
+        }
+    }
+
+    service::update_sync_state(pool, "bloodlines", "success", total as i64, None).await?;
+    tracing::info!(total, "Синхронизация: bloodlines завершена");
+    Ok(())
+}
+<span class="boring">}</span></code></pre>
+<ul>
+<li>Собирает все <code>life_number</code> из <code>AnimalCache</code></li>
+<li>Создаёт поток с <code>buffer_unordered(10)</code> для параллельной обработки</li>
+<li>Ошибки отдельных запросов логируются, но не прерывают процесс</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="построчный-разбор-frontend-api-клиент"><a class="header" href="#построчный-разбор-frontend-api-клиент">Построчный разбор: Frontend API-клиент</a></h1>
+<p>В этой главе разбирается модуль <code>frontend/src/lib/api/client.ts</code> — центральный HTTP-клиент для взаимодействия с backend.</p>
+<h2 id="конфигурация-и-утилиты"><a class="header" href="#конфигурация-и-утилиты">Конфигурация и утилиты</a></h2>
+<pre><code class="language-typescript">import { buildQuery as _buildQuery } from '$lib/utils/query';
+import { auth } from '$lib/stores/auth';
+import { goto } from '$app/navigation';
+import { browser } from '$app/environment';
+
+const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1';
+
+type RequestOptions = {
+	method?: string;
+	body?: unknown;
+	signal?: AbortSignal;
+	retries?: number;
+};
+
+const MAX_RETRIES = 3;
+const BASE_DELAY = 500;
+
+function backoff(attempt: number): number {
+	return BASE_DELAY * Math.pow(2, attempt) + Math.random() * 200;
+}
+
+function sleep(ms: number): Promise&lt;void&gt; {
+	return new Promise((r) =&gt; setTimeout(r, ms));
+}
+</code></pre>
+<ul>
+<li><code>API_BASE</code> — базовый URL API (из переменной окружения или <code>/api/v1</code>)</li>
+<li><code>MAX_RETRIES</code> — максимальное количество повторных попыток при 5xx</li>
+<li><code>backoff</code> — exponential backoff с джиттером для retry</li>
+<li><code>sleep</code> — утилита для задержки</li>
+</ul>
+<h2 id="обновление-токена"><a class="header" href="#обновление-токена">Обновление токена</a></h2>
+<p>Функция <code>tryRefresh</code> пытается обновить access token через refresh token, предотвращая множественные параллельные вызовы:</p>
+<pre><code class="language-typescript">let refreshingPromise: Promise&lt;boolean&gt; | null = null;
+
+async function tryRefresh(): Promise&lt;boolean&gt; {
+	if (refreshingPromise) return refreshingPromise;
+	refreshingPromise = (async () =&gt; {
+		try {
+			const res = await fetch(`${API_BASE}/auth/refresh`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+			});
+			return res.ok;
+		} catch (e) {
+			console.warn('Token refresh failed', e);
+			return false;
+		} finally {
+			refreshingPromise = null;
+		}
+	})();
+	return refreshingPromise;
+}
+</code></pre>
+<ul>
+<li>Использует <code>refreshingPromise</code> как мьютекс — только один refresh за раз</li>
+<li>При ошибке — возвращает <code>false</code></li>
+<li>Refresh token отправляется через HttpOnly cookie (автоматически)</li>
+</ul>
+<h2 id="основная-функция-apit"><a class="header" href="#основная-функция-apit">Основная функция api&lt;T&gt;</a></h2>
+<pre><code class="language-typescript">export async function api&lt;T&gt;(path: string, opts: RequestOptions = {}): Promise&lt;T&gt; {
+	const headers: Record&lt;string, string&gt; = {
+		'Content-Type': 'application/json',
+	};
+
+	const maxRetries = opts.retries ?? MAX_RETRIES;
+
+	for (let attempt = 0; ; attempt++) {
+		const res = await fetch(`${API_BASE}${path}`, {
+			method: opts.method ?? 'GET',
+			headers,
+			credentials: 'include',
+			body: opts.body ? JSON.stringify(opts.body) : undefined,
+			signal: opts.signal,
+		});
+
+		if (!res.ok) {
+			if (res.status === 401 &amp;&amp; browser) {
+				const refreshed = await tryRefresh();
+				if (refreshed) {
+					const retryRes = await fetch(`${API_BASE}${path}`, {
+						method: opts.method ?? 'GET',
+						headers,
+						credentials: 'include',
+						body: opts.body ? JSON.stringify(opts.body) : undefined,
+					});
+					if (retryRes.ok) {
+						return retryRes.json();
+					}
+				}
+				auth.logout();
+				goto('/auth/login');
+				throw new Error('Сессия истекла. Войдите заново.');
+			}
+
+			if (res.status &gt;= 500 &amp;&amp; attempt &lt; maxRetries) {
+				await sleep(backoff(attempt));
+				continue;
+			}
+
+			const err = await res.json().catch(() =&gt; ({ error: res.statusText }));
+			throw new Error(err.error || res.statusText);
+		}
+
+		return res.json();
+	}
+}
+</code></pre>
+<p>Поток выполнения:</p>
+<pre class="mermaid">flowchart TD
+    START[api&amp;lt;T&amp;gt;] --&gt; FETCH[fetch запрос]
+    FETCH --&gt; CHECK{HTTP status}
+    CHECK --&gt;|200 OK| RETURN[return JSON as T]
+    CHECK --&gt;|401| REFRESH{tryRefresh}
+    REFRESH --&gt;|success| RETRY[Повторный fetch]
+    RETRY --&gt; CHECK2{status}
+    CHECK2 --&gt;|200| RETURN
+    CHECK2 --&gt;|error| LOGOUT[auth.logout + goto /login]
+    REFRESH --&gt;|fail| LOGOUT
+    CHECK --&gt;|5xx| ATTEMPT{attempts &amp;lt; MAX?}
+    ATTEMPT --&gt;|yes| BACKOFF[sleep backoff]
+    BACKOFF --&gt; FETCH
+    ATTEMPT --&gt;|no| THROW[throw Error]
+    CHECK --&gt;|4xx| PARSE[parse error JSON]
+    PARSE --&gt; THROW2[throw Error]
+</pre>
+
+<p>Ключевые моменты:</p>
+<ul>
+<li><code>credentials: 'include'</code> — передача HttpOnly cookies с каждым запросом</li>
+<li>При 401 — попытка обновить токен, затем повторный запрос</li>
+<li>При неудачном refresh — logout и перенаправление на страницу входа</li>
+<li>При 5xx — retry с exponential backoff (до <code>MAX_RETRIES</code>)</li>
+<li>При 4xx — немедленная ошибка с парсингом JSON</li>
+</ul>
+<h2 id="вспомогательные-функции"><a class="header" href="#вспомогательные-функции">Вспомогательные функции</a></h2>
+<pre><code class="language-typescript">export function del&lt;T&gt;(path: string) {
+	return api&lt;T&gt;(path, { method: 'DELETE' });
+}
+
+export function post&lt;T&gt;(path: string, body: unknown) {
+	return api&lt;T&gt;(path, { method: 'POST', body });
+}
+
+export function put&lt;T&gt;(path: string, body: unknown) {
+	return api&lt;T&gt;(path, { method: 'PUT', body });
+}
+
+export function buildQuery(obj: object): string {
+	return _buildQuery(obj);
+</code></pre>
+<p>Типизированные обёртки для основных HTTP-методов:</p>
+<ul>
+<li><code>del&lt;T&gt;(path)</code> — DELETE запрос</li>
+<li><code>post&lt;T&gt;(path, body)</code> — POST запрос с телом</li>
+<li><code>put&lt;T&gt;(path, body)</code> — PUT запрос с телом</li>
+<li><code>buildQuery(obj)</code> — построение query-строки из объекта</li>
+</ul>
+<h2 id="интеграция-со-stores"><a class="header" href="#интеграция-со-stores">Интеграция со stores</a></h2>
+<p>API-клиент взаимодействует с <code>auth</code> store:</p>
+<ul>
+<li><code>auth.logout()</code> — очистка состояния при истечении сессии</li>
+<li><code>goto('/auth/login')</code> — перенаправление на страницу входа</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="построчный-разбор-движок-оповещений"><a class="header" href="#построчный-разбор-движок-оповещений">Построчный разбор: Движок оповещений</a></h1>
+<p>В этой главе разбирается модуль <code>services/alert_engine.rs</code>, реализующий автоматическое выявление отклонений и создание оповещений.</p>
+<h2 id="основной-цикл"><a class="header" href="#основной-цикл">Основной цикл</a></h2>
+<p>Функция <code>run_alert_loop</code> запускается как фоновая задача:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub async fn run_alert_loop(pool: PgPool, event_bus: Arc&lt;EventBus&gt;) {
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(900));
+    interval.tick().await;
+
+    loop {
+        interval.tick().await;
+        match run_all_checks(&amp;pool, &amp;event_bus).await {
+            Ok(count) =&gt; {
+                if count &gt; 0 {
+                    tracing::info!(count, "Alert engine: created new alerts");
+                }
+            }
+            Err(e) =&gt; {
+                tracing::error!(error = %e, "Alert engine error");
+            }
+        }
+
+        if let Err(e) = resolve_stale_alerts(&amp;pool).await {
+            tracing::error!(error = %e, "Alert engine: failed to resolve stale alerts");
+        }
+    }
+}
+<span class="boring">}</span></code></pre>
+<ul>
+<li>Работает с интервалом в 900 секунд (15 минут)</li>
+<li>В каждом цикле выполняет все проверки и разрешает устаревшие оповещения</li>
+<li>Логирует количество созданных оповещений</li>
+</ul>
+<h2 id="запуск-всех-проверок"><a class="header" href="#запуск-всех-проверок">Запуск всех проверок</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn run_all_checks(pool: &amp;PgPool, event_bus: &amp;EventBus) -&gt; Result&lt;usize, AppError&gt; {
+    let thresholds = system_settings_service::get_alert_thresholds(pool)
+        .await
+        .map(Thresholds::from)
+        .unwrap_or_else(|_| Thresholds::default());
+
+    let mut total = 0;
+    total += check_milk_drop(pool, event_bus, &amp;thresholds).await?;
+    total += check_high_scc(pool, event_bus, &amp;thresholds).await?;
+    total += check_activity_drop(pool, event_bus, &amp;thresholds).await?;
+    total += check_no_milking(pool, event_bus).await?;
+    total += check_expected_calving(pool, event_bus, &amp;thresholds).await?;
+    total += check_low_feed(pool, event_bus).await?;
+    Ok(total)
+}
+<span class="boring">}</span></code></pre>
+<p>Последовательно выполняются 6 типов проверок:</p>
+<pre class="mermaid">flowchart LR
+    RUN[run_all_checks] --&gt; MD[milk_drop]
+    RUN --&gt; SCC[high_scc]
+    RUN --&gt; AD[activity_drop]
+    RUN --&gt; NM[no_milking]
+    RUN --&gt; EC[expected_calving]
+    RUN --&gt; LF[low_feed]
+    MD &amp; SCC &amp; AD &amp; NM &amp; EC &amp; LF --&gt; TOTAL[Суммарный count]
+</pre>
+
+<h2 id="пороговые-значения"><a class="header" href="#пороговые-значения">Пороговые значения</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Thresholds {
+    alert_min_milk: f64,
+    alert_max_scc: f64,
+    alert_days_before_calving: i32,
+    alert_activity_drop_pct: i32,
+}
+
+impl Default for Thresholds {
+    fn default() -&gt; Self {
+        Self {
+            alert_min_milk: 5.0,
+            alert_max_scc: 400.0,
+            alert_days_before_calving: 14,
+            alert_activity_drop_pct: 30,
+        }
+    }
+}
+
+impl From&lt;crate::models::system_settings::AlertThresholds&gt; for Thresholds {
+    fn from(t: crate::models::system_settings::AlertThresholds) -&gt; Self {
+        Thresholds {
+            alert_min_milk: t.alert_min_milk,
+            alert_max_scc: t.alert_max_scc,
+            alert_days_before_calving: t.alert_days_before_calving,
+            alert_activity_drop_pct: t.alert_activity_drop_pct,
+        }
+    }
+}
+<span class="boring">}</span></code></pre>
+<p>Пороги загружаются из <code>system_settings</code> и имеют значения по умолчанию:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Параметр</th><th>По умолчанию</th><th>Описание</th></tr>
+</thead>
+<tbody>
+<tr><td><code>alert_min_milk</code></td><td>5.0</td><td>Порог падения надоев (%)</td></tr>
+<tr><td><code>alert_max_scc</code></td><td>400.0</td><td>Максимальный SCC</td></tr>
+<tr><td><code>alert_days_before_calving</code></td><td>14</td><td>Дней до ожидаемого отёла</td></tr>
+<tr><td><code>alert_activity_drop_pct</code></td><td>30</td><td>Порог падения активности (%)</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="созданиеобновление-оповещения"><a class="header" href="#созданиеобновление-оповещения">Создание/обновление оповещения</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn upsert_alert(
+    pool: &amp;PgPool,
+    event_bus: &amp;EventBus,
+    category: &amp;str,
+    severity: &amp;str,
+    animal_id: Option&lt;i32&gt;,
+    message: &amp;str,
+    details: serde_json::Value,
+) -&gt; Result&lt;bool, AppError&gt; {
+    let row = sqlx::query_as::&lt;_, (i32,)&gt;(
+        "SELECT id FROM alerts WHERE category = $1::alert_category AND animal_id IS NOT DISTINCT FROM $2 AND status = 'active'",
+    )
+    .bind(category)
+    .bind(animal_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    if let Some((alert_id,)) = row {
+        sqlx::query(
+            "UPDATE alerts SET message = $2, details = $3, severity = $4::alert_severity, detected_at = NOW() WHERE id = $1",
+        )
+        .bind(alert_id)
+        .bind(message)
+        .bind(details)
+        .bind(severity)
+        .execute(pool)
+        .await
+        .map_err(AppError::Database)?;
+        return Ok(false);
+    }
+
+    sqlx::query(
+        "INSERT INTO alerts (category, severity, animal_id, message, details)
+         VALUES ($1::alert_category, $2::alert_severity, $3, $4, $5)",
+    )
+    .bind(category)
+    .bind(severity)
+    .bind(animal_id)
+    .bind(message)
+    .bind(details)
+    .execute(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let _ = event_bus.publish("alert", serde_json::json!({
+        "category": category,
+        "severity": severity,
+        "animal_id": animal_id,
+        "message": message,
+    }));
+
+    let msg = format!("[{}] {}", severity.to_uppercase(), message);
+    let pool_c = pool.clone();
+    let cat = category.to_string();
+    tokio::spawn(async move {
+        crate::services::notification_service::dispatch_alert(&amp;pool_c, &amp;cat, &amp;msg).await;
+    });
+
+    Ok(true)
+}
+<span class="boring">}</span></code></pre>
+<p>Логика <code>upsert_alert</code>:</p>
+<ol>
+<li>Ищет существующее активное оповещение с той же категорией и <code>animal_id</code></li>
+<li>Если найдено — обновляет сообщение, детали, важность</li>
+<li>Если нет — создаёт новое</li>
+<li>Публикует событие в EventBus (для SSE)</li>
+<li>Отправляет уведомление через <code>notification_service</code></li>
+</ol>
+<h2 id="проверка-падение-надоев"><a class="header" href="#проверка-падение-надоев">Проверка: падение надоев</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn check_milk_drop(
+    pool: &amp;PgPool,
+    event_bus: &amp;EventBus,
+    thresholds: &amp;Thresholds,
+) -&gt; Result&lt;usize, AppError&gt; {
+    let factor = 1.0 - (thresholds.alert_min_milk / 100.0).min(0.99);
+
+    let rows: Vec&lt;(i32, Option&lt;String&gt;, f64, f64)&gt; = sqlx::query_as(
+        "SELECT a.id, a.name, short_avg.milk, long_avg.milk
+         FROM animals a
+         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date &gt;= get_ref_date() - INTERVAL '2 days') short_avg ON true
+         JOIN LATERAL (SELECT AVG(m.milk_amount)::float8 as milk FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date &gt;= get_ref_date() - INTERVAL '14 days' AND m.date &lt; get_ref_date() - INTERVAL '2 days') long_avg ON true
+         WHERE a.active = true AND short_avg.milk IS NOT NULL AND long_avg.milk IS NOT NULL AND short_avg.milk &lt; long_avg.milk * $1",
+    )
+    .bind(factor)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut count = 0;
+    for (id, _name, short_m, long_m) in rows {
+        let pct = ((1.0 - short_m / long_m) * 100.0).round() as i32;
+        let severity = if pct &gt;= 40 { "critical" } else { "warning" };
+        let created = upsert_alert(
+            pool,
+            event_bus,
+            "milk_drop",
+            severity,
+            Some(id),
+            &amp;format!("Надой упал на {}% за последние 2 дня", pct),
+            serde_json::json!({ "short_avg": short_m, "long_avg": long_m, "drop_pct": pct }),
+        )
+        .await?;
+        if created {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+<span class="boring">}</span></code></pre>
+<p>Сравнивает средний надой за последние 2 дня с базовым средним за 14 дней. Если текущий надой ниже базового более чем на заданный процент — создаётся оповещение.</p>
+<p>Severity: <code>critical</code> при падении &gt;= 40%, иначе <code>warning</code>.</p>
+<h2 id="проверка-высокий-scc"><a class="header" href="#проверка-высокий-scc">Проверка: высокий SCC</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn check_high_scc(
+    pool: &amp;PgPool,
+    event_bus: &amp;EventBus,
+    thresholds: &amp;Thresholds,
+) -&gt; Result&lt;usize, AppError&gt; {
+    let scc_threshold = thresholds.alert_max_scc.max(100.0);
+
+    let rows: Vec&lt;(i32, Option&lt;String&gt;, f64)&gt; = sqlx::query_as(
+        "SELECT a.id, a.name, recent.scc::float8
+         FROM animals a
+         JOIN LATERAL (SELECT q.scc FROM milk_quality q WHERE q.animal_id = a.id ORDER BY q.date DESC LIMIT 1) recent ON true
+         WHERE a.active = true AND recent.scc IS NOT NULL AND recent.scc &gt; $1",
+    )
+    .bind(scc_threshold)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut count = 0;
+    for (id, _name, scc) in rows {
+        let severity = if scc &gt; 500000.0 { "critical" } else { "warning" };
+        let created = upsert_alert(
+            pool,
+            event_bus,
+            "high_scc",
+            severity,
+            Some(id),
+            &amp;format!("SCC={:.0} превышает порог {:.0} — возможен мастит", scc, scc_threshold),
+            serde_json::json!({ "scc": scc, "threshold": scc_threshold }),
+        )
+        .await?;
+        if created {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+<span class="boring">}</span></code></pre>
+<p>Проверяет последнее значение SCC для каждого животного. Превышение порога указывает на возможный мастит.</p>
+<p>Severity: <code>critical</code> при SCC &gt; 500 000, иначе <code>warning</code>.</p>
+<h2 id="проверка-снижение-активности"><a class="header" href="#проверка-снижение-активности">Проверка: снижение активности</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn check_activity_drop(
+    pool: &amp;PgPool,
+    event_bus: &amp;EventBus,
+    thresholds: &amp;Thresholds,
+) -&gt; Result&lt;usize, AppError&gt; {
+    let drop_pct = thresholds.alert_activity_drop_pct.min(99) as f64;
+    let factor = 1.0 - (drop_pct / 100.0);
+
+    let rows: Vec&lt;(i32, Option&lt;String&gt;, f64, f64)&gt; = sqlx::query_as(
+        "SELECT a.id, a.name, recent.act, baseline.avg_act
+         FROM animals a
+         JOIN LATERAL (
+             SELECT AVG(activity_counter)::float8 as act FROM activities
+             WHERE animal_id = a.id AND activity_datetime &gt;= get_ref_date() - INTERVAL '1 day'
+         ) recent ON true
+         JOIN LATERAL (
+             SELECT AVG(activity_counter)::float8 as avg_act FROM activities
+             WHERE animal_id = a.id AND activity_datetime &gt;= get_ref_date() - INTERVAL '14 days'
+         ) baseline ON true
+         WHERE a.active = true AND recent.act IS NOT NULL AND baseline.avg_act IS NOT NULL AND recent.act &lt; baseline.avg_act * $1",
+    )
+    .bind(factor)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut count = 0;
+    for (id, _name, recent, baseline) in rows {
+        let pct = ((1.0 - recent / baseline) * 100.0).round() as i32;
+        let created = upsert_alert(
+            pool,
+            event_bus,
+            "activity_drop",
+            "warning",
+            Some(id),
+            &amp;format!("Активность снизилась на {}%", pct),
+            serde_json::json!({ "recent": recent, "baseline": baseline, "drop_pct": pct }),
+        )
+        .await?;
+        if created {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+<span class="boring">}</span></code></pre>
+<p>Сравнивает среднюю активность за последний день с базовым средним за 14 дней.</p>
+<h2 id="проверка-отсутствие-доения"><a class="header" href="#проверка-отсутствие-доения">Проверка: отсутствие доения</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn check_no_milking(pool: &amp;PgPool, event_bus: &amp;EventBus) -&gt; Result&lt;usize, AppError&gt; {
+    let rows: Vec&lt;(i32, Option&lt;String&gt;)&gt; = sqlx::query_as(
+        "SELECT a.id, a.name FROM animals a
+         WHERE a.active = true AND a.gender = 'female'
+         AND NOT EXISTS (
+             SELECT 1 FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date &gt;= get_ref_date() - INTERVAL '1 day'
+         )
+         AND EXISTS (
+             SELECT 1 FROM milk_day_productions m WHERE m.animal_id = a.id AND m.date &gt;= get_ref_date() - INTERVAL '7 days'
+         )
+         AND NOT EXISTS (
+             SELECT 1 FROM dry_offs d WHERE d.animal_id = a.id AND d.date &lt;= get_ref_date()
+         )",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut count = 0;
+    for (id, _name) in rows {
+        let created = upsert_alert(
+            pool,
+            event_bus,
+            "no_milking",
+            "warning",
+            Some(id),
+            "Корова не доилась более 24 часов",
+            serde_json::json!({}),
+        )
+        .await?;
+        if created {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+<span class="boring">}</span></code></pre>
+<p>Выявляет коров, которые:</p>
+<ul>
+<li>Доились в последние 7 дней</li>
+<li>Не доились более 24 часов</li>
+<li>Не находятся в запуске</li>
+</ul>
+<h2 id="проверка-ожидаемый-отёл"><a class="header" href="#проверка-ожидаемый-отёл">Проверка: ожидаемый отёл</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn check_expected_calving(
+    pool: &amp;PgPool,
+    event_bus: &amp;EventBus,
+    thresholds: &amp;Thresholds,
+) -&gt; Result&lt;usize, AppError&gt; {
+    let days = thresholds.alert_days_before_calving;
+
+    let rows: Vec&lt;(i32, Option&lt;String&gt;)&gt; = sqlx::query_as(
+        "SELECT a.id, a.name FROM animals a
+         JOIN calvings c ON c.animal_id = a.id
+         JOIN inseminations i ON i.animal_id = a.id AND i.date &gt; c.date
+         LEFT JOIN pregnancies p ON p.animal_id = a.id AND p.insemination_id = i.id
+         LEFT JOIN calvings c2 ON c2.animal_id = a.id AND c2.date &gt; c.date
+         WHERE a.active = true
+           AND p.id IS NOT NULL
+           AND c2.id IS NULL
+           AND (i.date + INTERVAL '283 days') BETWEEN get_ref_date() AND get_ref_date() + $1::int * INTERVAL '1 day'",
+    )
+    .bind(days)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut count = 0;
+    for (id, _name) in rows {
+        let created = upsert_alert(
+            pool,
+            event_bus,
+            "expected_calving",
+            "info",
+            Some(id),
+            &amp;format!("Ожидается отёл в течение {} дней", days),
+            serde_json::json!({ "days_before_calving": days }),
+        )
+        .await?;
+        if created {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+<span class="boring">}</span></code></pre>
+<p>Находит стельных коров, у которых ожидаемая дата отёла (осеменение + 283 дня) наступает в течение заданного количества дней.</p>
+<h2 id="проверка-снижение-потребления-корма"><a class="header" href="#проверка-снижение-потребления-корма">Проверка: снижение потребления корма</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn check_low_feed(pool: &amp;PgPool, event_bus: &amp;EventBus) -&gt; Result&lt;usize, AppError&gt; {
+    let rows: Vec&lt;(i32, Option&lt;String&gt;, f64, f64)&gt; = sqlx::query_as(
+        "SELECT a.id, a.name, recent.avg_feed, baseline.avg_feed as baseline_feed
+         FROM animals a
+         JOIN LATERAL (
+             SELECT AVG(total)::float8 as avg_feed FROM feed_day_amounts
+             WHERE animal_id = a.id AND feed_date &gt;= get_ref_date() - INTERVAL '2 days'
+         ) recent ON true
+         JOIN LATERAL (
+             SELECT AVG(total)::float8 as avg_feed FROM feed_day_amounts
+             WHERE animal_id = a.id AND feed_date &gt;= get_ref_date() - INTERVAL '14 days'
+         ) baseline ON true
+         WHERE a.active = true AND recent.avg_feed IS NOT NULL AND baseline.avg_feed IS NOT NULL
+           AND recent.avg_feed &lt; baseline.avg_feed * 0.8",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    let mut count = 0;
+    for (id, _name, recent, baseline) in rows {
+        let pct = ((1.0 - recent / baseline) * 100.0).round() as i32;
+        let created = upsert_alert(
+            pool,
+            event_bus,
+            "low_feed",
+            "warning",
+            Some(id),
+            &amp;format!("Потребление корма снизилось на {}%", pct),
+            serde_json::json!({ "recent": recent, "baseline": baseline, "drop_pct": pct }),
+        )
+        .await?;
+        if created {
+            count += 1;
+        }
+    }
+    Ok(count)
+}
+<span class="boring">}</span></code></pre>
+<p>Сравнивает среднее потребление корма за последние 2 дня с базовым за 14 дней. Порог — 20% снижение.</p>
+<h2 id="разрешение-устаревших-оповещений"><a class="header" href="#разрешение-устаревших-оповещений">Разрешение устаревших оповещений</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>async fn resolve_stale_alerts(pool: &amp;PgPool) -&gt; Result&lt;(), AppError&gt; {
+    sqlx::query(
+        "UPDATE alerts SET status = 'resolved', resolved_at = NOW()
+         WHERE status = 'active' AND category = 'milk_drop'
+           AND animal_id IS NOT NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM milk_day_productions m
+               WHERE m.animal_id = alerts.animal_id
+               AND m.date &gt;= get_ref_date() - INTERVAL '2 days'
+               AND m.milk_amount &lt; (
+                   SELECT AVG(m2.milk_amount) FROM milk_day_productions m2
+                   WHERE m2.animal_id = alerts.animal_id
+                   AND m2.date &gt;= get_ref_date() - INTERVAL '14 days'
+                   AND m2.date &lt; get_ref_date() - INTERVAL '2 days'
+               ) * (1.0 - (SELECT value::float8 FROM system_settings WHERE key = 'alert_min_milk') / 100.0)
+           )",
+    )
+    .execute(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    sqlx::query(
+        "UPDATE alerts SET status = 'resolved', resolved_at = NOW()
+         WHERE status = 'active' AND category = 'no_milking'
+           AND animal_id IS NOT NULL
+           AND EXISTS (
+               SELECT 1 FROM milk_day_productions m
+               WHERE m.animal_id = alerts.animal_id AND m.date &gt;= get_ref_date() - INTERVAL '1 day'
+           )",
+    )
+    .execute(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    sqlx::query(
+        "UPDATE alerts SET status = 'resolved', resolved_at = NOW()
+         WHERE status = 'active' AND category = 'expected_calving'
+           AND animal_id IS NOT NULL
+           AND EXISTS (
+               SELECT 1 FROM calvings c WHERE c.animal_id = alerts.animal_id AND c.date &gt;= get_ref_date() - INTERVAL '3 days'
+           )",
+    )
+    .execute(pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    Ok(())
+}
+<span class="boring">}</span></code></pre>
+<p>Автоматически переводит оповещения в статус <code>resolved</code>, если условие, вызвавшее оповещение, больше не выполняется:</p>
+<ul>
+<li><code>milk_drop</code> — надой восстановился</li>
+<li><code>no_milking</code> — корова снова доится</li>
+<li><code>expected_calving</code> — отёл произошёл</li>
+</ul>
+<h2 id="полный-цикл-оповещений"><a class="header" href="#полный-цикл-оповещений">Полный цикл оповещений</a></h2>
+<pre class="mermaid">flowchart TD
+    START[Каждые 15 мин] --&gt; LOAD[Загрузить пороги]
+    LOAD --&gt; CHECKS[6 типов проверок]
+    CHECKS --&gt; UPSERT[upsert_alert]
+    UPSERT --&gt;|новое| CREATE[INSERT + EventBus + Notify]
+    UPSERT --&gt;|существующее| UPDATE[UPDATE]
+    CHECKS --&gt; RESOLVE[resolve_stale_alerts]
+    RESOLVE --&gt; RES_MILK[milk_drop resolved]
+    RESOLVE --&gt; RES_NM[no_milking resolved]
+    RESOLVE --&gt; RES_CALV[expected_calving resolved]
+</pre>
+
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid-eefea253.min.js"></script>
+        <script src="mermaid-init-ccf746f1.js"></script>
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

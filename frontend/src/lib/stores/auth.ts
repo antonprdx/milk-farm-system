@@ -1,6 +1,8 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
+const DEMO_MODE = typeof window !== 'undefined' && (import.meta.env.VITE_DEMO_MODE === 'true');
+
 interface AuthState {
 	username: string | null;
 	role: string | null;
@@ -10,13 +12,21 @@ interface AuthState {
 }
 
 function createAuthStore() {
-	const initial: AuthState = {
-		username: null,
-		role: null,
-		mustChangePassword: false,
-		authenticated: false,
-		initialized: false,
-	};
+	const initial: AuthState = DEMO_MODE
+		? {
+				username: 'demo',
+				role: 'admin',
+				mustChangePassword: false,
+				authenticated: true,
+				initialized: true,
+			}
+		: {
+				username: null,
+				role: null,
+				mustChangePassword: false,
+				authenticated: false,
+				initialized: false,
+			};
 
 	const { subscribe, set, update } = writable<AuthState>(initial);
 
@@ -24,6 +34,16 @@ function createAuthStore() {
 		subscribe,
 		async init() {
 			if (!browser) return;
+			if (DEMO_MODE) {
+				set({
+					username: 'demo',
+					role: 'admin',
+					mustChangePassword: false,
+					authenticated: true,
+					initialized: true,
+				});
+				return;
+			}
 			try {
 				const res = await fetch('/api/v1/auth/refresh', {
 					method: 'POST',
@@ -50,6 +70,7 @@ function createAuthStore() {
 			set({ username, role, mustChangePassword, authenticated: true, initialized: true });
 		},
 		logout() {
+			if (DEMO_MODE) return;
 			set({ username: null, role: null, mustChangePassword: false, authenticated: false, initialized: true });
 		},
 		clearMustChangePassword() {

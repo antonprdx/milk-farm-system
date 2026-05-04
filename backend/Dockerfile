@@ -2,9 +2,16 @@ FROM rust:1.88-bookworm AS builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+RUN mkdir src benches && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "" > benches/bench_sql.rs && \
+    echo "" > benches/bench_pdf.rs && \
+    echo "" > benches/bench_auth.rs && \
+    echo "" > benches/bench_rate_limit.rs && \
+    cargo build --release && rm -rf src benches
 
 COPY src ./src
+COPY benches ./benches
 COPY migrations ./migrations
 RUN touch src/main.rs && cargo build --release
 
